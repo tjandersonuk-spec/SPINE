@@ -27,6 +27,19 @@ only on each other: the grants migration states the blanket grants itself before
 narrowing them, so it produces the same result on a hosted project and on a
 plain PostgreSQL, whichever way the database was set up.
 
+### Which migrations have been applied?
+
+Applying by hand leaves no history table. `check-applied.sql` reads the
+catalogue for one object per migration and returns a true/false column, so it is
+always answerable:
+
+```sql
+-- paste supabase/check-applied.sql into the SQL editor
+```
+
+Run whatever still shows false, in the order listed. Every migration is written
+to be safe to re-run except the first, which creates tables.
+
 ### When the CLI cannot reach the database
 
 `supabase db push` opens a direct PostgreSQL connection on port 5432 (or 6543

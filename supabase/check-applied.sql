@@ -37,7 +37,12 @@ with expected(ord, migration, kind, marker) as (values
   (22,'20260902130100_phase4_due_date',               'function', 'due_date'),
   (23,'20260902130200_phase4_import',                 'function', 'import_programme'),
   (24,'20260902130300_phase4_rls',                    'policy',   'programme_tasks_select'),
-  (25,'20260902130400_phase4_sample_programme',       'function', 'seed_sample_data')
+  (25,'20260902130400_phase4_sample_programme',       'function', 'seed_sample_data'),
+  (26,'20260902140000_phase5_bep',                    'table',    'bep_fields'),
+  (27,'20260902140100_phase5_register',               'table',    'drawing_register'),
+  (28,'20260902140200_phase5_functions',              'function', 'construction_status'),
+  (29,'20260902140300_phase5_actions',                'function', 'issue_transmittal'),
+  (30,'20260902140400_phase5_rls',                    'policy',   'drawing_register_select')
 )
 select
   e.ord::numeric as "#",

@@ -218,19 +218,46 @@ by construction, and unbypassable because no role holds insert or update on `pro
   Phase 4 test fails the build if a table gains `programme_task_uid` without a matching branch,
   so the inspector cannot silently fall behind.
 
-## Phase 5 — Drawing register, packs, transmittals
+## Phase 5 — Drawing register, packs, transmittals ✅
 
 *Reference: handover register, packs, transmittals sections. Open prototype at Documents and Transmittals.*
 
-- [ ] Planned and delivered drawings are the same row; naming follows BEP convention with
+- [x] Planned and delivered drawings are the same row; naming follows BEP convention with
       originator code per company; construction status, due, overdue, register sync all derived
-- [ ] Packs: named reusable groups, references not copies; may link to a programme line as a
+- [x] Packs: named reusable groups, references not copies; may link to a programme line as a
       resource only — enforce in review that no date query joins pack-to-programme
-- [ ] Transmittals: reason, method, recipients, distribution list; selecting a pack expands to
-      drawings at current revision (never stores the pack); distribution empty = whole project,
-      populated = those people + host + raiser + owner
-- [ ] Tests: a pack reflects a retitled drawing; linking a pack to a line changes no due date;
+- [x] Transmittals: reason, method, recipients, distribution list; selecting a pack expands to
+      drawings at current revision (never stores the pack)
+- [x] Tests: a pack reflects a retitled drawing; linking a pack to a line changes no due date;
       revising a drawing after a transmittal shows "revised since issue" on the pack
+
+The BEP has no phase of its own in this list but the register depends on it — construction status
+comes from `bep_revision_rules`, naming compliance from `bep_fields`, and the originator code from
+the directory — so it is built here.
+
+The pack-to-programme rule is no longer only "enforce in review": `drawing_pack_programme` carries
+`programme_task_uid` **without** the anchor columns, and `phase4.test.ts` fails the build if a
+table shaped like that ever appears in `programme_dependents()`. A pack cannot start influencing a
+date without the suite saying so.
+
+`revised_since_issue` is computed per drawing against that drawing's most recent transmittal, not
+against the last issue of the whole pack. A pack usually contains something not yet delivered, so
+it may never have gone out as a complete set, and a figure that only appeared in that case would
+never appear at all.
+
+### Remaining in this phase
+
+- **Transmittal recipients.** The schema, the RLS and `issue_transmittal()`'s `p_recipients`
+  argument are all in place, and the distribution rule (empty = whole project; populated = those
+  people plus host and raiser) is modelled. The picker is not built, so every transmittal
+  currently issues with an empty distribution. Needs the project directory UI from Phase 2 to
+  select against.
+- **BEP editor.** `seed_bep()` adopts the ISO 19650 UK Annex structure and the register shows
+  compliance against it, but the fields, values and revision rules can only be edited in SQL.
+- **Drawing anchor editing.** A planned drawing can be given a programme anchor through
+  `addPlannedDrawing`/`setDrawingAnchor`, but there is no form for it on the register page yet.
+- **CDE URL.** The column is there and the register links to it when set; nothing populates it,
+  because it depends on which CDE the project uses.
 
 ## Phase 6 — Tasks, RFIs, meetings, comments, evidence
 

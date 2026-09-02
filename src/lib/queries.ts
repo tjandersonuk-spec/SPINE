@@ -897,3 +897,188 @@ export async function fetchLineDependents(projectId: string, taskUid: string) {
     module: string; record_id: string; ref: string; description: string; due: string
   }[]
 }
+
+/* ------------------------------------------------------- drawing register */
+
+export type Drawing = {
+  id: string
+  document_number: string
+  title: string | null
+  revision: string | null
+  workflow_status: string | null
+  cde_url: string | null
+  programme_task_uid: string | null
+  offset_days: number
+  anchor: 'start' | 'finish'
+  due_date_override: string | null
+  construction_status: string | null
+  naming_error: string | null
+  due: string | null
+  anchor_state: 'ok' | 'missing' | 'removed' | 'unanchored'
+  awaited: boolean
+  overdue: boolean
+  company_id: string | null
+  company_name: string | null
+  has_dwg: boolean
+  sort_number: string
+}
+
+export type Pack = {
+  id: string
+  reference: string
+  name: string
+  purpose: string | null
+  drawing_count: number
+  awaited_count: number
+  revised_since_issue: number
+  never_issued: number
+}
+
+export type ReconcileRow = {
+  document_number: string
+  title: string | null
+  revision: string
+  workflow_status: string | null
+  register_revision: string | null
+  change: 'new' | 'first issue' | 'revised' | 'retitled' | 'unchanged'
+}
+
+export type Transmittal = {
+  id: string
+  reference: string
+  issue_date: string
+  method: string
+  reason: string | null
+  notes: string | null
+  item_count: number
+}
+
+export async function fetchRegister(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_drawing_register')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('document_number')
+  if (error) throw error
+  return (data ?? []) as unknown as Drawing[]
+}
+
+export async function hasBep(projectId: string) {
+  const { count, error } = await supabase
+    .from('bep')
+    .select('project_id', { count: 'exact', head: true })
+    .eq('project_id', projectId)
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
+export async function seedBep(projectId: string) {
+  const { data, error } = await supabase.rpc('seed_bep', { p_project: projectId })
+  if (error) throw error
+  return data as string
+}
+
+export async function importDocuments(
+  projectId: string, label: string, rows: Record<string, unknown>[],
+) {
+  const { data, error } = await supabase.rpc('import_documents', {
+    p_project: projectId, p_label: label, p_rows: rows,
+  })
+  if (error) throw error
+  return data as { ok: boolean; row_count: number; import_id?: string
+    errors?: { row: number; field: string; message: string }[] }
+}
+
+export async function fetchReconcile(projectId: string) {
+  const { data, error } = await supabase.rpc('reconcile_preview', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as ReconcileRow[]
+}
+
+export async function acceptIntoRegister(projectId: string, numbers: string[]) {
+  const { data, error } = await supabase.rpc('accept_into_register', {
+    p_project: projectId, p_numbers: numbers,
+  })
+  if (error) throw error
+  return data as { ok: boolean; added: number; updated: number }
+}
+
+/** A drawing that is expected but has not arrived. Same table as a delivered
+ *  one — two lists is how something ends up on neither. */
+export async function addPlannedDrawing(projectId: string, row: {
+  document_number: string; title: string | null
+  programme_task_uid: string | null; offset_days: number; anchor: 'start' | 'finish'
+}) {
+  const { error } = await supabase.from('drawing_register')
+    .insert({ project_id: projectId, ...row })
+  if (error) throw error
+}
+
+export async function setDrawingAnchor(id: string, anchor: {
+  programme_task_uid: string | null; offset_days: number; anchor: 'start' | 'finish'
+  due_date_override: string | null
+}) {
+  const { error } = await supabase.from('drawing_register').update(anchor).eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchPacks(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_drawing_packs')
+    .select('id, reference, name, purpose, drawing_count, awaited_count, revised_since_issue, never_issued')
+    .eq('project_id', projectId)
+    .order('reference')
+  if (error) throw error
+  return (data ?? []) as unknown as Pack[]
+}
+
+export async function createPack(projectId: string, name: string, purpose: string | null) {
+  const { data, error } = await supabase.rpc('create_pack', {
+    p_project: projectId, p_name: name, p_purpose: purpose,
+  })
+  if (error) throw error
+  return data as string
+}
+
+export async function fetchPackDrawingIds(packId: string) {
+  const { data, error } = await supabase
+    .from('drawing_pack_items').select('drawing_id').eq('pack_id', packId)
+  if (error) throw error
+  return new Set((data ?? []).map((r) => r.drawing_id as string))
+}
+
+export async function setPackMembership(packId: string, drawingId: string, inPack: boolean) {
+  const { error } = inPack
+    ? await supabase.from('drawing_pack_items').insert({ pack_id: packId, drawing_id: drawingId })
+    : await supabase.from('drawing_pack_items').delete()
+        .eq('pack_id', packId).eq('drawing_id', drawingId)
+  if (error) throw error
+}
+
+export async function fetchTransmittals(projectId: string) {
+  const { data, error } = await supabase
+    .from('transmittals')
+    .select('id, reference, issue_date, method, reason, notes, transmittal_items(count)')
+    .eq('project_id', projectId)
+    .order('issue_date', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as Omit<Transmittal, 'item_count'> &
+      { transmittal_items: { count: number }[] }
+    const { transmittal_items, ...rest } = row
+    return { ...rest, item_count: transmittal_items?.[0]?.count ?? 0 }
+  })
+}
+
+export async function issueTransmittal(projectId: string, opts: {
+  method: string; reason: string | null; notes: string | null
+  packId: string | null; drawingIds: string[] | null
+}) {
+  const { data, error } = await supabase.rpc('issue_transmittal', {
+    p_project: projectId, p_method: opts.method, p_reason: opts.reason,
+    p_notes: opts.notes, p_pack: opts.packId, p_drawing_ids: opts.drawingIds,
+    p_recipients: null,
+  })
+  if (error) throw error
+  return data as { ok: boolean; reference: string; drawing_count: number }
+}

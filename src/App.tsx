@@ -12,8 +12,10 @@ import AccessPage from '@/pages/project/AccessPage'
 import DirectoryPage from '@/pages/project/DirectoryPage'
 import MatrixPage from '@/pages/project/MatrixPage'
 import ProgrammePage from '@/pages/project/ProgrammePage'
+import RegisterPage from '@/pages/project/RegisterPage'
 import ProjectLayout from '@/pages/project/ProjectLayout'
 import ProjectSettingsPage from '@/pages/project/SettingsPage'
+import TransmittalsPage from '@/pages/project/TransmittalsPage'
 import RequestAccount from '@/pages/RequestAccount'
 import SetupNeeded from '@/pages/SetupNeeded'
 import SignIn from '@/pages/SignIn'
@@ -55,6 +57,8 @@ export default function App() {
           <Route path="directory" element={<DirectoryPage />} />
           <Route path="matrix" element={<MatrixPage />} />
           <Route path="programme" element={<ProgrammePage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="transmittals" element={<TransmittalsPage />} />
           <Route path="access" element={<AccessPage />} />
           <Route path="settings" element={<ProjectSettingsPage />} />
         </Route>

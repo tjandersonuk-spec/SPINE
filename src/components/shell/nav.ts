@@ -45,8 +45,8 @@ export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'Design',
     items: [
-      { key: 'docs', label: 'Documents', to: null },
-      { key: 'tx', label: 'Transmittals', to: null },
+      { key: 'docs', label: 'Drawing register', to: 'register' },
+      { key: 'tx', label: 'Packs and transmittals', to: 'transmittals' },
       { key: 'materials', label: 'Material samples', to: null },
       { key: 'crs', label: 'Change requests', to: null },
     ],

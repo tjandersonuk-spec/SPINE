@@ -363,30 +363,73 @@ describe('roll-ups are computed, never stored', () => {
 })
 
 describe('the line inspector', () => {
-  test('counts exactly the dependents of that line across all modules', async () => {
-    // No module stores an anchor until Phase 5, so the honest answer today is
-    // zero. This test is the guard on that claim: the first phase to add the
-    // anchor columns without adding its branch to programme_dependents() will
-    // fail here rather than quietly dropping records out of the inspector.
-    const anchoredTables = await asUser(w.admin, (c) =>
-      c.query(`select table_name from information_schema.columns
-               where table_schema = 'public' and column_name = 'programme_task_uid'
-               order by table_name`))
-    const dependents = await asUser(w.consultant, (c) =>
+  test('reaches every anchored table, and no table that only links', async () => {
+    // A table is *anchored* when it carries the full set -- programme_task_uid
+    // with offset_days and anchor beside it. Those are records with a date, and
+    // every one of them must be reachable from the inspector, or slipping a
+    // line silently moves work nobody can see.
+    const anchored = await asUser(w.admin, (c) =>
+      c.query(`select c.table_name from information_schema.columns c
+               join information_schema.tables t
+                 on t.table_schema = c.table_schema and t.table_name = c.table_name
+                and t.table_type = 'BASE TABLE'   -- a view inherits the columns
+               where c.table_schema = 'public' and c.column_name = 'programme_task_uid'
+                 and c.table_name in (
+                   select table_name from information_schema.columns
+                   where table_schema = 'public' and column_name = 'offset_days')
+               order by 1`))
+
+    // A table carrying programme_task_uid *without* offset_days is a resource
+    // link, not a date -- drawing_pack_programme is the case this exists for. A
+    // pack points at a line so the people doing that work can find the drawings;
+    // a drawing's due date comes from its own anchor columns and nowhere else.
+    // If one of these ever appears in programme_dependents(), a pack has started
+    // influencing a date, which is the exact ambiguity the rule forbids.
+    const linksOnly = await asUser(w.admin, (c) =>
+      c.query(`select c.table_name from information_schema.columns c
+               join information_schema.tables t
+                 on t.table_schema = c.table_schema and t.table_name = c.table_name
+                and t.table_type = 'BASE TABLE'
+               where c.table_schema = 'public' and c.column_name = 'programme_task_uid'
+                 and c.table_name not in (
+                   select table_name from information_schema.columns
+                   where table_schema = 'public' and column_name = 'offset_days')
+                 and c.table_name <> 'programme_watch'
+               order by 1`))
+
+    const src = (await asUser(w.admin, (c) =>
+      c.query(`select prosrc from pg_proc where proname = 'programme_dependents'`)))
+      .rows[0].prosrc as string
+
+    for (const t of anchored.rows) expect(src).toContain(t.table_name)
+    for (const t of linksOnly.rows) expect(src).not.toContain(t.table_name)
+  })
+
+  test('counts exactly the dependents of that line', async () => {
+    const before = await asUser(w.consultant, (c) =>
       c.query('select count(*)::int as n from programme_dependents($1,$2)',
         [w.project, '1121']))
 
-    if (anchoredTables.rows.length === 0) {
-      expect(dependents.rows[0].n).toBe(0)
-    } else {
-      // Once a module anchors, the inspector must reach it. Fail loudly with
-      // the table names rather than silently passing.
-      const branches = await asUser(w.admin, (c) =>
-        c.query(`select prosrc from pg_proc where proname = 'programme_dependents'`))
-      for (const t of anchoredTables.rows) {
-        expect(branches.rows[0].prosrc).toContain(t.table_name)
-      }
-    }
+    // Two drawings anchored to 1121, one to another line.
+    await asUser(w.admin, (c) => c.query(
+      `insert into drawing_register (project_id, document_number, title,
+         programme_task_uid, offset_days, anchor)
+       values ($1,'KMW-BEL-BC-ZZ-DR-A-0400','Plans','1121',-30,'finish'),
+              ($1,'KMW-BEL-BC-ZZ-DR-A-0401','Sections','1121',-14,'finish'),
+              ($1,'KMW-CWC-BC-ZZ-DR-S-1100','Frame','1126',0,'finish')`, [w.project]))
+
+    const after = await asUser(w.consultant, (c) =>
+      c.query('select ref, due from programme_dependents($1,$2) order by ref',
+        [w.project, '1121']))
+    expect(after.rows).toHaveLength(before.rows[0].n + 2)
+    expect(after.rows.map((r) => r.ref)).toEqual([
+      'KMW-BEL-BC-ZZ-DR-A-0400', 'KMW-BEL-BC-ZZ-DR-A-0401'])
+
+    // The date the inspector reports is the one due_date() gives -- proving it
+    // resolves through the spine rather than carrying a date of its own.
+    const spine = await asUser(w.consultant, (c) =>
+      c.query(`select due_date($1,'1121',-30,'finish',null) as d`, [w.project]))
+    expect(after.rows[0].due.toISOString()).toBe(spine.rows[0].d.toISOString())
   })
 })
 

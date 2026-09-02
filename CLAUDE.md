@@ -69,6 +69,19 @@ except the derived views.
   that already loaded a copy of it.
 - Warranties resolve their owner live through the DRM lead discipline. **Never add a `company_id`
   column to warranties** — same gap the matrix shows, same fix.
+- **A pack holds references, and never a date.** `drawing_pack_programme` links a pack to a
+  programme line as a *resource only*, so whoever is doing that work can find the drawings for
+  it. A drawing's due date comes from its own anchor columns on `drawing_register` and nowhere
+  else. This is now enforced rather than reviewed: a table carrying `programme_task_uid` without
+  `offset_days` beside it is a link, not an anchor, and `supabase/tests/phase4.test.ts` fails the
+  build if one appears in `programme_dependents()`.
+- **Import and reconcile are separate transactions, and a transmittal is frozen.** Importing a CDE
+  export writes `document_rows` only; the register changes when a person accepts a row and never
+  before, because a register nobody accepted is a register nobody trusts. Only PDFs become
+  register rows — a DWG of the same number sets `has_dwg` — and this is the one place two source
+  rows collapse to one. `transmittal_items.revision_at_issue` is written once: a trigger refuses
+  to change it and no role holds update or delete on any transmittal table, so a correction is a
+  new transmittal.
 - **No drawings are ever stored in Supabase Storage.** The drawing register stores a CDE URL
   only. The one storage bucket (`project-files`, private) holds appointment documents and
   evidence/comment attachments only, path-scoped so a consultant can read only their own company

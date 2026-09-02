@@ -1086,3 +1086,151 @@ describe('invitation tokens do not depend on an extension', () => {
     })
   })
 })
+
+describe('pending invitations appear in the app', () => {
+  test('an invitee sees their own invitation, with the account name', async () => {
+    const invitee = await asSuperuser((c) => makePerson(c, 'Winnie Waiting', 'winnie@elsewhere.example'))
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'winnie@elsewhere.example','consultant')`, [w.ashgrove])
+    )
+    await asUser(invitee, async (c) => {
+      const { rows } = await c.query('select * from my_pending_invitations()')
+      expect(rows).toHaveLength(1)
+      // consent means nothing if you cannot see who is asking
+      expect(rows[0].account_name).toBe('Ashgrove Group')
+      expect(rows[0].invited_by_name).toBe('Ada Admin')
+      expect(rows[0].scope).toBe('organisation')
+      expect(rows[0].role).toBe('consultant')
+      expect(rows[0].token).toMatch(/^[0-9a-f]{64}$/)
+    })
+  })
+
+  test("it does not leak anyone else's invitation", async () => {
+    const nosy = await asSuperuser((c) => makePerson(c, 'Nosy Parker', 'nosy@elsewhere.example'))
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'someone.private@elsewhere.example','admin')`, [w.ashgrove])
+    )
+    await asUser(nosy, async (c) => {
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(0)
+    })
+  })
+
+  test('accepting from the landing page joins the account', async () => {
+    const invitee = await asSuperuser((c) => makePerson(c, 'Ack Cepter', 'ack@elsewhere.example'))
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'ack@elsewhere.example','client')`, [w.ashgrove])
+    )
+    await asUser(invitee, async (c) => {
+      const { rows } = await c.query('select token from my_pending_invitations()')
+      await c.query('select accept_invitation($1)', [rows[0].token])
+      // and it drops off the list once answered
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(0)
+      expect((await c.query('select name from organisations')).rows).toEqual([
+        { name: 'Ashgrove Group' },
+      ])
+    })
+  })
+
+  test('declining removes it and cannot be undone by accepting later', async () => {
+    const invitee = await asSuperuser((c) => makePerson(c, 'Dee Cliner', 'dee@elsewhere.example'))
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'dee@elsewhere.example','consultant')`, [w.ashgrove])
+    )
+    await asUser(invitee, async (c) => {
+      const { rows } = await c.query('select token from my_pending_invitations()')
+      const token = rows[0].token
+      await c.query('select decline_invitation($1)', [token])
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(0)
+      const msg = await refused(() => c.query('select accept_invitation($1)', [token]))
+      expect(msg).toMatch(/was declined/)
+      expect((await c.query('select * from organisations')).rows).toHaveLength(0)
+    })
+  })
+
+  test('nobody can decline an invitation addressed to someone else', async () => {
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'victim@elsewhere.example','admin')`, [w.ashgrove])
+    )
+    const token = await asSuperuser(
+      async (c) =>
+        (await c.query(`select token from invitations where email = 'victim@elsewhere.example'`))
+          .rows[0].token
+    )
+    await asUser(w.outsider, async (c) => {
+      const msg = await refused(() => c.query('select decline_invitation($1)', [token]))
+      expect(msg).toMatch(/issued to a different address/)
+    })
+  })
+
+  test('a revoked or expired invitation never appears', async () => {
+    const invitee = await asSuperuser((c) => makePerson(c, 'Gone Away', 'gone@elsewhere.example'))
+    await asSuperuser((c) =>
+      c.query(
+        `insert into invitations (scope, organisation_id, email, role, token, invited_by, revoked_at)
+         values ('organisation',$1,'gone@elsewhere.example','consultant','tok-revoked',$2, now())`,
+        [w.ashgrove, w.admin]
+      )
+    )
+    await asSuperuser((c) =>
+      c.query(
+        `insert into invitations (scope, organisation_id, email, role, token, invited_by, expires_at)
+         values ('organisation',$1,'gone@elsewhere.example','consultant','tok-old',$2, now() - interval '1 day')`,
+        [w.ashgrove, w.admin]
+      )
+    )
+    await asUser(invitee, async (c) => {
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(0)
+    })
+  })
+
+  test('a suspended account cannot recruit', async () => {
+    const { org, invitee } = await asSuperuser(async (c) => {
+      const org = (
+        await c.query(
+          `insert into organisations (name, slug, status) values ('Frozen','frozen','active') returning id`
+        )
+      ).rows[0].id
+      const admin = await makePerson(c, 'Frost Admin', 'frost@frozen.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role) values ($1,$2,'admin')`,
+        [org, admin]
+      )
+      const invitee = await makePerson(c, 'Chilly', 'chilly@elsewhere.example')
+      await c.query(
+        `insert into invitations (scope, organisation_id, email, role, token, invited_by)
+         values ('organisation',$1,'chilly@elsewhere.example','consultant','tok-frozen',$2)`,
+        [org, admin]
+      )
+      return { org, invitee }
+    })
+    await asUser(invitee, async (c) => {
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(1)
+    })
+    await asUser(w.owner, (c) => c.query(`select set_account_status($1,'suspended')`, [org]))
+    await asUser(invitee, async (c) => {
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(0)
+    })
+  })
+
+  test('a project invitation shows which project it is for', async () => {
+    const invitee = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Proj Invitee', 'proj@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, p]
+      )
+      return p
+    })
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_project($1,'proj@ashgrove.example','project_admin')`, [w.project])
+    )
+    await asUser(invitee, async (c) => {
+      const { rows } = await c.query('select * from my_pending_invitations()')
+      expect(rows).toHaveLength(1)
+      expect(rows[0].scope).toBe('project')
+      expect(rows[0].project_name).toBe('Riverside Phase 2')
+      expect(rows[0].project_role).toBe('project_admin')
+    })
+  })
+})

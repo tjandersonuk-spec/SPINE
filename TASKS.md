@@ -70,6 +70,8 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
       already hold membership of the account that owns the project** — checked at issue *and*
       re-checked at accept, because membership can be revoked while a token is live
 - [x] Never match on email: typing an address grants nothing
+- [x] Pending invitations appear on the landing page with Accept and Decline, so an invitation
+      does not depend on an email arriving; declining is recorded and cannot later be accepted
 
 ### Project creation and project-level administration
 

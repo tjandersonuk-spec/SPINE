@@ -314,3 +314,35 @@ export async function removeFromProject(projectId: string, profileId: string) {
   })
   if (error) throw error
 }
+
+// ---------------------------------------------------------------------------
+// Invitations waiting for the signed-in person
+// ---------------------------------------------------------------------------
+
+export type PendingInvitation = {
+  id: string
+  scope: 'organisation' | 'project'
+  token: string
+  role: string | null
+  project_role: string | null
+  account_name: string
+  project_name: string | null
+  invited_by_name: string | null
+  expires_at: string
+}
+
+/**
+ * Invitations addressed to this person's own address. The account name comes
+ * back even though they are not a member yet — an invitation is that account
+ * naming them, and consent means nothing without knowing who is asking.
+ */
+export async function fetchMyInvitations(): Promise<PendingInvitation[]> {
+  const { data, error } = await supabase.rpc('my_pending_invitations')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function declineInvitation(token: string) {
+  const { error } = await supabase.rpc('decline_invitation', { p_token: token })
+  if (error) throw error
+}

@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
+import { PendingInvitations } from '@/components/PendingInvitations'
 import { Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  fetchMyAccountRequests, fetchMyAccounts, fetchMyProjects, isPlatformOwner,
-  type Account, type AccountRequest, type ProjectRow,
+  fetchMyAccountRequests, fetchMyAccounts, fetchMyInvitations, fetchMyProjects, isPlatformOwner,
+  type Account, type AccountRequest, type PendingInvitation, type ProjectRow,
 } from '@/lib/queries'
 
 /**
@@ -22,21 +23,31 @@ export default function Landing() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [requests, setRequests] = useState<AccountRequest[]>([])
+  const [invitations, setInvitations] = useState<PendingInvitation[]>([])
   const [owner, setOwner] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    Promise.all([fetchMyAccounts(), fetchMyProjects(), fetchMyAccountRequests(), isPlatformOwner()])
-      .then(([a, p, r, o]) => {
+  const load = useCallback(() => {
+    Promise.all([
+      fetchMyAccounts(),
+      fetchMyProjects(),
+      fetchMyAccountRequests(),
+      isPlatformOwner(),
+      fetchMyInvitations(),
+    ])
+      .then(([a, p, r, o, i]) => {
         setAccounts(a)
         setProjects(p)
         setRequests(r)
         setOwner(o)
+        setInvitations(i)
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(load, [load])
 
   const pending = requests.find((r) => r.status === 'pending')
 
@@ -56,6 +67,8 @@ export default function Landing() {
           </Button>
         </div>
       )}
+
+      <PendingInvitations invitations={invitations} onChange={load} />
 
       <Tabs defaultValue="projects">
         <TabsList>

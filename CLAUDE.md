@@ -128,6 +128,14 @@ someone to one project, and the invitee **must already be a member of the accoun
 project** — checked at issue and again at accept, since membership can be revoked while a
 14-day token is live. Membership is only ever created on accept.
 
+An invitation reaches its addressee two ways, and both must work: the emailed
+link, and the landing page, where anyone signed in with that address sees it
+waiting with Accept and Decline. The email may be filtered or slow; the
+invitation is theirs either way. `my_pending_invitations()` discloses the
+inviting account's name to the addressee alone — an exception to account
+isolation that consent requires, since agreeing to join something you cannot see
+the name of is not consent.
+
 The personal landing page spans accounts and is the only screen that does: a **My accounts** tab
 (always present, even at one row) and a **Projects** tab listing everything the person can reach
 across every account, each labelled with its account. Entitlements read through

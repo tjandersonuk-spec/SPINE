@@ -67,6 +67,14 @@ except the derived views.
   own login.
 - The Building Safety Act change-control classification guard is enforced by policy/handler, never
   by hiding a button in the UI — a synthetic event from the wrong role must be refused server-side.
+- **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
+  never by hiding the button — a direct insert from `internal`, a project admin or a consultant
+  must be refused by the database. A project admin staffs their own project from the account's
+  existing members; widening the account stays an account admin's decision.
+- Locking an account (`suspended`) and archiving one (`archived`) are different operations and
+  must not be collapsed: suspended is expected back and blocks sign-in mid-session; archived is
+  finished and stays readable by its members. An account may only be deleted from `archived`, and
+  its `platform_audit` row is written before the cascade so the trail survives its subject.
 
 ## Structural decisions the product makes that the prototype doesn't
 
@@ -75,24 +83,53 @@ except the derived views.
 - One `tracked_items` table with a `kind` column, not five separate tables, for planning
   conditions, building control, scope-of-service lines, and the six checklists.
 - One `visibility` primitive and one `can_see()` function, not four different visibility rules.
-- `organisations` (hosts) sit above `projects`; `organisation_members` links person × host × role
-  × company; a person can hold several memberships across several hosts and must never discover a
-  host exists that they aren't a member of.
+- `organisations` (accounts) sit above `projects`; `organisation_members` links person × account
+  × role × company and `project_members` links person × project × project role; a person can hold
+  several memberships across several accounts and must never discover an account exists that they
+  aren't a member of.
 - Module entitlements live on the host record, read by the shell to hide nav entries and refuse
   pages.
 
 ## Identity model (build this first — see TASKS.md phase 1)
 
-Three levels: **platform owner** (above everything, own RLS bypass, own `platform_audit` table —
-kept separate from the per-host change log deliberately, so a host admin can't see platform-owner
-activity and the platform owner can't edit their own trail) → **hosts** (`organisations`: main
-contractors, each with their own `status` of pending/active/suspended, projects, catalogue, and
-template forks) → **people** (`profiles`: one login regardless of how many hosts they work with,
-linked via `organisation_members`, which is person × host × role × company).
+**Account** = a row in `organisations`: one main contractor's tenancy. **Company** = a firm in
+that account's directory. Older text in `/docs` says "host" where the UI says "account".
 
-Invitations default to a 14-day expiry and can optionally scope to specific `project_ids`.
-Entitlements read through `module_on(project_id, key)`; a host's `organisations.modules` map can
-be overridden per project via `projects.modules_override` for phasing a module in on one job.
+Three levels: **platform owner** (above everything, own RLS bypass, own `platform_audit` table —
+kept separate from the per-account change log deliberately, so an account admin can't see
+platform-owner activity and the platform owner can't edit their own trail) → **accounts**
+(`organisations`, each with `status` pending/active/suspended/archived, projects, catalogue and
+template forks) → **people** (`profiles`: one login regardless of how many accounts they work
+with).
+
+**A login and an account are separate things.** Anyone may sign up; it creates a `profiles` row
+and nothing else — no organisation, no membership, no request. Email confirmation is required.
+A confirmed login with zero memberships is a normal, supported state: it lands on the personal
+landing page and every query must return empty rather than error. From there the person may
+raise an `account_requests` row, which the platform owner reviews, amends and approves — and
+only approval creates the account and its first `admin` membership.
+
+Two membership tables, and neither substitutes for the other. `organisation_members` (person ×
+account × role × company, roles admin/internal/consultant/client) answers *are you in this
+account*. `project_members` (person × project × project_admin|member) answers *which projects
+are yours* — and is not `project_people`, which is the directory snapshot and often has no login
+behind it. Account `admin` and `internal` see every project in their account without a
+`project_members` row.
+
+Invitations are one table with a `scope`. **Organisation scope** (account admin only) brings a
+person into the account. **Project scope** (account admin or that project's `project_admin`) adds
+someone to one project, and the invitee **must already be a member of the account that owns the
+project** — checked at issue and again at accept, since membership can be revoked while a
+14-day token is live. Membership is only ever created on accept.
+
+The personal landing page spans accounts and is the only screen that does: a **My accounts** tab
+(always present, even at one row) and a **Projects** tab listing everything the person can reach
+across every account, each labelled with its account. Entitlements read through
+`module_on(project_id, key)`; `organisations.modules` can be overridden per project via
+`projects.modules_override`.
+
+Billing is not built yet and belongs at the account level, in its own tables — never confused
+with the commercial tier, which models what the contractor owes its consultants.
 
 ## Stack
 

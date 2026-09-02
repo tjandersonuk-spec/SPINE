@@ -11,12 +11,16 @@ Legend for the test column: `test.js` renders every page and modal for every rol
 | Feature | Prototype | Product needs | Where |
 |---|---|---|---|
 | Marketing site | — | Home, product, pricing, about, contact, sign-up. Same design tokens. | Brief §5, `landing-page-reference.html` |
-| Sign-up | — | Creates a pending host; platform owner approves. | Handover §1b, prompt 1 |
+| Sign-up | — | Creates a login and nothing else — no account, no membership, no request. Email confirmation required. | Handover §1b, phase 1 |
+| Account requests | — | `account_requests` raised from the landing page; platform owner reviews, amends, approves or rejects with a reason. Approval creates the account and its first admin. | Handover §1b, phase 1 |
+| Account lifecycle | — | pending / active / suspended (lock) / archived, plus a guarded hard delete only from archived. Suspension bites mid-session, not just at sign-in. | Handover §1b, phase 1 |
 | Authentication | Demo login picker, six accounts | Supabase Auth. One login per person regardless of hosts. | Handover §1b |
 | Hosts (tenants) | Single host implied | `organisations` with subscription, module entitlements, brand, logo, theme. | Handover §1a, §1b |
-| Memberships | Per-project roles | Person × host × role × company. Several per person. Host isolation absolute. | Handover §1b |
-| Invitations | Directory add only | Invite button on add → email → accept from own login → membership. Consent-based; email match grants nothing. | Handover §1b |
-| Platform owner | — | Above all hosts: create, approve, suspend, set entitlements, see everything. Own RLS bypass, own audit table. | Handover §1b |
+| Memberships | Per-project roles | Two tables: `organisation_members` (person × account × role × company) and `project_members` (person × project × project role). Several per person. Account isolation absolute. | Handover §1b |
+| Project creation | Any role, in-memory | Account `admin` only, enforced by the insert policy on `projects`. | Handover §1b, phase 1 |
+| Invitations | Directory add only | One table, two scopes. Organisation scope (account admin) brings a person into the account; project scope (account or project admin) adds an existing account member to one project, checked at issue and again at accept. Consent-based; email match grants nothing. | Handover §1b |
+| Platform owner | — | Above all accounts: review requests, approve, lock, archive, delete, set entitlements, see everything. **Plus a people view listing every login including those with zero memberships**, who appear in no other list. Own RLS bypass, own audit table with no update or delete policy. | Handover §1b |
+| Personal landing page | — | The one screen that spans accounts: My accounts (always present) and Projects (everything reachable, each labelled with its account). Coherent for a login with zero memberships. | Handover §1b, phase 1 |
 | File storage | Filenames only | Supabase Storage; evidence and comment attachments reference storage paths. | Handover §6 |
 | Email | "Monday summary" page, no sending | Invitations, assignment and overdue notices, Monday digest. Every template honours visibility. | Handover §7, prompt 16 |
 | Snapshots | Capture button on Settings, one project | Nightly job, every project. Trends read only from here. | Handover §1a snapshots, prompt 14 |

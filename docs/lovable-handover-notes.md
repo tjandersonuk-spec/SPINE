@@ -91,7 +91,9 @@ model and a pile of exceptions, and it is what a licensing customer's IT review 
 ### Organisations above projects, and consultants who belong to several
 
 *The full platform layer — sign-up, invitations, the platform owner, entitlements — is in §1b.
-This subsection is the summary that motivates it.*
+This subsection is the summary that motivates it. **The SQL below is abbreviated to make the
+point; §1b holds the authoritative column list** — in particular `organisations.status` and the
+lifecycle columns, which are not shown here.*
 
 Everything in the prototype is keyed on `project_id`. Licensing needs a tenant above that, and
 the hard part is not the tenant — it is that the same structural engineer works for HBC and for
@@ -185,119 +187,430 @@ change control classification restricted to the PDB by policy, not by hiding a c
 
 ---
 
-## 1b. The platform layer — hosts, people, invitations, and the owner above them
+## 1b. The platform layer — logins, accounts, memberships, and the owner above them
 
 Nothing in this section is in the prototype. It is the layer the product needs so that more
 than one main contractor can use it, so that a consultant who works for two of them has one
-login, and so that you can run it. Build it first — prompt 1 in the sequence — because every
+login, and so that you can run it. Build it first — phase 1 in `TASKS.md` — because every
 policy in §4 references it and it is the hardest thing to change once projects exist.
 
-### Three levels
+### Terminology — two words that would otherwise collide
+
+- **Account** is what the UI calls a row in `organisations`: one main contractor's tenancy,
+  owning projects, a catalogue, template forks and an entitlement map. Earlier drafts of this
+  document call the same thing a **host**; where you see "host" below or in later sections,
+  read "account". The table stays `organisations`.
+- **Company** is a row in `companies`: a firm inside one account's directory — an architect, a
+  facade subcontractor, the contractor's own entity. Companies hold disciplines. Companies are
+  never tenancies.
+
+A person belongs to an *account* through `organisation_members`, and that membership names the
+*company* they belong to. Both words appear on the same screens, so never use one for the other.
+
+### Four states a login can be in
+
+The single most important correction to the earlier draft: **creating a login and asking for an
+account are two separate acts, and most logins never do the second.** A person passes through as
+many of these as apply to them, and the app must be coherent at every one.
 
 ```
-platform owner  ─── sees every host; creates, approves, suspends; sets entitlements
-   └── host     ─── one main contractor's account; owns projects, catalogue, templates
-        └── membership ─── a person × a host × a role × a company
-              └── person ─── one human, one login, any number of memberships
+1. No login              →  marketing site only
+2. Login, unconfirmed    →  a "check your email" screen; nothing else resolves
+3. Login, confirmed,     →  the personal landing page: My accounts (empty, with
+   zero memberships          "Request an account") and Projects (empty)
+4. Login with one or     →  the same landing page, now populated; clicking a project
+   more memberships          enters the project UI
 ```
+
+State 3 is the one the earlier draft had no representation for at all. It is not an edge case:
+it is where every invited consultant sits between signing up and accepting, and where every
+prospective customer sits before you approve them. A person in state 3 must be able to sign in,
+see a coherent page, and reach exactly nothing else. Every RLS policy must therefore return the
+empty set for them rather than error.
+
+### Three levels, and two kinds of membership
+
+```
+platform owner  ─── sees every account and every login; approves, locks,
+   │                archives and deletes accounts; sets entitlements
+   └── account (organisations) ─── one main contractor's tenancy
+        ├── organisation_members ─── person × account × role × company
+        │        (admin | internal | consultant | client)
+        └── projects ─── created ONLY by an account admin
+                 └── project_members ─── person × project × project role
+                          (project_admin | member)
+                          drawn ONLY from that account's members
+
+person (profiles) ─── one human, one login, any number of memberships
+```
+
+The two membership tables answer different questions and neither substitutes for the other:
+`organisation_members` answers *are you in this account at all, and as what*;
+`project_members` answers *which of this account's projects are yours*.
+
+### Schema
 
 ```sql
-create table organisations (               -- a HOST: one main contractor's account
+create table organisations (               -- an ACCOUNT: one main contractor's tenancy
   id uuid primary key default gen_random_uuid(),
   name text not null, slug text unique not null,
-  status text not null default 'pending'    -- pending | active | suspended
-    check (status in ('pending','active','suspended')),
+  status text not null default 'pending'
+    check (status in ('pending','active','suspended','archived')),
   brand_colour text default '#1E3A5F', logo_path text, theme text default 'light',
-  modules jsonb not null default '{}',      -- entitlements: {"compliance":true,"commercial":false,...}
+  modules jsonb not null default '{}',      -- entitlements: {"compliance":true,"commercial":false}
   subscription_tier text,                   -- core | compliance | complete
-  approved_by uuid, approved_at timestamptz,
+  approved_by uuid references profiles(id), approved_at timestamptz,
+  suspended_by uuid references profiles(id), suspended_at timestamptz, suspend_reason text,
+  archived_by uuid references profiles(id), archived_at timestamptz,
   created_at timestamptz default now()
 );
 
 create table profiles (                    -- a PERSON: one row per human, one login
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null, email text not null unique,
-  phone text, created_at timestamptz default now()
+  phone text,
+  created_at timestamptz default now(),
+  last_seen_at timestamptz
 );
 
-create table organisation_members (        -- a MEMBERSHIP: how a person belongs to a host
+create table organisation_members (        -- how a person belongs to an ACCOUNT
   organisation_id uuid not null references organisations(id) on delete cascade,
   profile_id uuid not null references profiles(id) on delete cascade,
   role text not null check (role in ('admin','internal','consultant','client')),
-  company_id uuid references companies(id),  -- which of the host's companies they belong to
+  company_id uuid references companies(id),  -- which of the account's companies they belong to
   joined_at timestamptz default now(),
   primary key (organisation_id, profile_id)
 );
 
-create table platform_owners (             -- the layer above every host
+create table project_members (             -- how a person belongs to a PROJECT
+  project_id uuid not null references projects(id) on delete cascade,
+  profile_id uuid not null references profiles(id) on delete cascade,
+  project_role text not null default 'member'
+    check (project_role in ('project_admin','member')),
+  added_by uuid references profiles(id),
+  added_at timestamptz default now(),
+  primary key (project_id, profile_id)
+);
+
+create table platform_owners (             -- the layer above every account
   profile_id uuid primary key references profiles(id) on delete cascade,
   granted_at timestamptz default now()
 );
 ```
 
-`projects.organisation_id` (added in §1a) is what scopes everything. `member_role(project_id)`
-resolves through the project's organisation to `organisation_members` for `auth.uid()`.
+`projects.organisation_id` (added in §1a) is what scopes everything.
 
-### Host isolation is absolute
+Account `admin` and `internal` roles see every project in their account **without a
+`project_members` row** — that stays true and is why the table is not a complete list of who can
+see a project. `project_members` governs consultants and clients, and is the only place a
+project-level admin is designated.
 
-A person with memberships in two hosts sees each host's projects only through that host's
-membership — and **must never be able to discover that the other host exists.** No list of
-"your organisations" that reveals names to a member of only one; the switcher shows only hosts
-the person is a member of, which for most consultants is exactly the hosts they already know
-about. No shared company or people registry across hosts: two hosts may each hold "Bellhouse
-Architects" as separate catalogue rows, and that is correct, because each host's relationship
-with them is separate.
+**`project_members` is not `project_people`.** `project_people` (§3) is the directory snapshot:
+a named contact at a company on this project, who may have no login at all and often does not.
+`project_members` is access control: a login, and what it may do on this project. A person can
+be in the directory without being a member, which is exactly the state an invited-but-not-yet-
+accepted consultant is in. Never derive one from the other.
 
-### Invitations — consent, not email matching
+### Signing up is not asking for an account
 
-This is the rule that makes cross-host membership defensible, and it is easy to get wrong in a
-way that looks like a feature.
+Anyone may create a login, from the marketing site or from an invitation link. It costs nothing
+and grants nothing.
+
+- Sign-up creates an `auth.users` row and a `profiles` row. **It creates no organisation, no
+  membership and no request.**
+- **Email confirmation is required.** Supabase Auth's confirm-email flow is on; an unconfirmed
+  login reaches the "check your email" screen and no further. This is not decoration: the whole
+  invitation model rests on an email address proving control of that address, and account
+  requests would otherwise be trivially forgeable.
+- A confirmed login with no memberships lands on the personal landing page, described below.
+
+### Requesting an account
+
+From the landing page, a person may request an account for their company. That is a record in
+its own right — not a pre-created organisation — so that it can be reviewed, amended, rejected
+with a reason, and kept after the fact.
+
+```sql
+create table account_requests (
+  id uuid primary key default gen_random_uuid(),
+  requested_by uuid not null references profiles(id) on delete cascade,
+  company_name text not null,
+  company_number text,                      -- Companies House or equivalent
+  contact_phone text,
+  intended_tier text,                       -- core | compliance | complete | undecided
+  note text,                                -- free text from the requester
+  status text not null default 'pending'
+    check (status in ('pending','approved','rejected','withdrawn')),
+  reviewed_by uuid references profiles(id),
+  reviewed_at timestamptz,
+  review_note text,                         -- why; shown to the requester on rejection
+  organisation_id uuid references organisations(id) on delete set null,  -- set on approval
+  created_at timestamptz default now()
+);
+```
+
+The requester sees their own request and its status. Nobody else in the product sees it; it is
+visible to the platform owner and to no other role.
+
+Approval is a single transaction, and it takes the **reviewed** values rather than copying the
+request blindly — the point of the review step is that you can correct a misspelt company name
+or set a different tier before the account exists:
+
+```sql
+create or replace function approve_account_request(
+  p_request uuid, p_name text, p_slug text, p_tier text, p_modules jsonb
+) returns uuid language plpgsql security definer as $$
+declare v_org uuid; v_req account_requests;
+begin
+  if not is_platform_owner() then raise exception 'not permitted'; end if;
+  select * into v_req from account_requests where id = p_request and status = 'pending';
+  if not found then raise exception 'no pending request'; end if;
+
+  insert into organisations (name, slug, status, subscription_tier, modules,
+                             approved_by, approved_at)
+  values (p_name, p_slug, 'active', p_tier, p_modules, auth.uid(), now())
+  returning id into v_org;
+
+  insert into organisation_members (organisation_id, profile_id, role)
+  values (v_org, v_req.requested_by, 'admin');
+
+  update account_requests set status = 'approved', reviewed_by = auth.uid(),
+    reviewed_at = now(), organisation_id = v_org where id = p_request;
+
+  insert into platform_audit (owner_id, organisation_id, action, detail)
+  values (auth.uid(), v_org, 'approve_account_request',
+          jsonb_build_object('request_id', p_request));
+  return v_org;
+end $$;
+```
+
+A rejected request keeps its row and its `review_note`. The requester may withdraw their own
+pending request. A person may hold several requests over time; nothing stops a person who
+already administers one account from requesting another.
+
+### The account lifecycle
+
+Four states, and one destructive operation that is not a state.
+
+| Operation | `status` | Effect |
+|---|---|---|
+| Approve | `active` | Members can sign in and work. |
+| Lock | `suspended` | Members cannot sign in to that account. Data untouched. Reversible. Used for non-payment or an investigation. |
+| Archive | `archived` | Read-only for everyone, hidden from default lists, excluded from billing and from the nightly snapshot job. Reversible. This is what "closing" an account means. |
+| Delete | — | Hard removal. Irreversible. |
+
+`suspended` and `archived` differ in intent and must not be collapsed: a suspended account is
+expected to come back and its members are told why; an archived account is finished, and its
+members keep read access to their own history rather than being locked out of a job they worked
+on. Both are reversible by the platform owner alone.
+
+**Delete is guarded.** `organisations` cascades to memberships, invitations, projects and every
+project-scoped row including the change log, so a hard delete destroys the audit trail it would
+be needed to explain. Therefore: an account may only be deleted from `archived`, only by a
+platform owner, only with the account name typed to confirm, and the `platform_audit` row is
+written **before** the delete, carrying a summary of what was destroyed (project count, member
+count, date range) so the trail survives its subject.
+
+Suspension is checked at sign-in and in every policy, not only at sign-in — a live session must
+stop working the moment an account is suspended, not at the next login:
+
+```sql
+create or replace function account_is_live(p_org uuid)
+returns boolean language sql stable as $$
+  select status = 'active' from organisations where id = p_org
+$$;
+```
+
+`archived` accounts pass a separate `account_is_readable()` test used by select policies only.
+
+### Account isolation is absolute
+
+A person with memberships in two accounts sees each account's projects only through that
+account's membership — and **must never be able to discover that the other account exists.**
+The My accounts tab lists only accounts the person is a member of. No shared company or people
+registry across accounts: two accounts may each hold "Bellhouse Architects" as separate
+catalogue rows, and that is correct, because each account's relationship with them is separate.
+
+The personal landing page is the one screen that spans accounts, and it spans only *this
+person's own* memberships. It must show which account each project belongs to — a consultant
+with two projects called "Phase 2" needs to tell them apart — and that labelling is derived from
+the viewer's own memberships, never from a lookup that could name an account they are not in.
+
+### Invitations — one table, two scopes
+
+An invitation is how someone joins something they are not already in. There are two kinds, and
+the difference is exactly the permission question you care about.
 
 ```sql
 create table invitations (
   id uuid primary key default gen_random_uuid(),
+  scope text not null check (scope in ('organisation','project')),
   organisation_id uuid not null references organisations(id) on delete cascade,
+  project_id uuid references projects(id) on delete cascade,
   email text not null,
-  role text not null, company_id uuid references companies(id),
-  project_ids uuid[] default '{}',         -- optionally scoped to projects
+  role text check (role in ('admin','internal','consultant','client')),  -- organisation scope
+  company_id uuid references companies(id),                             -- organisation scope
+  project_role text check (project_role in ('project_admin','member')), -- project scope
+  project_ids uuid[] default '{}',        -- organisation scope: optional initial projects
   token text not null unique,
   invited_by uuid not null references profiles(id),
   created_at timestamptz default now(),
   expires_at timestamptz not null default now() + interval '14 days',
-  accepted_at timestamptz,
-  accepted_by uuid references profiles(id)
+  accepted_at timestamptz, accepted_by uuid references profiles(id),
+  revoked_at timestamptz, revoked_by uuid references profiles(id),
+  constraint organisation_scope_shape check (
+    scope <> 'organisation' or (project_id is null and role is not null)),
+  constraint project_scope_shape check (
+    scope <> 'project' or (project_id is not null and project_role is not null))
 );
 ```
 
-Adding a person to a host's directory creates a row here and shows an **Invite** button. The
-invite is sent by email with the token. The person clicks it, signs in — creating a login if
-they have none — and *accepting* inserts the `organisation_members` row. Until then, the
-directory entry is a name and an email and nothing more: it grants no access, and the person
-does not appear in any list a member of that host can see as "a member".
+**Organisation-scope invitations** bring a person into the account. Only an account `admin` may
+issue one. Accepting inserts the `organisation_members` row, plus `project_members` rows for any
+`project_ids` named. This is the only route by which a person who is not already in the account
+can get in.
+
+**Project-scope invitations** add an existing account member to one project. An account admin or
+that project's `project_admin` may issue one. Accepting inserts the `project_members` row.
 
 **Do not match on email.** If typing an address into a directory were enough to create a
 membership, anyone who knew a consultant's address could pull them into a project they never
 agreed to join, and their existing employer would have no way to see it had happened. The
-outcome you want — one person seeing projects across two hosts — is exactly what happens once
+outcome you want — one person seeing projects across two accounts — is exactly what happens once
 they accept both invites. The consent step is what makes that outcome something a data
 protection review will accept.
 
-A person can decline or ignore an invite; it expires. A host admin can revoke one. An accepted
-invite that is later revoked removes the membership; the person keeps their login and their
-other memberships untouched.
+Adding a person to an account's directory creates an invitation row and shows an **Invite**
+button. Until acceptance, the directory entry is a name and an email and nothing more: it grants
+no access, and the person does not appear in any list as "a member". A person can decline or
+ignore an invite; it expires at 14 days. An admin can revoke one. An accepted invite that is
+later revoked removes the membership; the person keeps their login and their other memberships
+untouched.
 
-### Sign-up
+### Who may create a project
 
-The marketing site's sign-up creates an `organisations` row in `pending` status and a
-`profiles` row for the first admin, with a membership in `admin` role. Nothing is usable until
-a platform owner sets `status = 'active'`. Approval is a human step by design; the marketing
-page says so.
+**Only an account `admin`.** Not `internal`, not a project admin, not a consultant. Project
+creation is the act that commits the account to a new body of work — it seeds the catalogue
+copy, the DRM library snapshot and the template forks — and it is the boundary the billing
+layer will eventually meter.
+
+```sql
+create or replace function is_account_admin(p_org uuid)
+returns boolean language sql stable as $$
+  select exists (
+    select 1 from organisation_members m
+    where m.organisation_id = p_org and m.profile_id = auth.uid() and m.role = 'admin'
+  )
+$$;
+
+create policy projects_insert on projects for insert to authenticated
+  with check (is_account_admin(organisation_id) and account_is_live(organisation_id));
+```
+
+Enforce it in the policy, not by hiding the button — the same rule the Building Safety Act
+classification guard follows, for the same reason. A synthetic insert from an `internal` or
+consultant account must be refused by the database.
+
+### Who may invite to a project, and from where
+
+Once a project exists, its `project_admin` may bring people onto it — but **only people who are
+already members of the account that owns the project.** A project admin cannot widen the
+account; that remains an account admin's decision.
+
+The practical shape: an account admin decides which firms and which people are in the account at
+all (an organisation-scope invitation each). A project admin then picks from that pool. The two
+powers are deliberately different sizes, because bringing a new firm into the tenancy has
+commercial and data-protection consequences that staffing a project does not.
+
+```sql
+create or replace function is_project_admin(p_project uuid)
+returns boolean language sql stable as $$
+  select exists (
+    select 1 from project_members pm
+    where pm.project_id = p_project and pm.profile_id = auth.uid()
+      and pm.project_role = 'project_admin'
+  )
+$$;
+```
+
+The membership guard is enforced twice, and both are needed. At issue time, because a project
+admin must not be able to create an invitation for a stranger:
+
+```sql
+create or replace function invite_to_project(
+  p_project uuid, p_email text, p_project_role text
+) returns uuid language plpgsql security definer as $$
+declare v_org uuid; v_token text;
+begin
+  select organisation_id into v_org from projects where id = p_project;
+  if not (is_account_admin(v_org) or is_project_admin(p_project)) then
+    raise exception 'not permitted';
+  end if;
+  -- the invitee must already belong to the account that owns the project
+  if not exists (
+    select 1 from organisation_members m join profiles p on p.id = m.profile_id
+    where m.organisation_id = v_org and lower(p.email) = lower(p_email)
+  ) then
+    raise exception 'invitee is not a member of this account';
+  end if;
+  ...
+end $$;
+```
+
+And again on acceptance, because membership can be revoked in the fourteen days a token stays
+live. An invitation whose target has left the account in the meantime is refused at accept, not
+honoured.
+
+A project admin may also remove someone from their project. That removes the `project_members`
+row only; the person keeps their account membership and their other projects.
+
+### What a person sees on sign-in
+
+One login, then the personal landing page — always, for everyone, including a person with no
+memberships at all. It has two tabs.
+
+**My accounts.** Every account this person is a member of, with their role in each. Usually one
+row. Empty for a new sign-up, in which case the tab carries the "Request an account" call to
+action and the status of any request they have already made. This tab exists even when it holds
+one row: it is where account-level settings, the member directory and the account request live,
+and hiding it below a threshold means those things have nowhere to be.
+
+**Projects.** Every project this person can reach, across every account, worst-first or
+most-recent-first, each labelled with the account it belongs to and each a link into the project
+UI. For an account `admin` or `internal` that is every project in their account; for a
+consultant or client it is their `project_members` rows.
+
+```sql
+create or replace function my_projects()
+returns setof projects language sql stable as $$
+  select p.* from projects p
+  join organisations o on o.id = p.organisation_id
+  where o.status in ('active','archived')
+    and (
+      exists (select 1 from organisation_members m
+              where m.organisation_id = o.id and m.profile_id = auth.uid()
+                and m.role in ('admin','internal'))
+      or exists (select 1 from project_members pm
+                 where pm.project_id = p.id and pm.profile_id = auth.uid())
+    )
+$$;
+```
+
+Nothing above this page spans accounts. The account home and portfolio dashboards sit *inside*
+one account, and are reached by clicking through from here.
 
 ### The platform owner
 
-You. Able to: list every host; approve a pending one; suspend one (members cannot sign in);
-set `modules` and `subscription_tier`; see any host's projects for support. **No host admin can
-see this layer or that it exists.**
+You. Able to: list every account; review, amend, approve and reject account requests; lock,
+archive and delete accounts; set `modules` and `subscription_tier`; **list every login on the
+platform**; and see any account's projects for support. **No account admin can see this layer or
+that it exists.**
+
+The people view is a genuine requirement, not a convenience: a person who has signed up and
+holds no membership appears in no other list in the product, and you need to be able to see
+them — to answer a support question, to find a duplicate sign-up, or to honour a deletion
+request. It shows every `profiles` row with email, confirmation state, sign-up date, last seen,
+and the accounts they are a member of.
 
 ```sql
 create or replace function is_platform_owner()
@@ -306,22 +619,24 @@ returns boolean language sql stable security definer as $$
 $$;
 ```
 
-Every `select` policy on host-scoped tables gains `or is_platform_owner()`. Every action taken
-under that bypass writes to its own table:
+Every `select` policy on account-scoped tables gains `or is_platform_owner()`. Every action
+taken under that bypass writes to its own table:
 
 ```sql
 create table platform_audit (
   id bigserial primary key,
   owner_id uuid not null references profiles(id),
   organisation_id uuid references organisations(id),
+  subject_profile_id uuid references profiles(id),   -- when the subject is a person
   action text not null, detail jsonb,
   at timestamptz default now()
 );
 ```
 
 This is the account that can see everything, so it is the account whose every action must be
-visible to a later reviewer. Do not fold it into the per-host change log — a host admin must not
-see platform-owner activity, and the platform owner must not be able to edit their own trail.
+visible to a later reviewer. Do not fold it into the per-account change log — an account admin
+must not see platform-owner activity, and the platform owner must not be able to edit their own
+trail. `platform_audit` has no update or delete policy for anyone, including platform owners.
 
 ### Entitlements
 
@@ -330,23 +645,56 @@ see platform-owner activity, and the platform owner must not be able to edit the
 ```sql
 create or replace function module_on(p_project uuid, p_key text)
 returns boolean language sql stable as $$
-  select coalesce((o.modules ->> p_key)::boolean, false)
+  select coalesce(
+    (o.modules || coalesce(p.modules_override, '{}'::jsonb)) ->> p_key, 'false')::boolean
   from projects p join organisations o on o.id = p.organisation_id
   where p.id = p_project
 $$;
 ```
 
 Core modules are never in this map — they are always on. A route whose module is off returns a
-"not switched on" page, not a 404 and not a blank. The per-project override the prototype hints
-at (switching a module on for one project only) is `projects.modules_override jsonb`, merged
-over the host's map, for phasing a toolkit in one job at a time.
+"not switched on" page, not a 404 and not a blank. `projects.modules_override jsonb` is merged
+over the account's map, for phasing a toolkit in one job at a time.
 
-### What a person sees on sign-in
+### Billing — later, but leave the seam
 
-One login; then, if they hold more than one membership, a host switcher listing only their
-hosts. Inside a host: their projects (per their memberships' project scoping, or all the host's
-projects for `admin` and `internal`), and — once portfolio dashboards exist — the host home.
-A consultant with a single membership never sees a switcher and never sees the concept.
+Financial controls sit at the account level and are not being built yet. `subscription_tier` and
+`modules` are the fields a billing layer will price against; `account_requests.intended_tier` is
+what the customer asked for. When it arrives it belongs in its own tables hanging off
+`organisations` — a subscription, a payment method, an invoice history — read by the platform
+owner and by that account's `admin` only. **Do not** put money on `organisations` itself, and do
+not confuse it with the commercial tier: that models money the contractor owes its consultants,
+which is a completely different thing from money the contractor owes you.
+
+Archived accounts are excluded from billing by definition, which is the other reason archive and
+suspend must stay distinct.
+
+### Phase 1 test assertions
+
+- A new sign-up with no memberships can sign in, sees the landing page with both tabs empty, and
+  every data query returns empty rather than erroring.
+- An unconfirmed login reaches nothing but the confirmation screen.
+- Creating a login creates no organisation and no membership.
+- An account request is visible to its requester and the platform owner, and to nobody else.
+- Approving a request creates an active account and exactly one `admin` membership, for the
+  requester.
+- A rejected request keeps its row and its reason; the requester can see why.
+- A person with two memberships sees both accounts' projects on their landing page, each
+  labelled, and cannot see either account's name from inside the other.
+- An unaccepted invitation grants no access; the invitee appears in no member list.
+- A suspended account's members cannot sign in, and an in-flight session stops working.
+- An archived account is readable by its members and writable by nobody.
+- An account cannot be deleted unless archived; the `platform_audit` row survives the delete.
+- An account admin can create a project; an `internal`, a `project_admin` and a consultant
+  cannot — refused by policy, tested with a direct insert rather than through the UI.
+- A project admin can invite an existing account member to their project.
+- A project admin cannot invite an address that holds no membership in the owning account —
+  refused at issue.
+- An invitation whose target lost their account membership before acceptance is refused at
+  accept.
+- Removing someone from a project leaves their account membership and other projects intact.
+- An account admin cannot list other accounts; the platform owner can.
+- The platform owner can list every login, including logins with zero memberships.
 
 ---
 

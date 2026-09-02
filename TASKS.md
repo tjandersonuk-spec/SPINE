@@ -16,32 +16,115 @@ assertions (see CLAUDE.md → Testing), commit. Tick off as you go.
 - [ ] Confirm you can restate the two invariants (discipline not company; date = programme line +
       offset) before writing any code
 
-## Phase 1 — Identity, hosts, memberships, invitations
+## Phase 1 — Identity, accounts, memberships, invitations
 
 *Reference: handover §1b in full, plus §1a's organisations subsection.*
 
-- [ ] `organisations` (hosts), `profiles` (people), `organisation_members` (person × host × role ×
-      company) tables
-- [ ] Roles: admin, internal, consultant, client
-- [ ] `invitations` table with token, expiry (default 14 days), accepted-at, optional
-      `project_ids` scoping — membership is created only on accept, never on invite
-- [ ] `organisations.status` (pending/active/suspended); a suspended host's members can't sign in
-- [ ] Platform owner role (`platform_owners` table): create/activate/suspend hosts, set module
-      entitlements, see every host; no host admin can see this layer; its own `platform_audit`
-      table, kept separate from the per-host change log so a host admin can't see platform-owner
-      activity and the owner can't edit their own trail
-- [ ] `module_on(project_id, key)` function; `projects.modules_override` for switching a module on
-      per project ahead of the whole host
-- [ ] Sign-up creates a pending host for platform-owner approval
-- [ ] Tests: a person with two memberships sees both hosts' projects and can't see either host's
-      name from the other; an unaccepted invite grants no access; a host admin can't list other
-      hosts; the platform owner can; a suspended host's members can't sign in
+Terminology: an **account** is a row in `organisations` (one main contractor's tenancy); a
+**company** is a firm in that account's directory. Older text says "host" for account.
+
+### Logins and confirmation
+
+- [ ] `profiles` (people) — one row per human, one login, created on sign-up
+- [ ] Email confirmation required; an unconfirmed login reaches the confirmation screen and
+      nothing else
+- [ ] Sign-up creates **no** organisation, **no** membership and **no** request — a login on its
+      own grants nothing
+- [ ] A confirmed login with zero memberships can sign in and lands on the personal landing page;
+      every data query returns empty rather than erroring
+
+### Accounts and requests
+
+- [ ] `organisations` (accounts) with `status` pending/active/suspended/archived and the
+      lifecycle columns (approved/suspended/archived by and at, suspend reason)
+- [ ] `account_requests` — raised from the landing page by any confirmed login; visible to its
+      requester and the platform owner only; status pending/approved/rejected/withdrawn with a
+      review note the requester can read
+- [ ] `approve_account_request()` as one transaction taking the **reviewed** values, so a name or
+      tier can be corrected before the account exists; creates the account active and exactly one
+      `admin` membership for the requester
+- [ ] Lock (`suspended`) and archive (`archived`) as distinct, reversible, platform-owner-only
+      operations — suspended is expected back and blocks sign-in; archived is finished and stays
+      readable by its members
+- [ ] Delete only from `archived`, name typed to confirm, `platform_audit` row written **before**
+      the cascade so the trail survives its subject
+- [ ] Suspension enforced in every policy via `account_is_live()`, not only at sign-in — a live
+      session must stop working immediately
+
+### Memberships
+
+- [ ] `organisation_members` (person × account × role × company); roles admin, internal,
+      consultant, client
+- [ ] `project_members` (person × project × project role: project_admin | member) — distinct from
+      `project_people`, which is the directory snapshot and may have no login
+- [ ] Account `admin` and `internal` see every project in their account with no `project_members`
+      row; consultants and clients see only their rows
+
+### Invitations — one table, two scopes
+
+- [ ] `invitations` with `scope` organisation | project, token, 14-day expiry, accepted-at,
+      revoked-at, and the shape constraints per scope — membership created only on accept
+- [ ] Organisation scope: account `admin` only; brings a person into the account; may name
+      initial `project_ids`
+- [ ] Project scope: account `admin` or that project's `project_admin`; **the invitee must
+      already hold membership of the account that owns the project** — checked at issue *and*
+      re-checked at accept, because membership can be revoked while a token is live
+- [ ] Never match on email: typing an address grants nothing
+
+### Project creation and project-level administration
+
+- [ ] **Only an account `admin` may create a project** — enforced by the insert policy on
+      `projects`, not by hiding a button; an `internal`, a `project_admin` and a consultant are
+      all refused at the database
+- [ ] A `project_admin` may add and remove people on their own project, drawn only from that
+      account's members; removal leaves the account membership and other projects intact
+- [ ] A `project_admin` cannot widen the account — bringing a new firm or person into the
+      tenancy stays an account admin's decision
+
+### The platform owner
+
+- [ ] `platform_owners` table and `is_platform_owner()`; every select policy on account-scoped
+      tables gains `or is_platform_owner()`
+- [ ] Accounts view: list every account, review/amend/approve/reject requests, lock, archive,
+      delete, set modules and tier
+- [ ] **People view: every login on the platform**, including logins with zero memberships, with
+      email, confirmation state, sign-up date, last seen, and the accounts they belong to — these
+      people appear in no other list in the product
+- [ ] `platform_audit`, separate from the per-account change log, with no update or delete policy
+      for anyone including platform owners
+- [ ] No account admin can see this layer or that it exists
+
+### The landing page
+
+- [ ] Personal landing page for every signed-in person, whatever their memberships
+- [ ] **My accounts** tab — always present, even at one row; carries account settings, the member
+      directory, and "Request an account" plus request status when empty
+- [ ] **Projects** tab — every project this person can reach across every account, each labelled
+      with its account, each a link into the project UI; `my_projects()`
+- [ ] Account isolation: the labelling is derived from the viewer's own memberships and never
+      names an account they are not in
+
+### Entitlements and billing seam
+
+- [ ] `module_on(project_id, key)`; `projects.modules_override` merged over the account's map
+- [ ] Billing not built. Leave `subscription_tier` and `modules` as the fields it will price
+      against; no money on `organisations` itself
+
+### Tests
+
+- [ ] Port the full assertion list at the end of handover §1b — in particular: a new sign-up sees
+      empty tabs and no errors; approving a request creates exactly one admin membership; a
+      suspended account stops a live session; an account cannot be deleted unless archived; a
+      non-admin's direct `insert` into `projects` is refused; a project invite to a non-member is
+      refused at issue; an invite whose target lost membership is refused at accept; a host admin
+      cannot list other accounts and the platform owner can list every login
 
 ## Phase 2 — Projects, directory, disciplines, master catalogue
 
 *Reference: handover §3. Open `docs/dmp-prototype.html` at Directory and Master catalogue.*
 
-- [ ] Projects, scoped to `organisation_id`
+- [ ] Projects, scoped to `organisation_id` — creation restricted to account `admin` by the
+      insert policy built in phase 1
 - [ ] Master catalogue of companies/people per host; a project takes a **copy** on selection,
       independent from then on; catalogue edits never rewrite a live project; a project can push a
       correction back

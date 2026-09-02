@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ErrorNote } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select-native'
+import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
   DRM_CATEGORY_NAMES, fetchDrmGaps, fetchDrmItems, fetchDrmLeads, fetchProjectDisciplines,
   loadDrmIntoProject, setDrmApplicable, setDrmLead,
@@ -120,7 +121,7 @@ export function Matrix({
         {gaps.length === 0 ? (
           <p className="text-sm">Every applicable item has a lead who is appointed.</p>
         ) : (
-          <div className="border-hivis bg-hivis-bg text-hivis-ink flex-1 rounded-lg border-l-4 p-3">
+          <div className="border-hivis bg-hivis-bg text-hivis-ink shadow-hivis flex-1 rounded-lg border-l-[3px] p-3">
             <p className="font-semibold">
               {gaps.length === 1 ? '1 gap' : `${gaps.length} gaps`}
             </p>
@@ -138,44 +139,40 @@ export function Matrix({
 
       {byCategory.map(([code, rows]) => (
         <section key={code} className="flex flex-col gap-1">
-          <h3 className="text-muted-foreground pt-2 text-sm font-semibold">
-            {code} · {DRM_CATEGORY_NAMES[code] ?? code}
+          <h3 className="text-graphite-light pt-2 text-[11px] font-bold tracking-[0.08em] uppercase">
+            <span className="font-mono">{code}</span> · {DRM_CATEGORY_NAMES[code] ?? code}
           </h3>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-muted-foreground text-left">
+          <TableScroll>
+            <Table>
+              <THead>
                 <tr>
-                  <th className="px-3 py-2 font-medium">Ref</th>
-                  <th className="px-3 py-2 font-medium">Item</th>
-                  <th className="px-3 py-2 font-medium">Lead</th>
-                  <th className="px-3 py-2 font-medium">Who that is</th>
+                  <TH className="w-20">Ref</TH>
+                  <TH>Item</TH>
+                  <TH className="w-56">Lead</TH>
+                  <TH className="w-64">Who that is</TH>
                 </tr>
-              </thead>
-              <tbody>
+              </THead>
+              <TBody>
                 {rows.map((i) => {
                   const gap = gapById.get(i.id)
                   const who = holders.get(i.id) ?? []
                   return (
-                    <tr
-                      key={i.id}
-                      className={
-                        'border-t align-top ' +
-                        (gap ? 'bg-hivis-bg text-hivis-ink border-l-hivis border-l-4' : '') +
-                        (i.applicable ? '' : ' opacity-50')
-                      }
-                    >
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">{i.ref}</td>
-                      <td className="px-3 py-2">
+                    <TR key={i.id} gap={Boolean(gap)} muted={!i.applicable}>
+                      <TD>
+                        <Code className="font-semibold">{i.ref}</Code>
+                      </TD>
+                      <TD>
                         {i.item}
                         {i.guidance_note && (
-                          <span className="text-muted-foreground block text-xs italic">
+                          <span className="text-graphite-light mt-0.5 block text-xs italic">
                             {i.guidance_note}
                           </span>
                         )}
-                      </td>
-                      <td className="px-3 py-2">
+                      </TD>
+                      <TD>
                         {canEdit ? (
                           <Select
+                            className="w-full"
                             value={i.lead_discipline ?? ''}
                             onChange={(e) =>
                               act(() => setDrmLead(i.id, e.target.value || null))
@@ -190,31 +187,35 @@ export function Matrix({
                             ))}
                           </Select>
                         ) : (
-                          <span className="font-mono">{i.lead_discipline ?? '—'}</span>
+                          <Code className="font-semibold">{i.lead_discipline ?? '—'}</Code>
                         )}
-                      </td>
-                      <td className="px-3 py-2">
+                      </TD>
+                      <TD>
                         {who.length > 0 ? (
                           who.join(', ')
+                        ) : gap ? (
+                          <Pill tone="gap">
+                            {i.lead_discipline ? 'not appointed' : 'nobody named'}
+                          </Pill>
                         ) : (
-                          <span className="text-xs">{gap ?? '—'}</span>
+                          <span className="text-graphite-light">—</span>
                         )}
                         {canEdit && (
                           <button
                             type="button"
-                            className="text-muted-foreground mt-1 block text-xs underline"
+                            className="text-graphite-light mt-1 block text-xs underline"
                             onClick={() => act(() => setDrmApplicable(i.id, !i.applicable))}
                           >
                             {i.applicable ? 'Not applicable to this job' : 'Applicable again'}
                           </button>
                         )}
-                      </td>
-                    </tr>
+                      </TD>
+                    </TR>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TBody>
+            </Table>
+          </TableScroll>
         </section>
       ))}
     </div>

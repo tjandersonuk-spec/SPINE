@@ -1,105 +1,157 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Bundled, not fetched: the application has to render identically offline and
+   on a locked-down site network. */
+@import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
 
+/* ===========================================================================
+   Design tokens, taken from docs/dmp-prototype.html.
+   Design direction: "drawing office" structure, contemporary SaaS surface.
+   Structure = drafting ink. Signal = hi-vis. Codes = monospace.
+
+   Three groups, and the boundary between them is a rule, not a preference:
+
+   1. BRAND — the only thing a tenant may change. Drives nav, primary buttons
+      and links, and nothing else.
+   2. STRUCTURAL — paper, ink, rules, elevation. Flips for dark mode.
+      Not customisable, because legibility is not a matter of taste.
+   3. SEMANTIC — hi-vis, ok, warn, stop, and the kind tints. NEVER
+      customisable and never themed: hi-vis means an unallocated gap, and a
+      tenant who could recolour it could destroy the one signal the
+      application exists to give.
+   =========================================================================== */
+
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ---- 1. brand: tenant-customisable ---- */
+  --brand: #1E3A5F;
+  --brand-2: #2F6F8F;
+  --brand-ink: #FFFFFF;
+  --brand-soft: #E7EDF4;
+  --brand-deep: #16304F;
+  --grad-brand: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
 
-  /* Semantic colours. Fixed, never themed, never customisable by a tenant.
-     Hi-vis means exactly one thing anywhere in this application: a gap —
-     something nobody has been given. It is the colour a design manager scans
-     for on a Monday, and spending it on anything else destroys that. */
-  --hivis: oklch(0.83 0.15 88);
-  --hivis-bg: oklch(0.97 0.04 95);
-  --hivis-ink: oklch(0.42 0.07 88);
+  /* ---- 2. structural ---- */
+  --paper: #EEF1F5;
+  --surface: #FFFFFF;
+  --surface-2: #F6F8FA;
+  --ink: #14181B;
+  --graphite: #5C646B;
+  --graphite-light: #8B939A;
+  --rule: #DFE3E8;
+  --rule-strong: #C1C8D1;
+  --mesh:
+    radial-gradient(1100px 560px at 10% -12%, rgba(47,111,143,.10), transparent 60%),
+    radial-gradient(900px 480px at 102% 0%, rgba(30,58,95,.07), transparent 55%),
+    radial-gradient(700px 420px at 40% 110%, rgba(47,111,143,.06), transparent 60%);
 
-  /* The colour at the edge of the logo. The sign-in page is painted with it so
-     the feathered edge of the mark dissolves into the page instead of ending.
-     Set by `npm run brand:sample`, which measures it; the value below is an
-     estimate by eye until that has been run against the real file. */
+  /* ---- 3. semantic: never customisable, never themed ---- */
+  --hivis: #F2C230;
+  --hivis-bg: #FDF6DC;
+  --hivis-ink: #6B5210;
+  --hivis-glow: 0 0 0 1px rgba(242,194,48,.45), 0 4px 14px rgba(242,194,48,.20);
+  --ok: #2E6F4E;        --ok-bg: #E6F0EA;
+  --warn: #9A5B12;      --warn-bg: #FBF0E2;
+  --stop: #9B2C2C;      --stop-bg: #F8E9E9;
+
+  /* kind tints: colour tells you what sort of thing you are looking at */
+  --kind-evidence: #2F6F8F;  --kind-evidence-bg: #EAF2F7;
+  --kind-discuss:  #6B4E9B;  --kind-discuss-bg:  #F0EBF7;
+  --kind-money:    #3B6E3B;  --kind-money-bg:    #EAF3EA;
+  --kind-comply:   #8A5A1E;  --kind-comply-bg:   #F7F0E6;
+
+  --font-sans-stack: "Inter Variable", "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --font-mono-stack: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+
+  --radius: 12px;
+
+  /* elevation: soft and layered, never a single flat grey shadow */
+  --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-sm: 0 1px 3px rgba(15,23,42,.05), 0 6px 16px -6px rgba(15,23,42,.10);
+  --shadow-md: 0 4px 12px -2px rgba(15,23,42,.10), 0 16px 32px -10px rgba(15,23,42,.14);
+  --shadow-lg: 0 10px 24px -6px rgba(15,23,42,.16), 0 28px 56px -16px rgba(15,23,42,.20);
+
+  /* The colour at the edge of the logo, measured by `npm run brand:sample`. */
   --brand-canvas: #0b1a2b;
   --brand-canvas-ink: #F4F7FA;
+
+  /* ---- shadcn's names, pointed at the tokens above so the primitives
+          inherit the drawing-office palette rather than their own greys ---- */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--graphite);
+  --accent: var(--brand-soft);
+  --accent-foreground: var(--brand-deep);
+  --destructive: var(--stop);
+  --border: var(--rule);
+  --input: var(--rule-strong);
+  --ring: var(--brand-2);
+  --sidebar: var(--brand);
+  --sidebar-foreground: var(--brand-ink);
+  --sidebar-primary: var(--brand-2);
+  --sidebar-primary-foreground: var(--brand-ink);
+  --sidebar-accent: var(--brand-deep);
+  --sidebar-accent-foreground: var(--brand-ink);
+  --sidebar-border: rgba(255,255,255,.12);
+  --sidebar-ring: var(--hivis);
 }
 
+/* Dark mode. Structural tokens flip; brand and semantic tokens do not. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.269 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --paper: #0E1114;
+  --surface: #1A1E22;
+  --surface-2: #20252A;
+  --ink: #E8EBEE;
+  --graphite: #A7AFB6;
+  --graphite-light: #7B848C;
+  --rule: #2A3138;
+  --rule-strong: #3C444D;
+  --brand-soft: #20344A;
+  --mesh:
+    radial-gradient(1100px 560px at 10% -12%, rgba(47,111,143,.22), transparent 60%),
+    radial-gradient(900px 480px at 102% 0%, rgba(90,140,180,.15), transparent 55%),
+    radial-gradient(700px 420px at 40% 110%, rgba(47,111,143,.12), transparent 60%);
 
-  /* Semantic colours do not change with the theme, only enough to stay legible. */
-  --hivis: oklch(0.83 0.15 88);
-  --hivis-bg: oklch(0.32 0.06 88);
-  --hivis-ink: oklch(0.92 0.08 92);
+  /* Only the grounds move, and only far enough to stay legible. The signal
+     colours themselves are the same hex in both themes. */
+  --hivis-bg: #3A3117;
+  --hivis-ink: #F6E6B4;
+  --ok-bg: #1C2E24;
+  --warn-bg: #33271A;
+  --stop-bg: #331E1E;
+  --kind-evidence-bg: #1B2A33;
+  --kind-discuss-bg: #2A2236;
+  --kind-money-bg: #1D2B1D;
+  --kind-comply-bg: #302619;
 
-  --brand-canvas: #0b1a2b;
-  --brand-canvas-ink: #F4F7FA;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.28), 0 6px 18px -6px rgba(0,0,0,.42);
+  --shadow-md: 0 4px 14px -2px rgba(0,0,0,.36), 0 18px 36px -10px rgba(0,0,0,.48);
+  --shadow-lg: 0 10px 24px -6px rgba(0,0,0,.44), 0 28px 60px -16px rgba(0,0,0,.55);
+
+  --accent-foreground: var(--ink);
+  --sidebar-border: rgba(255,255,255,.08);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --font-sans: var(--font-sans-stack);
+  --font-mono: var(--font-mono-stack);
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -118,11 +170,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -131,11 +178,37 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-graphite: var(--graphite);
+  --color-graphite-light: var(--graphite-light);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+
   --color-hivis: var(--hivis);
   --color-hivis-bg: var(--hivis-bg);
   --color-hivis-ink: var(--hivis-ink);
+  --color-ok: var(--ok);            --color-ok-bg: var(--ok-bg);
+  --color-warn: var(--warn);        --color-warn-bg: var(--warn-bg);
+  --color-stop: var(--stop);        --color-stop-bg: var(--stop-bg);
+  --color-kind-evidence: var(--kind-evidence);
+  --color-kind-evidence-bg: var(--kind-evidence-bg);
+  --color-kind-discuss: var(--kind-discuss);
+  --color-kind-discuss-bg: var(--kind-discuss-bg);
+  --color-kind-money: var(--kind-money);
+  --color-kind-money-bg: var(--kind-money-bg);
+  --color-kind-comply: var(--kind-comply);
+  --color-kind-comply-bg: var(--kind-comply-bg);
+
   --color-brand-canvas: var(--brand-canvas);
   --color-brand-canvas-ink: var(--brand-canvas-ink);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-hivis: var(--hivis-glow);
 }
 
 @layer base {
@@ -143,6 +216,20 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    /* the mesh sits under everything and never scrolls away */
+    background: var(--mesh), var(--paper);
+    background-attachment: fixed;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* Codes are monospace, everywhere and without exception: a reference, an
+     originator code, a discipline letter and a drawing number are all things
+     you compare down a column rather than read as words. */
+  code, kbd, samp {
+    font-family: var(--font-mono-stack);
+    font-size: 0.92em;
+    letter-spacing: -0.01em;
   }
 }

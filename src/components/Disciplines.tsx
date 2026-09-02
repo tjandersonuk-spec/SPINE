@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { ErrorNote } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
+import { Code, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { fetchAccountDisciplines, forkDisciplines, type Discipline } from '@/lib/queries'
 
 /**
@@ -56,26 +57,28 @@ export function Disciplines({
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-muted-foreground text-left">
+      <TableScroll>
+        <Table>
+          <THead>
             <tr>
-              <th className="px-4 py-2 font-medium">Code</th>
-              <th className="px-4 py-2 font-medium">Discipline</th>
-              <th className="px-4 py-2 font-medium" title="ISO 19650 role letter, used by the drawing naming convention">ISO</th>
+              <TH className="w-20">Code</TH>
+              <TH>Discipline</TH>
+              <TH className="w-16" title="ISO 19650 role letter, used by the drawing naming convention">
+                ISO
+              </TH>
             </tr>
-          </thead>
-          <tbody>
+          </THead>
+          <TBody>
             {rows.map((d) => (
-              <tr key={d.code} className="border-t">
-                <td className="px-4 py-2 font-mono">{d.code}</td>
-                <td className="px-4 py-2">{d.name}</td>
-                <td className="text-muted-foreground px-4 py-2 font-mono">{d.iso_letter}</td>
-              </tr>
+              <TR key={d.code}>
+                <TD><Code className="font-semibold">{d.code}</Code></TD>
+                <TD>{d.name}</TD>
+                <TD className="text-graphite-light"><Code>{d.iso_letter}</Code></TD>
+              </TR>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TBody>
+        </Table>
+      </TableScroll>
     </div>
   )
 }

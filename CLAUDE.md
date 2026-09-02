@@ -48,6 +48,18 @@ except the derived views.
   hold it start empty and are loaded per-project by whoever holds the licence.
 - Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
   token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
+- **The design tokens are the prototype's, and they come in three groups with a hard boundary
+  between them.** *Brand* (`--brand` and its derivations) is the only thing a tenant may change,
+  and it drives nav, primary buttons and links — nothing else. *Structural* (paper, ink, rules,
+  elevation) flips for dark mode and is not customisable, because legibility is not a matter of
+  taste. *Semantic* (`--hivis`, `--ok`, `--warn`, `--stop`, and the four kind tints) is never
+  customisable and never themed — only its ground moves in dark mode, far enough to stay legible
+  and no further. Design direction, from the prototype's own first comment: *structure is drafting
+  ink, signal is hi-vis, codes are monospace*.
+- **Every code is monospace and every table is the dense one.** A reference, an originator code, a
+  discipline letter, a drawing number and a programme UID are read down a column, not across a
+  sentence: use `<Code>` and the `Table` primitives in `src/components/ui/table.tsx` rather than a
+  bare `<table>`. A gap row gets `gap` on `<TR>` and nothing else does.
 - **The discipline list is the prototype's twenty-six, and each carries its ISO 19650 letter.**
   Mechanical, electrical and public health are three appointments, not one. The letter is what
   Phase 5's naming convention is built from, so it is set when the discipline is, never after.

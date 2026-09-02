@@ -29,7 +29,7 @@ export function BrandMark({ className = '' }: { className?: string }) {
       src="/brand/logo.png"
       alt="Spine"
       onError={() => setMissing(true)}
-      className={`h-28 w-auto object-contain ${className}`}
+      className={`h-auto w-full max-w-[220px] object-contain ${className}`}
       style={{
         // fade the outer eighth so the edge dissolves into --brand-canvas
         maskImage: 'radial-gradient(closest-side, black 78%, transparent 100%)',

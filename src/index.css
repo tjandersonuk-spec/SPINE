@@ -47,8 +47,9 @@
 
   /* The colour at the edge of the logo. The sign-in page is painted with it so
      the feathered edge of the mark dissolves into the page instead of ending.
-     Change it in step with the logo — a mismatch shows as a halo. */
-  --brand-canvas: #0F1B2A;
+     Set by `npm run brand:sample`, which measures it; the value below is an
+     estimate by eye until that has been run against the real file. */
+  --brand-canvas: #0b1a2b;
   --brand-canvas-ink: #F4F7FA;
 }
 
@@ -90,7 +91,7 @@
   --hivis-bg: oklch(0.32 0.06 88);
   --hivis-ink: oklch(0.92 0.08 92);
 
-  --brand-canvas: #0F1B2A;
+  --brand-canvas: #0b1a2b;
   --brand-canvas-ink: #F4F7FA;
 }
 

@@ -154,7 +154,7 @@ export function ImportProgramme({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
       <div
-        className="bg-paper border-rule w-full max-w-[860px] rounded-lg border shadow-2xl"
+        className="bg-card border-rule w-full max-w-[860px] rounded-lg border shadow-2xl"
         role="dialog"
         aria-label="Import a programme revision"
       >

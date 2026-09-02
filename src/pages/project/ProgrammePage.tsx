@@ -165,7 +165,7 @@ export default function ProgrammePage() {
                           className={
                             'cursor-pointer text-base leading-none transition-opacity ' +
                             (watched.has(t.task_uid)
-                              ? 'text-brand opacity-100'
+                              ? 'text-primary opacity-100'
                               : 'text-graphite opacity-35 hover:opacity-80')
                           }
                         >
@@ -176,7 +176,7 @@ export default function ProgrammePage() {
                         <button
                           type="button"
                           onClick={() => setInspecting(t)}
-                          className="text-brand cursor-pointer hover:underline"
+                          className="text-primary cursor-pointer hover:underline"
                         >
                           <Code>{t.task_uid}</Code>
                         </button>

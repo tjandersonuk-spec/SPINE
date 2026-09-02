@@ -47,7 +47,7 @@ export function LineInspector({
       role="presentation"
     >
       <aside
-        className="bg-paper border-rule flex h-full w-full max-w-[520px] flex-col border-l shadow-2xl"
+        className="bg-card border-rule flex h-full w-full max-w-[520px] flex-col border-l shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={`Programme line ${task.task_uid}`}

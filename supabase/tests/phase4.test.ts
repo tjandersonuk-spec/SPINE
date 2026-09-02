@@ -433,3 +433,62 @@ describe('a watchlist is the watcher\'s own', () => {
     expect(r.rows[0].n).toBe(0)
   })
 })
+
+describe('the sample programme CSV that ships in docs/', () => {
+  test('imports through the real function, exactly as handed to a user', async () => {
+    // docs/sample-programme-brackenfield.csv is given to people as something to
+    // load into an empty project. If it ever stops importing cleanly -- a date
+    // format, a milestone spanning two days, a parent that is not there -- that
+    // is found here rather than by whoever was told it would just work.
+    const { readFileSync } = await import('node:fs')
+    const Papa = (await import('papaparse')).default
+    const csv = readFileSync('docs/sample-programme-brackenfield.csv', 'utf8')
+    const parsed = Papa.parse<Record<string, string>>(csv, {
+      header: true, skipEmptyLines: true,
+    })
+    expect(parsed.errors).toEqual([])
+
+    // The same mapping the importer's guesser produces from these headers,
+    // and the same dd/mm/yyyy conversion the browser does.
+    const toIso = (v: string) => {
+      const m = v.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/)
+      return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : v.trim()
+    }
+    const rows = parsed.data.map((r) => ({
+      task_uid: r['ID'],
+      description: r['Task Name'],
+      start_date: toIso(r['Start']),
+      finish_date: toIso(r['Finish']),
+      percent_complete: parseInt(r['% Complete'], 10),
+      level: parseInt(r['Outline Level'], 10),
+      parent_uid: r['Parent ID'] || null,
+      task_type: r['Type'],
+    }))
+
+    const project = await asSuperuser(async (c: Client) => (await c.query(
+      `insert into projects (organisation_id, name, code)
+       select organisation_id, 'Brackenfield', 'BFA' from projects where id = $1
+       returning id`, [w.project])).rows[0].id)
+
+    const out = (await asUser(w.admin, (c) =>
+      c.query('select import_programme($1,$2,$3) as out',
+        [project, 'Tender programme Rev A', JSON.stringify(rows)]))).rows[0].out
+
+    expect(out.errors ?? []).toEqual([])
+    expect(out.ok).toBe(true)
+    expect(out.added).toBe(rows.length)
+
+    // The hierarchy holds: every summary rolls up from leaves that exist.
+    const roll = await asUser(w.admin, (c) =>
+      c.query(`select root_uid, leaf_count from v_programme_rollup
+               where project_id = $1 order by root_uid`, [project]))
+    expect(roll.rows.length).toBeGreaterThan(0)
+    expect(roll.rows.every((r) => r.leaf_count > 0)).toBe(true)
+
+    // And the spine resolves against it: 30 days before the facade package
+    // finishes on 2027-01-15.
+    const due = await asUser(w.admin, (c) =>
+      c.query(`select due_date($1,'1260',-30,'finish',null) as d`, [project]))
+    expect(due.rows[0].d.toISOString().slice(0, 10)).toBe('2026-12-16')
+  })
+})

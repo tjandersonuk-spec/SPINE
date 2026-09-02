@@ -6,6 +6,10 @@
 -- order listed, top to bottom.
 --
 -- Safe to run at any time: it only reads the catalogue.
+--
+-- Everything below is ONE statement on purpose. The Supabase SQL editor shows
+-- only the result of the last statement it runs, so a second select here would
+-- silently replace this list on screen with its own output.
 
 with expected(ord, migration, kind, marker) as (values
   (1, '20260902090000_phase1_identity',              'table',    'profiles'),
@@ -31,7 +35,7 @@ with expected(ord, migration, kind, marker) as (values
   (20,'20260902120200_phase3_drm_rls',                'policy',   'drm_items_select')
 )
 select
-  e.ord as "#",
+  e.ord::numeric as "#",
   e.migration,
   case e.kind
     when 'table' then exists (
@@ -50,11 +54,21 @@ select
         and column_name = split_part(e.marker, '.', 2))
   end as applied
 from expected e
-order by e.ord;
 
--- The library seed carries no schema object, so it is checked by counting.
--- Expect 100 published items and 9 categories once
--- 20260902120050_phase3_drm_library_seed.sql has run.
+-- The library seed carries no schema object, so it is checked by counting
+-- rather than by looking for an object. It rides along as two extra rows so
+-- that the whole check stays a single statement.
+union all
 select
-  (select count(*) from drm_library_items where organisation_id is null) as published_items,
-  (select count(*) from drm_categories where organisation_id is null) as published_categories;
+  20.1,
+  'library seed: 100 published items expected, ' ||
+    (select count(*) from drm_library_items where organisation_id is null) || ' found',
+  (select count(*) from drm_library_items where organisation_id is null) = 100
+union all
+select
+  20.2,
+  'library seed: 9 published categories expected, ' ||
+    (select count(*) from drm_categories where organisation_id is null) || ' found',
+  (select count(*) from drm_categories where organisation_id is null) = 9
+
+order by 1;

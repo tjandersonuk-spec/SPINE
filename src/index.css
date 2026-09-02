@@ -44,6 +44,12 @@
   --hivis: oklch(0.83 0.15 88);
   --hivis-bg: oklch(0.97 0.04 95);
   --hivis-ink: oklch(0.42 0.07 88);
+
+  /* The colour at the edge of the logo. The sign-in page is painted with it so
+     the feathered edge of the mark dissolves into the page instead of ending.
+     Change it in step with the logo — a mismatch shows as a halo. */
+  --brand-canvas: #0F1B2A;
+  --brand-canvas-ink: #F4F7FA;
 }
 
 .dark {
@@ -83,6 +89,9 @@
   --hivis: oklch(0.83 0.15 88);
   --hivis-bg: oklch(0.32 0.06 88);
   --hivis-ink: oklch(0.92 0.08 92);
+
+  --brand-canvas: #0F1B2A;
+  --brand-canvas-ink: #F4F7FA;
 }
 
 @theme inline {
@@ -124,6 +133,8 @@
   --color-hivis: var(--hivis);
   --color-hivis-bg: var(--hivis-bg);
   --color-hivis-ink: var(--hivis-ink);
+  --color-brand-canvas: var(--brand-canvas);
+  --color-brand-canvas-ink: var(--brand-canvas-ink);
 }
 
 @layer base {

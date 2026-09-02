@@ -62,6 +62,7 @@ export function Disciplines({
             <tr>
               <th className="px-4 py-2 font-medium">Code</th>
               <th className="px-4 py-2 font-medium">Discipline</th>
+              <th className="px-4 py-2 font-medium" title="ISO 19650 role letter, used by the drawing naming convention">ISO</th>
             </tr>
           </thead>
           <tbody>
@@ -69,6 +70,7 @@ export function Disciplines({
               <tr key={d.code} className="border-t">
                 <td className="px-4 py-2 font-mono">{d.code}</td>
                 <td className="px-4 py-2">{d.name}</td>
+                <td className="text-muted-foreground px-4 py-2 font-mono">{d.iso_letter}</td>
               </tr>
             ))}
           </tbody>

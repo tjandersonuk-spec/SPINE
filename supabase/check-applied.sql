@@ -21,7 +21,10 @@ with expected(ord, migration, kind, marker) as (values
   (11,'20260902091100_my_accounts_and_member_visibility', 'function', 'my_accounts'),
   (12,'20260902100000_phase2_directory',              'table',    'companies'),
   (13,'20260902100100_phase2_functions',              'function', 'companies_for_discipline'),
-  (14,'20260902100200_phase2_rls',                    'policy',   'companies_select')
+  (14,'20260902100200_phase2_rls',                    'policy',   'companies_select'),
+  (15,'20260902110000_full_discipline_list',          'function', 'refresh_discipline_fork'),
+  (16,'20260902110100_member_visibility_admins_only', 'policy',   'invitations_select'),
+  (17,'20260902110200_sample_data',                   'function', 'seed_sample_project')
 )
 select
   e.ord as "#",

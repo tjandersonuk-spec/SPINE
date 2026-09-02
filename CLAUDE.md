@@ -46,7 +46,11 @@ except the derived views.
 
 - Licensed third-party content (BREEAM criteria, BG6, CIC) is **never shipped**. Tables that would
   hold it start empty and are loaded per-project by whoever holds the licence.
-- Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI.
+- Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
+  token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
+- **The discipline list is the prototype's twenty-six, and each carries its ISO 19650 letter.**
+  Mechanical, electrical and public health are three appointments, not one. The letter is what
+  Phase 5's naming convention is built from, so it is set when the discipline is, never after.
 - Every reference to another record is a working link, never printed text.
 - Templates (DRM library, checklist templates, scope templates, risk/warranty libraries) are
   **host assets forked from a published default**. Editing a template never rewrites a project
@@ -161,13 +165,12 @@ inviting account's name to the addressee alone — an exception to account
 isolation that consent requires, since agreeing to join something you cannot see
 the name of is not consent.
 
-Everyone in an account sees its member list, its outstanding invitations and
-its pending membership requests. §1b once hid invitations from all but admins
-and the addressee; in use that is wrong — a team that cannot see who has been
-invited invites them twice, and whoever asked for someone has no way to see it
-is in hand. Acting on them is unchanged: issuing, revoking, approving and
-declining remain an admin's. Isolation is untouched — none of it crosses an
-account boundary.
+Invitations and membership requests are the admins' business. A member sees the
+accounts they belong to and the member directory, and no more: My accounts is a
+list of names for anyone who is not an admin, and does not open. Two exceptions
+exist because they are about function rather than curiosity — an addressee must
+see the invitation meant for them or they cannot accept it, and whoever raised a
+membership request must see what became of it or they will raise it again.
 
 `my_accounts()` and `my_projects()` are the only correct way to ask what the
 signed-in person belongs to. Reading `organisation_members` directly returns a

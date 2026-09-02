@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 
+import { BrandMark } from '@/components/BrandMark'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -53,7 +55,8 @@ export default function SignUp() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
+    <main className="bg-brand-canvas flex min-h-svh flex-col items-center justify-center gap-2 p-6">
+      <BrandMark />
       <Card className="w-full max-w-sm">
         <form onSubmit={onSubmit}>
           <CardHeader>

@@ -491,7 +491,13 @@ export type Contact = {
   phone: string | null
 }
 
-export type Discipline = { code: string; name: string; sort_order: number; forked: boolean }
+export type Discipline = {
+  code: string
+  name: string
+  iso_letter: string | null
+  sort_order: number
+  forked: boolean
+}
 
 export type ProjectCompany = {
   id: string
@@ -591,7 +597,9 @@ export async function forkDisciplines(organisationId: string): Promise<number> {
 export async function fetchProjectDisciplines(projectId: string) {
   const { data, error } = await supabase.rpc('project_disciplines_in_use', { p_project: projectId })
   if (error) throw error
-  return (data ?? []) as { code: string; name: string; sort_order: number; required: boolean }[]
+  return (data ?? []) as {
+    code: string; name: string; iso_letter: string | null; sort_order: number; required: boolean
+  }[]
 }
 
 /** The gaps. Hi-vis, and the only thing that colour ever means. */
@@ -666,4 +674,11 @@ export async function fetchAppointmentStatus(companyId: string): Promise<Appoint
   const { data, error } = await supabase.rpc('company_appointment_status', { p_company: companyId })
   if (error) throw error
   return data ?? []
+}
+
+/** Fill an empty project with the prototype's demo directory. Admin only. */
+export async function seedSampleProject(projectId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('seed_sample_project', { p_project: projectId })
+  if (error) throw error
+  return data as string
 }

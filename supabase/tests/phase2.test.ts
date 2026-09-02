@@ -356,17 +356,17 @@ describe('disciplines are forked, not shared', () => {
       expect(copied).toBeGreaterThan(5)
 
       await c.query(
-        `update disciplines set name = 'Architecture (HBC)' where organisation_id = $1 and code = 'A'`,
+        `update disciplines set name = 'Architect (HBC)' where organisation_id = $1 and code = 'A'`,
         [w.org])
       const { rows } = await c.query(
         `select name, forked from account_disciplines($1) where code = 'A'`, [w.org])
-      expect(rows[0]).toEqual({ name: 'Architecture (HBC)', forked: true })
+      expect(rows[0]).toEqual({ name: 'Architect (HBC)', forked: true })
     })
     const published = await asSuperuser(async (c) =>
       (await c.query(`select name from disciplines where organisation_id is null and code = 'A'`))
         .rows[0].name
     )
-    expect(published).toBe('Architecture')
+    expect(published).toBe('Architect')
   })
 
   test('forking twice does not duplicate', async () => {
@@ -519,6 +519,163 @@ describe('appointment documents', () => {
       const res = await c.query(
         `update appointment_documents set approved = false where company_id = $1`, [company])
       expect(res.rowCount).toBe(0)
+    })
+  })
+})
+
+describe('the discipline list matches the prototype', () => {
+  test('all twenty-six are published, each with its ISO letter', async () => {
+    await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        'select code, iso_letter from disciplines where organisation_id is null order by sort_order')
+      expect(rows).toHaveLength(26)
+      expect(rows.every((r) => r.iso_letter && r.iso_letter.length === 1)).toBe(true)
+    })
+  })
+
+  test('mechanical, electrical and public health are separate appointments', async () => {
+    await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `select code from disciplines where organisation_id is null and code in ('M','E','P')`)
+      expect(rows).toHaveLength(3)
+    })
+  })
+
+  test('the ones a real job needs are all there', async () => {
+    await asSuperuser(async (c) => {
+      const codes = (await c.query(
+        'select code from disciplines where organisation_id is null')).rows.map((r) => r.code)
+      // every code the prototype's demo project assigns to a company
+      for (const needed of ['MC','CL','A','ID','S','C','GE','M','E','P','FE','SC','FS','AC',
+                            'L','SU','BR','PD','PDB','QS','SUR']) {
+        expect(codes, `missing ${needed}`).toContain(needed)
+      }
+    })
+  })
+
+  test('refreshing a fork adds what is new without touching an edit', async () => {
+    const org = await asSuperuser(async (c) => {
+      const id = (await c.query(
+        `insert into organisations (name, slug, status) values ('Fork Test','forktest','active')
+         returning id`)).rows[0].id
+      const p = await makePerson(c, 'Fork Admin', 'p2-fork@forktest.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'admin')`, [id, p])
+      // a fork taken when the published set was smaller
+      await c.query(
+        `insert into disciplines (organisation_id, code, name, iso_letter, sort_order)
+         values ($1,'A','Architect — our wording','A',70)`, [id])
+      return { id, p }
+    })
+    await asUser(org.p, async (c) => {
+      const added = (await c.query('select refresh_discipline_fork($1) as n', [org.id])).rows[0].n
+      expect(added).toBe(25)   // the 26 published, less the one already held
+      const { rows } = await c.query(
+        `select name from account_disciplines($1) where code = 'A'`, [org.id])
+      expect(rows[0].name).toBe('Architect — our wording')  // the edit survives
+    })
+  })
+})
+
+describe('sample data', () => {
+  let project: string
+  let admin: string
+
+  beforeAll(async () => {
+    ;({ project, admin } = await asSuperuser(async (c) => {
+      const org = (await c.query(
+        `insert into organisations (name, slug, status) values ('Seed Co','seedco','active')
+         returning id`)).rows[0].id
+      const admin = await makePerson(c, 'Seed Admin', 'p2-seed@seedco.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'admin')`, [org, admin])
+      const project = (await c.query(
+        `insert into projects (organisation_id, name, code) values ($1,'Kingsmead Wharf','KMW')
+         returning id`, [org])).rows[0].id
+      return { project, admin }
+    }))
+  })
+
+  test('one call fills an empty project', async () => {
+    await asUser(admin, async (c) => {
+      const msg = (await c.query('select seed_sample_project($1) as m', [project])).rows[0].m
+      expect(msg).toMatch(/Seeded 16 firms and 25 people/)
+    })
+  })
+
+  test('the directory carries the disciplines the prototype allocates', async () => {
+    await asUser(admin, async (c) => {
+      expect((await c.query(`select name from companies_for_discipline($1,'A')`, [project]))
+        .rows.map((r) => r.name)).toEqual(['Bellhouse Architects', 'Latimer Heritage Consulting'])
+      expect((await c.query(`select name from companies_for_discipline($1,'GE')`, [project]))
+        .rows.map((r) => r.name)).toEqual(['Craven Wells Consulting', 'Trent Geotechnical Ltd'])
+      // separate appointments, as they are on a real job
+      for (const code of ['M', 'E', 'P']) {
+        expect((await c.query(`select name from companies_for_discipline($1,$2)`, [project, code]))
+          .rows.map((r) => r.name)).toEqual(['Merton Beattie Engineers'])
+      }
+    })
+  })
+
+  test('it leaves real gaps, because an empty gap list proves nothing', async () => {
+    await asUser(admin, async (c) => {
+      const gaps = (await c.query('select code from project_discipline_gaps($1)', [project]))
+        .rows.map((r) => r.code)
+      expect(gaps).toContain('VT')   // vertical transportation — nobody
+      expect(gaps).toContain('EC')   // ecology — nobody
+      expect(gaps).toContain('BC')   // building control — nobody
+      expect(gaps).not.toContain('TR')  // struck out for this job
+      expect(gaps).not.toContain('ID')  // struck out for this job
+      expect(gaps).not.toContain('A')
+    })
+  })
+
+  test('sub-consultants hang off their parent', async () => {
+    await asUser(admin, async (c) => {
+      const { rows } = await c.query(
+        `select child.name as child, parent.name as parent
+         from companies child join companies parent on parent.id = child.parent_id
+         where child.project_id = $1 order by child.name`, [project])
+      expect(rows).toEqual([
+        { child: 'Latimer Heritage Consulting', parent: 'Bellhouse Architects' },
+        { child: 'Trent Geotechnical Ltd', parent: 'Craven Wells Consulting' },
+      ])
+    })
+  })
+
+  test('appointment documents land in a mix of states, not all green', async () => {
+    await asUser(admin, async (c) => {
+      const cwc = (await c.query(
+        `select id from companies where project_id = $1 and originator_code = 'CWC'`, [project]
+      )).rows[0].id
+      const states = (await c.query('select slot, state from company_appointment_status($1)', [cwc]))
+        .rows
+      expect(states.find((s) => s.slot === 'appointment')!.state).toBe('awaiting approval')
+      expect(states.find((s) => s.slot === 'competency_statement')!.state).toBe('approved')
+    })
+  })
+
+  test('it refuses to run twice', async () => {
+    await asUser(admin, async (c) => {
+      const msg = await refused(() => c.query('select seed_sample_project($1)', [project]))
+      expect(msg).toMatch(/already has a directory/)
+    })
+  })
+
+  test('a non-admin cannot seed', async () => {
+    const other = await asSuperuser(async (c) => {
+      const org = (await c.query(`select id from organisations where slug = 'seedco'`)).rows[0].id
+      const p = await makePerson(c, 'Seed Consultant', 'p2-seedc@seedco.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`, [org, p])
+      return p
+    })
+    await asUser(other, async (c) => {
+      const msg = await refused(() => c.query('select seed_sample_project($1)', [project]))
+      expect(msg).toMatch(/not permitted/)
     })
   })
 })

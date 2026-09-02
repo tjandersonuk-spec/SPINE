@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { Empty, ErrorNote } from '@/components/Shell'
+import { ErrorNote } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/select-native'
 import {
   addCompanyToProject, addPersonToProject, fetchAppointmentStatus, fetchCatalogue,
   fetchCompanyDisciplines, fetchContacts, fetchDisciplineGaps, fetchProjectCompanies,
-  fetchProjectDisciplines, fetchProjectPeople, setCompanyDiscipline, SLOT_LABELS,
+  fetchProjectDisciplines, fetchProjectPeople, seedSampleProject, setCompanyDiscipline, SLOT_LABELS,
   type AppointmentSlot, type CatalogueCompany, type Contact, type ProjectCompany,
   type ProjectPerson,
 } from '@/lib/queries'
@@ -173,7 +173,28 @@ export function Directory({
       )}
 
       {companies.length === 0 ? (
-        <Empty>No firms on this project yet.</Empty>
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-10">
+          <p className="text-muted-foreground text-sm">No firms on this project yet.</p>
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  act(async () => {
+                    await seedSampleProject(projectId)
+                  })
+                }
+              >
+                Fill with sample data
+              </Button>
+              <p className="text-muted-foreground max-w-md text-center text-xs">
+                Puts the prototype's demo project in — sixteen firms, twenty-five people, their
+                disciplines and appointment documents, with the same deliberate gaps. For trying
+                the application out; it only works on an empty project.
+              </p>
+            </>
+          )}
+        </div>
       ) : (
         <ul className="flex flex-col gap-3">
           {companies.map((c) => (

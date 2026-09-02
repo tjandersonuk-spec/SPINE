@@ -27,6 +27,26 @@ only on each other: the grants migration states the blanket grants itself before
 narrowing them, so it produces the same result on a hosted project and on a
 plain PostgreSQL, whichever way the database was set up.
 
+### Handing a migration over to be applied
+
+The person applying these is working on Windows with the SQL editor, so every
+migration is handed over as a pair, in this order and this shape:
+
+1. A PowerShell line that puts the file on the clipboard:
+
+   ```powershell
+   Get-Content supabase\migrations\<file>.sql | Set-Clipboard
+   ```
+
+2. What to do with it: **SQL Editor → New query → Ctrl+V → Run**, and what a
+   successful result looks like.
+
+Copy the SQL into the chat as well only when it is short enough to check by eye.
+For anything long — a seed especially — the clipboard is the safer route,
+because a data insert that pastes forty rows short looks exactly like one that
+worked. Where that risk exists, follow the pair with a count query that proves
+it landed whole.
+
 ### Which migrations have been applied?
 
 Applying by hand leaves no history table. `check-applied.sql` reads the

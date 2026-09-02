@@ -8,7 +8,11 @@ import Landing from '@/pages/Landing'
 import PlatformAccounts from '@/pages/platform/Accounts'
 import Profile from '@/pages/Profile'
 import PlatformPeople from '@/pages/platform/People'
-import ProjectPage from '@/pages/project/Project'
+import AccessPage from '@/pages/project/AccessPage'
+import DirectoryPage from '@/pages/project/DirectoryPage'
+import MatrixPage from '@/pages/project/MatrixPage'
+import ProjectLayout from '@/pages/project/ProjectLayout'
+import ProjectSettingsPage from '@/pages/project/SettingsPage'
 import RequestAccount from '@/pages/RequestAccount'
 import SetupNeeded from '@/pages/SetupNeeded'
 import SignIn from '@/pages/SignIn'
@@ -43,7 +47,15 @@ export default function App() {
         <Route path="/request-account" element={<RequireAuth><RequestAccount /></RequireAuth>} />
         <Route path="/me" element={<RequireAuth><Profile /></RequireAuth>} />
         <Route path="/account/:id" element={<RequireAuth><Account /></RequireAuth>} />
-        <Route path="/project/:id" element={<RequireAuth><ProjectPage /></RequireAuth>} />
+        {/* Everything inside a project renders in the shell; the sidebar is
+            the navigator, so each entry is a route rather than a tab. */}
+        <Route path="/project/:id" element={<RequireAuth><ProjectLayout /></RequireAuth>}>
+          <Route index element={<Navigate to="directory" replace />} />
+          <Route path="directory" element={<DirectoryPage />} />
+          <Route path="matrix" element={<MatrixPage />} />
+          <Route path="access" element={<AccessPage />} />
+          <Route path="settings" element={<ProjectSettingsPage />} />
+        </Route>
         <Route path="/platform/accounts" element={<RequireAuth><PlatformAccounts /></RequireAuth>} />
         <Route path="/platform/people" element={<RequireAuth><PlatformPeople /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />

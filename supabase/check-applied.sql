@@ -6,6 +6,10 @@
 -- order listed, top to bottom.
 --
 -- Safe to run at any time: it only reads the catalogue.
+--
+-- Everything below is ONE statement on purpose. The Supabase SQL editor shows
+-- only the result of the last statement it runs, so a second select here would
+-- silently replace this list on screen with its own output.
 
 with expected(ord, migration, kind, marker) as (values
   (1, '20260902090000_phase1_identity',              'table',    'profiles'),
@@ -24,10 +28,14 @@ with expected(ord, migration, kind, marker) as (values
   (14,'20260902100200_phase2_rls',                    'policy',   'companies_select'),
   (15,'20260902110000_full_discipline_list',          'function', 'refresh_discipline_fork'),
   (16,'20260902110100_member_visibility_admins_only', 'policy',   'invitations_select'),
-  (17,'20260902110200_sample_data',                   'function', 'seed_sample_project')
+  (17,'20260902110200_sample_data',                   'function', 'seed_sample_project'),
+  (18,'20260902120000_phase3_drm',                    'table',    'drm_items'),
+  -- the seed has no object of its own; it is checked by its row count below
+  (19,'20260902120100_phase3_drm_functions',          'function', 'drm_gaps'),
+  (20,'20260902120200_phase3_drm_rls',                'policy',   'drm_items_select')
 )
 select
-  e.ord as "#",
+  e.ord::numeric as "#",
   e.migration,
   case e.kind
     when 'table' then exists (
@@ -46,4 +54,21 @@ select
         and column_name = split_part(e.marker, '.', 2))
   end as applied
 from expected e
-order by e.ord;
+
+-- The library seed carries no schema object, so it is checked by counting
+-- rather than by looking for an object. It rides along as two extra rows so
+-- that the whole check stays a single statement.
+union all
+select
+  20.1,
+  'library seed: 100 published items expected, ' ||
+    (select count(*) from drm_library_items where organisation_id is null) || ' found',
+  (select count(*) from drm_library_items where organisation_id is null) = 100
+union all
+select
+  20.2,
+  'library seed: 9 published categories expected, ' ||
+    (select count(*) from drm_categories where organisation_id is null) || ' found',
+  (select count(*) from drm_categories where organisation_id is null) = 9
+
+order by 1;

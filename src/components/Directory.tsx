@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select-native'
+import { Code, Pill } from '@/components/ui/table'
 import {
   addCompanyToProject, addPersonToProject, fetchAppointmentStatus, fetchCatalogue,
   fetchCompanyDisciplines, fetchContacts, fetchDisciplineGaps, fetchProjectCompanies,
@@ -24,20 +25,13 @@ function AppointmentDocs({ companyId }: { companyId: string }) {
   return (
     <div className="flex flex-wrap gap-1">
       {slots.map((s) => (
-        <span
+        <Pill
           key={s.slot}
           title={s.filename ?? 'Nothing uploaded'}
-          className={
-            'rounded border px-2 py-0.5 text-xs ' +
-            (s.state === 'approved'
-              ? 'border-green-700/40 text-green-800 dark:text-green-400'
-              : s.state === 'missing'
-                ? 'text-muted-foreground'
-                : 'border-amber-700/40 text-amber-800 dark:text-amber-400')
-          }
+          tone={s.state === 'approved' ? 'ok' : s.state === 'missing' ? 'neutral' : 'warn'}
         >
           {SLOT_LABELS[s.slot] ?? s.slot}: {s.state}
-        </span>
+        </Pill>
       ))}
     </div>
   )
@@ -115,7 +109,7 @@ export function Directory({
       {/* Hi-vis, and this is the only place in the application it appears: a
           discipline this project needs that nobody has been given. */}
       {gaps.length > 0 && (
-        <section className="border-hivis bg-hivis-bg text-hivis-ink rounded-lg border-l-4 p-4">
+        <section className="border-hivis bg-hivis-bg text-hivis-ink shadow-hivis rounded-lg border-l-[3px] p-4">
           <h3 className="font-semibold">
             {gaps.length === 1 ? '1 discipline is unallocated' : `${gaps.length} disciplines are unallocated`}
           </h3>
@@ -203,7 +197,7 @@ export function Directory({
                 <div>
                   <p className="font-medium">
                     {c.name}{' '}
-                    <span className="text-muted-foreground font-mono text-sm">{c.originator_code}</span>
+                    <Code className="text-graphite-light font-semibold">{c.originator_code}</Code>
                   </p>
                   <p className="text-muted-foreground text-sm">
                     {c.company_type}

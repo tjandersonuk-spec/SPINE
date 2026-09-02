@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { Empty, ErrorNote, Shell } from '@/components/Shell'
 import { Input } from '@/components/ui/input'
+import { Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { fetchAllPeople, type OwnerPerson } from '@/lib/queries'
 
 /**
@@ -42,34 +43,36 @@ export default function PlatformPeople() {
       {shown.length === 0 ? (
         <Empty>No logins match.</Empty>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-left">
+        <TableScroll>
+          <Table>
+            <THead>
               <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Accounts</th>
-                <th className="px-4 py-2 font-medium">Signed up</th>
+                <TH>Name</TH>
+                <TH>Email</TH>
+                <TH>Accounts</TH>
+                <TH>Signed up</TH>
               </tr>
-            </thead>
-            <tbody>
+            </THead>
+            <TBody>
               {shown.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="px-4 py-2">{p.name}</td>
-                  <td className="px-4 py-2">{p.email}</td>
-                  <td className="px-4 py-2">
+                <TR key={p.id}>
+                  <TD>{p.name}</TD>
+                  <TD className="font-mono text-[0.92em]">{p.email}</TD>
+                  <TD>
                     {p.accounts.length === 0 ? (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-graphite-light">—</span>
                     ) : (
                       p.accounts.join(', ')
                     )}
-                  </td>
-                  <td className="px-4 py-2">{new Date(p.created_at).toLocaleDateString('en-GB')}</td>
-                </tr>
+                  </TD>
+                  <TD className="tabular-nums whitespace-nowrap">
+                    {new Date(p.created_at).toLocaleDateString('en-GB')}
+                  </TD>
+                </TR>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TBody>
+          </Table>
+        </TableScroll>
       )}
     </Shell>
   )

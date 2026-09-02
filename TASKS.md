@@ -169,14 +169,22 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 *Reference: handover DRM section + standard library JSON. Open prototype at Responsibility matrix.*
 
-- [ ] Host-level standard library (reference, category, item, default lead discipline, CDP flag,
+- [x] Host-level standard library (reference, category, item, default lead discipline, CDP flag,
       note); project loads a versioned snapshot
-- [ ] Project item: lead discipline, coordination/input roles, applicable flag, note
-- [ ] Gap = applicable item with no lead, or a lead discipline no company on the project holds —
+- [x] Project item: lead discipline, coordination/input roles, applicable flag, note
+- [x] Gap = applicable item with no lead, or a lead discipline no company on the project holds —
       hi-vis yellow, the only use of that colour in the app
-- [ ] `lead_companies()` live lookup
-- [ ] Tests: reassigning a lead updates `lead_companies()` immediately; an item whose lead
+- [x] `lead_companies()` live lookup
+- [x] Tests: reassigning a lead updates `lead_companies()` immediately; an item whose lead
       discipline nobody holds is a gap; dashboard gap count equals matrix gap count
+
+### Remaining in this phase
+
+- [ ] `drm_roles` — the supporting, reviewing, contributing, approving and informed disciplines
+      beside the lead. Table, policies and grants exist; no screen edits them yet
+- [ ] Editing the forked DRM library from the UI, and bespoke project items — the policies allow
+      both, the screen does neither
+- [ ] `transfers_at_stage`, `cdp_package` and `level_of_information` are stored but not yet shown
 
 ## Phase 4 — Programme and the date spine
 

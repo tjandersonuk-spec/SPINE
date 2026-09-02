@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router'
 
 import { AuthProvider, useAuth } from '@/lib/auth'
+import { supabaseConfigProblem } from '@/lib/supabase'
 import Account from '@/pages/account/Account'
 import AcceptInvitation from '@/pages/AcceptInvitation'
 import Landing from '@/pages/Landing'
@@ -8,6 +9,7 @@ import PlatformAccounts from '@/pages/platform/Accounts'
 import PlatformPeople from '@/pages/platform/People'
 import Project from '@/pages/project/Project'
 import RequestAccount from '@/pages/RequestAccount'
+import SetupNeeded from '@/pages/SetupNeeded'
 import SignIn from '@/pages/SignIn'
 import SignUp from '@/pages/SignUp'
 
@@ -24,6 +26,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
  * person who reaches these pages another way sees nothing and can do nothing.
  */
 export default function App() {
+  // Before anything else: an unconfigured copy explains itself rather than
+  // failing somewhere the user cannot see.
+  if (supabaseConfigProblem) return <SetupNeeded problem={supabaseConfigProblem} />
+
   return (
     <AuthProvider>
       <Routes>

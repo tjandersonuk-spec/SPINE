@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 
 import { Directory } from '@/components/Directory'
+import { Matrix } from '@/components/Matrix'
 import { Empty, ErrorNote, Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -104,6 +105,7 @@ export default function ProjectPage() {
       <Tabs defaultValue="directory">
         <TabsList>
           <TabsTrigger value="directory">Directory</TabsTrigger>
+          <TabsTrigger value="matrix">Responsibility matrix</TabsTrigger>
           <TabsTrigger value="people">Access ({members.length})</TabsTrigger>
           {canEdit && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
@@ -116,6 +118,10 @@ export default function ProjectPage() {
               canEdit={canEdit}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="matrix" className="pt-4">
+          <Matrix projectId={id} canEdit={canEdit} />
         </TabsContent>
 
         <TabsContent value="people" className="flex flex-col gap-4 pt-4">

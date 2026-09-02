@@ -24,7 +24,10 @@ with expected(ord, migration, kind, marker) as (values
   (14,'20260902100200_phase2_rls',                    'policy',   'companies_select'),
   (15,'20260902110000_full_discipline_list',          'function', 'refresh_discipline_fork'),
   (16,'20260902110100_member_visibility_admins_only', 'policy',   'invitations_select'),
-  (17,'20260902110200_sample_data',                   'function', 'seed_sample_project')
+  (17,'20260902110200_sample_data',                   'function', 'seed_sample_project'),
+  (18,'20260902120000_phase3_drm',                    'table',    'drm_items'),
+  (19,'20260902120100_phase3_drm_functions',          'function', 'drm_gaps'),
+  (20,'20260902120200_phase3_drm_rls',                'policy',   'drm_items_select')
 )
 select
   e.ord as "#",

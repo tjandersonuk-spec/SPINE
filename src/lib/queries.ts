@@ -682,3 +682,90 @@ export async function seedSampleProject(projectId: string): Promise<string> {
   if (error) throw error
   return data as string
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 — the design responsibility matrix
+// ---------------------------------------------------------------------------
+
+export type DrmLead = {
+  drm_item_id: string
+  ref: string
+  item: string
+  lead_discipline: string | null
+  company_id: string | null
+  company_name: string | null
+}
+
+export type DrmGap = {
+  drm_item_id: string
+  ref: string
+  category_code: string
+  item: string
+  lead_discipline: string | null
+  gap_reason: string
+}
+
+export type DrmItem = {
+  id: string
+  ref: string
+  category_code: string
+  item: string
+  lead_discipline: string | null
+  cdp_package: string | null
+  applicable: boolean
+  guidance_note: string | null
+  notes: string | null
+}
+
+export async function fetchDrmItems(projectId: string): Promise<DrmItem[]> {
+  const { data, error } = await supabase
+    .from('drm_items')
+    .select('id, ref, category_code, item, lead_discipline, cdp_package, applicable, guidance_note, notes')
+    .eq('project_id', projectId)
+    .order('ref')
+  if (error) throw error
+  return data ?? []
+}
+
+/** Who leads each item, resolved live through the directory. Never cached. */
+export async function fetchDrmLeads(projectId: string): Promise<DrmLead[]> {
+  const { data, error } = await supabase.rpc('drm_leads', { p_project: projectId })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchDrmGaps(projectId: string): Promise<DrmGap[]> {
+  const { data, error } = await supabase.rpc('drm_gaps', { p_project: projectId })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function loadDrmIntoProject(projectId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('load_drm_into_project', { p_project: projectId })
+  if (error) throw error
+  return data as string
+}
+
+export async function setDrmLead(itemId: string, discipline: string | null) {
+  const { error } = await supabase.rpc('set_drm_lead', {
+    p_item: itemId, p_discipline: discipline,
+  })
+  if (error) throw error
+}
+
+export async function setDrmApplicable(itemId: string, applicable: boolean) {
+  const { error } = await supabase.from('drm_items').update({ applicable }).eq('id', itemId)
+  if (error) throw error
+}
+
+export const DRM_CATEGORY_NAMES: Record<string, string> = {
+  '01': 'Site, survey and enabling',
+  '02': 'Substructure',
+  '03': 'Superstructure',
+  '04': 'Building envelope',
+  '05': 'Internal fabric and fit-out',
+  '06': 'Mechanical, electrical and public health',
+  '07': 'External works and infrastructure',
+  '08': 'Compliance, performance and statutory',
+  '09': 'Interfaces and coordination',
+}

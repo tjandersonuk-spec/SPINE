@@ -47,13 +47,16 @@ export async function refused(fn: () => Promise<unknown>): Promise<string> {
   throw new Error('expected the statement to be refused, but it succeeded')
 }
 
-/** Create an auth user and its profile. Returns the profile id. */
+/**
+ * Sign someone up. Only auth.users is written, exactly as Supabase Auth does —
+ * the profile is created by the on_auth_user_created trigger, so every test
+ * exercises the real path rather than a hand-built row that could differ.
+ */
 export async function makePerson(c: Client, name: string, email: string): Promise<string> {
   const { rows } = await c.query(
-    'insert into auth.users (email) values ($1) returning id',
-    [email]
+    `insert into auth.users (email, raw_user_meta_data)
+     values ($1, jsonb_build_object('name', $2::text)) returning id`,
+    [email, name]
   )
-  const id = rows[0].id as string
-  await c.query('insert into profiles (id, name, email) values ($1, $2, $3)', [id, name, email])
-  return id
+  return rows[0].id as string
 }

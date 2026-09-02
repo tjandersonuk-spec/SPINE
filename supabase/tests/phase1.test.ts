@@ -985,3 +985,61 @@ describe('removing someone from a project', () => {
     })
   })
 })
+
+describe('a login becomes a person', () => {
+  test('signing up creates the profile, with the name from the form', async () => {
+    const id = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `insert into auth.users (email, raw_user_meta_data)
+         values ('newbie@fresh.example', '{"name":"Nell Newbie"}') returning id`
+      )
+      return rows[0].id as string
+    })
+    const profile = await asSuperuser(
+      async (c) => (await c.query('select name, email from profiles where id = $1', [id])).rows[0]
+    )
+    expect(profile).toEqual({ name: 'Nell Newbie', email: 'newbie@fresh.example' })
+  })
+
+  test('a sign-up with no name still gets a usable one rather than a blank', async () => {
+    const id = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `insert into auth.users (email) values ('noname@fresh.example') returning id`
+      )
+      return rows[0].id as string
+    })
+    const name = await asSuperuser(
+      async (c) => (await c.query('select name from profiles where id = $1', [id])).rows[0].name
+    )
+    expect(name).toBe('noname')
+  })
+
+  test('the new person can sign in and sees a coherent, empty landing page', async () => {
+    const id = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `insert into auth.users (email, raw_user_meta_data)
+         values ('coherent@fresh.example', '{"name":"Cora"}') returning id`
+      )
+      return rows[0].id as string
+    })
+    await asUser(id, async (c) => {
+      expect((await c.query('select name from profiles')).rows).toEqual([{ name: 'Cora' }])
+      expect((await c.query('select * from organisations')).rows).toHaveLength(0)
+      expect((await c.query('select * from my_projects()')).rows).toHaveLength(0)
+    })
+  })
+
+  test('an address changed through Auth follows onto the profile', async () => {
+    const id = await asSuperuser(async (c) => {
+      const { rows } = await c.query(
+        `insert into auth.users (email) values ('before@fresh.example') returning id`
+      )
+      await c.query(`update auth.users set email = 'after@fresh.example' where id = $1`, [rows[0].id])
+      return rows[0].id as string
+    })
+    const email = await asSuperuser(
+      async (c) => (await c.query('select email from profiles where id = $1', [id])).rows[0].email
+    )
+    expect(email).toBe('after@fresh.example')
+  })
+})

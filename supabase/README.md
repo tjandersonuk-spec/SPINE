@@ -10,6 +10,7 @@ order and are written to run unchanged against a hosted Supabase project.
 | `…_phase1_actions.sql` | Actions that create membership or move an account's lifecycle |
 | `…_phase1_rls.sql` | Row Level Security on every table |
 | `…_phase1_grants.sql` | Table and column privileges, and the platform owner's amend and project-removal functions |
+| `…_phase1_new_user_trigger.sql` | Creates the `profiles` row when Auth creates a login, and keeps its address in step |
 
 Filenames are `<timestamp>_<name>.sql`, which is the format the Supabase CLI
 expects; it reads the leading digits as the version and applies them in order.
@@ -69,3 +70,24 @@ An `insert` or `update` that violates a `with check` clause **raises**. An
 `update` or `delete` whose `using` clause matches no row is a **silent no-op**
 that reports zero rows affected. The UI must never read "no error" as success —
 `phase1.test.ts` asserts both shapes where they apply.
+
+
+## Making yourself the platform owner
+
+Nothing in the application can grant platform ownership — there is no insert
+policy on `platform_owners`, deliberately. The first owner is made once, by
+hand, in the dashboard's SQL editor, after signing up through the app:
+
+```sql
+insert into platform_owners (profile_id)
+select id from profiles where lower(email) = lower('you@example.com');
+```
+
+Check it took:
+
+```sql
+select p.email from platform_owners o join profiles p on p.id = o.profile_id;
+```
+
+Sign out and back in, and the Accounts and People links appear on the landing
+page.

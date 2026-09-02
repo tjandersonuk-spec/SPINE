@@ -36,6 +36,14 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Semantic colours. Fixed, never themed, never customisable by a tenant.
+     Hi-vis means exactly one thing anywhere in this application: a gap —
+     something nobody has been given. It is the colour a design manager scans
+     for on a Monday, and spending it on anything else destroys that. */
+  --hivis: oklch(0.83 0.15 88);
+  --hivis-bg: oklch(0.97 0.04 95);
+  --hivis-ink: oklch(0.42 0.07 88);
 }
 
 .dark {
@@ -70,6 +78,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Semantic colours do not change with the theme, only enough to stay legible. */
+  --hivis: oklch(0.83 0.15 88);
+  --hivis-bg: oklch(0.32 0.06 88);
+  --hivis-ink: oklch(0.92 0.08 92);
 }
 
 @theme inline {
@@ -108,6 +121,9 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-hivis: var(--hivis);
+  --color-hivis-bg: var(--hivis-bg);
+  --color-hivis-ink: var(--hivis-ink);
 }
 
 @layer base {

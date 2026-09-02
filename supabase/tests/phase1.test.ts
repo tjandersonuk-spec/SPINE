@@ -483,26 +483,34 @@ describe('invitations', () => {
     })
   })
 
-  test('the account can see its own invitations, and nobody outside it can', async () => {
+  test('an invitation is the admins business, not the team\'s', async () => {
     await asUser(w.admin, (c) =>
       c.query(`select invite_to_account($1,'quiet@elsewhere.example','consultant')`, [w.ashgrove])
     )
-    // A team that cannot see who has been invited invites them twice.
-    await asUser(w.consultant, async (c) => {
-      const { rows } = await c.query(
-        `select id from invitations where email = 'quiet@elsewhere.example'`
+    const sees = async (who: string) =>
+      asUser(who, async (c) =>
+        (await c.query(`select id from invitations where email = 'quiet@elsewhere.example'`))
+          .rows.length
       )
-      expect(rows).toHaveLength(1)
+    expect(await sees(w.admin)).toBe(1)
+    // a member of the account is not an audience for it
+    expect(await sees(w.consultant)).toBe(0)
+    expect(await sees(w.internal)).toBe(0)
+    // nor is anyone outside it
+    expect(await sees(w.stranger)).toBe(0)
+    expect(await sees(w.outsider)).toBe(0)
+  })
+
+  test('but the addressee sees their own, or they could never accept it', async () => {
+    const invitee = await asSuperuser((c) =>
+      makePerson(c, 'Addressed', 'addressed@elsewhere.example'))
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'addressed@elsewhere.example','consultant')`,
+        [w.ashgrove])
+    )
+    await asUser(invitee, async (c) => {
+      expect((await c.query('select * from my_pending_invitations()')).rows).toHaveLength(1)
     })
-    // Isolation is unchanged: another account and a person in none see nothing.
-    for (const outsider of [w.stranger, w.outsider]) {
-      await asUser(outsider, async (c) => {
-        const { rows } = await c.query(
-          `select id from invitations where email = 'quiet@elsewhere.example'`
-        )
-        expect(rows).toHaveLength(0)
-      })
-    }
   })
 })
 
@@ -1329,23 +1337,19 @@ describe('adding someone from the bottom up needs an admin', () => {
     })
   })
 
-  test('the account can see the request; another account and an outsider cannot', async () => {
-    // Whoever asked needs to see it is in hand, and the team needs to see it so
-    // that two people do not ask for the same person.
-    await asUser(w.consultant, async (c) => {
-      const { rows } = await c.query(
-        `select id from membership_requests where email = 'newbod@structures.example'`
+  test('a request is seen by the admins and by whoever raised it, and nobody else', async () => {
+    const sees = async (who: string) =>
+      asUser(who, async (c) =>
+        (await c.query(
+          `select id from membership_requests where email = 'newbod@structures.example'`))
+          .rows.length
       )
-      expect(rows).toHaveLength(1)
-    })
-    for (const who of [w.stranger, w.outsider]) {
-      await asUser(who, async (c) => {
-        const { rows } = await c.query(
-          `select id from membership_requests where email = 'newbod@structures.example'`
-        )
-        expect(rows).toHaveLength(0)
-      })
-    }
+    expect(await sees(w.admin)).toBe(1)     // they must act on it
+    expect(await sees(member)).toBe(1)      // they are owed an answer
+    expect(await sees(w.consultant)).toBe(0)
+    expect(await sees(w.internal)).toBe(0)
+    expect(await sees(w.stranger)).toBe(0)
+    expect(await sees(w.outsider)).toBe(0)
   })
 
   test('a non-admin cannot approve it', async () => {

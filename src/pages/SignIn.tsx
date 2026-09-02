@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 
+import { BrandMark } from '@/components/BrandMark'
+
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
@@ -25,12 +27,12 @@ export default function SignIn() {
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
+    <main className="bg-brand-canvas flex min-h-svh flex-col items-center justify-center gap-2 p-6">
+      <BrandMark />
       <Card className="w-full max-w-sm">
         <form onSubmit={onSubmit}>
           <CardHeader>
             <CardTitle>Sign in</CardTitle>
-            <CardDescription>One login, however many accounts you work with.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">

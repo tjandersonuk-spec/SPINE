@@ -138,20 +138,35 @@ export default function Landing() {
             </Card>
           ) : (
             <ul className="flex flex-col gap-2">
-              {accounts.map((a) => (
-                <li key={a.id}>
-                  <Link
-                    to={`/account/${a.id}`}
-                    className="hover:bg-accent flex items-center justify-between rounded-lg border px-4 py-3"
+              {/* An admin administers the account, so their row opens it. For
+                  everyone else this is just the list of accounts they belong
+                  to: no link, and nothing about invitations or requests. */}
+              {accounts.map((a) =>
+                a.role === 'admin' ? (
+                  <li key={a.id}>
+                    <Link
+                      to={`/account/${a.id}`}
+                      className="hover:bg-accent flex items-center justify-between rounded-lg border px-4 py-3"
+                    >
+                      <span className="font-medium">{a.name}</span>
+                      <span className="text-muted-foreground text-sm">
+                        {a.role}
+                        {a.status !== 'active' && ` · ${a.status}`}
+                      </span>
+                    </Link>
+                  </li>
+                ) : (
+                  <li
+                    key={a.id}
+                    className="flex items-center justify-between rounded-lg border px-4 py-3"
                   >
                     <span className="font-medium">{a.name}</span>
-                    <span className="text-muted-foreground text-sm">
-                      {a.role}
-                      {a.status !== 'active' && ` · ${a.status}`}
-                    </span>
-                  </Link>
-                </li>
-              ))}
+                    {a.status !== 'active' && (
+                      <span className="text-muted-foreground text-sm">{a.status}</span>
+                    )}
+                  </li>
+                )
+              )}
             </ul>
           )}
 

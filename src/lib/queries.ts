@@ -469,3 +469,216 @@ export const ACCOUNT_ROLES = [
   { value: 'internal', label: 'Internal' },
   { value: 'admin', label: 'Admin' },
 ] as const
+
+// ---------------------------------------------------------------------------
+// Phase 2 — the catalogue, the directory, and the first spine
+// ---------------------------------------------------------------------------
+
+export type CatalogueCompany = {
+  id: string
+  name: string
+  address: string | null
+  company_type: string | null
+  notes: string | null
+}
+
+export type Contact = {
+  id: string
+  catalogue_company_id: string
+  name: string
+  job_role: string | null
+  email: string | null
+  phone: string | null
+}
+
+export type Discipline = {
+  code: string
+  name: string
+  iso_letter: string | null
+  sort_order: number
+  forked: boolean
+}
+
+export type ProjectCompany = {
+  id: string
+  name: string
+  address: string | null
+  originator_code: string
+  company_type: string
+  catalogue_company_id: string | null
+}
+
+export type ProjectPerson = {
+  id: string
+  company_id: string
+  name: string
+  job_role: string | null
+  email: string | null
+  phone: string | null
+  is_primary: boolean
+  profile_id: string | null
+}
+
+export type AppointmentSlot = {
+  slot: string
+  state: string
+  filename: string | null
+  uploaded_at: string | null
+}
+
+export const SLOT_LABELS: Record<string, string> = {
+  competency_statement: 'Competency statement',
+  team_cvs: 'Team CVs',
+  appointment: 'Appointment',
+  scope_of_work: 'Scope of work',
+}
+
+export async function fetchCatalogue(organisationId: string): Promise<CatalogueCompany[]> {
+  const { data, error } = await supabase
+    .from('catalogue_companies')
+    .select('id, name, address, company_type, notes')
+    .eq('organisation_id', organisationId)
+    .order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function addCatalogueCompany(
+  organisationId: string,
+  input: { name: string; address: string; companyType: string }
+) {
+  if (!input.name.trim()) throw new Error('A name is required.')
+  const { error } = await supabase.from('catalogue_companies').insert({
+    organisation_id: organisationId,
+    name: input.name.trim(),
+    address: input.address.trim() || null,
+    company_type: input.companyType,
+  })
+  if (error) throw error
+}
+
+export async function fetchContacts(catalogueCompanyId: string): Promise<Contact[]> {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('id, catalogue_company_id, name, job_role, email, phone')
+    .eq('catalogue_company_id', catalogueCompanyId)
+    .order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function addContact(
+  catalogueCompanyId: string,
+  input: { name: string; jobRole: string; email: string; phone: string }
+) {
+  if (!input.name.trim()) throw new Error('A name is required.')
+  const { error } = await supabase.from('contacts').insert({
+    catalogue_company_id: catalogueCompanyId,
+    name: input.name.trim(),
+    job_role: input.jobRole.trim() || null,
+    email: input.email.trim() || null,
+    phone: input.phone.trim() || null,
+  })
+  if (error) throw error
+}
+
+export async function fetchAccountDisciplines(organisationId: string): Promise<Discipline[]> {
+  const { data, error } = await supabase.rpc('account_disciplines', { p_org: organisationId })
+  if (error) throw error
+  return data ?? []
+}
+
+export async function forkDisciplines(organisationId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('fork_disciplines', { p_org: organisationId })
+  if (error) throw error
+  return data ?? 0
+}
+
+export async function fetchProjectDisciplines(projectId: string) {
+  const { data, error } = await supabase.rpc('project_disciplines_in_use', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as {
+    code: string; name: string; iso_letter: string | null; sort_order: number; required: boolean
+  }[]
+}
+
+/** The gaps. Hi-vis, and the only thing that colour ever means. */
+export async function fetchDisciplineGaps(projectId: string) {
+  const { data, error } = await supabase.rpc('project_discipline_gaps', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as { code: string; name: string }[]
+}
+
+export async function fetchProjectCompanies(projectId: string): Promise<ProjectCompany[]> {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name, address, originator_code, company_type, catalogue_company_id')
+    .eq('project_id', projectId)
+    .order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function fetchCompanyDisciplines(projectId: string) {
+  const { data, error } = await supabase
+    .from('company_disciplines')
+    .select('company_id, discipline_code, companies!inner(project_id)')
+    .eq('companies.project_id', projectId)
+  if (error) throw error
+  return (data ?? []) as { company_id: string; discipline_code: string }[]
+}
+
+export async function fetchProjectPeople(projectId: string): Promise<ProjectPerson[]> {
+  const { data, error } = await supabase
+    .from('project_people')
+    .select('id, company_id, name, job_role, email, phone, is_primary, profile_id')
+    .eq('project_id', projectId)
+    .order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function addCompanyToProject(input: {
+  projectId: string
+  catalogueCompanyId: string
+  originatorCode: string
+  companyType: string
+  disciplines: string[]
+}) {
+  const { error } = await supabase.rpc('add_company_to_project', {
+    p_project: input.projectId,
+    p_catalogue_company: input.catalogueCompanyId,
+    p_originator_code: input.originatorCode,
+    p_company_type: input.companyType,
+    p_disciplines: input.disciplines,
+  })
+  if (error) throw error
+}
+
+export async function addPersonToProject(companyId: string, contactId: string, isPrimary: boolean) {
+  const { error } = await supabase.rpc('add_person_to_project', {
+    p_company: companyId, p_contact: contactId, p_is_primary: isPrimary,
+  })
+  if (error) throw error
+}
+
+export async function setCompanyDiscipline(companyId: string, code: string, held: boolean) {
+  const { error } = held
+    ? await supabase.from('company_disciplines').insert({ company_id: companyId, discipline_code: code })
+    : await supabase.from('company_disciplines').delete()
+        .eq('company_id', companyId).eq('discipline_code', code)
+  if (error) throw error
+}
+
+export async function fetchAppointmentStatus(companyId: string): Promise<AppointmentSlot[]> {
+  const { data, error } = await supabase.rpc('company_appointment_status', { p_company: companyId })
+  if (error) throw error
+  return data ?? []
+}
+
+/** Fill an empty project with the prototype's demo directory. Admin only. */
+export async function seedSampleProject(projectId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('seed_sample_project', { p_project: projectId })
+  if (error) throw error
+  return data as string
+}

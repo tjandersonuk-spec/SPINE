@@ -145,17 +145,25 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 *Reference: handover §3. Open `docs/dmp-prototype.html` at Directory and Master catalogue.*
 
-- [ ] Projects, scoped to `organisation_id` — creation restricted to account `admin` by the
+- [x] Projects, scoped to `organisation_id` — creation restricted to account `admin` by the
       insert policy built in phase 1
-- [ ] Master catalogue of companies/people per host; a project takes a **copy** on selection,
+- [x] Master catalogue of companies/people per host; a project takes a **copy** on selection,
       independent from then on; catalogue edits never rewrite a live project; a project can push a
       correction back
-- [ ] `company_disciplines` table and `companies_for_discipline(project, code)` function
-- [ ] Appointment documents per company (competency statement, CVs, appointment, scope of work)
+- [x] `company_disciplines` table and `companies_for_discipline(project, code)` function
+- [x] Appointment documents per company (competency statement, CVs, appointment, scope of work)
       with approved flags; status derived
-- [ ] People carry role, email, phone, primary-contact flag; name is a link to their card
-- [ ] Tests: a discipline held by two companies returns both; held by none returns none and shows
+- [x] People carry role, email, phone, primary-contact flag; name is a link to their card
+- [x] Tests: a discipline held by two companies returns both; held by none returns none and shows
       as a DRM gap; catalogue edits don't change project copies
+
+### Remaining in this phase
+
+- [ ] Appointment document upload. The table, the derived status and the policies are built; the
+      Supabase Storage bucket (`project-files`, private, path-scoped) and the upload control are
+      not, so a document can be recorded but not yet attached
+- [ ] Editing a forked discipline list from the UI — the policies allow it, the screen only reads
+- [ ] Playwright click-through, still blocked on a reachable GoTrue and PostgREST
 
 ## Phase 3 — Responsibility matrix (DRM)
 

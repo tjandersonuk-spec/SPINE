@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 
+import { Catalogue } from '@/components/Catalogue'
+import { Disciplines } from '@/components/Disciplines'
 import { Empty, ErrorNote, Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,8 +79,18 @@ export default function Account() {
           <TabsTrigger value="people">People ({members.length})</TabsTrigger>
           <TabsTrigger value="invites">Invitations ({open.length})</TabsTrigger>
           <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
+          <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
+          <TabsTrigger value="disciplines">Disciplines</TabsTrigger>
           {isAdmin && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="catalogue" className="pt-4">
+          <Catalogue organisationId={id} canEdit={isAdmin} />
+        </TabsContent>
+
+        <TabsContent value="disciplines" className="pt-4">
+          <Disciplines organisationId={id} canEdit={isAdmin} />
+        </TabsContent>
 
         <TabsContent value="people" className="flex flex-col gap-4 pt-4">
           {isAdmin && (

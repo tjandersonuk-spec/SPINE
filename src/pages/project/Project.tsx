@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 
+import { Directory } from '@/components/Directory'
 import { Empty, ErrorNote, Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -100,17 +101,33 @@ export default function ProjectPage() {
       {notice && <p className="text-muted-foreground text-sm">{notice}</p>}
       <p className="text-muted-foreground font-mono text-sm">{project?.code}</p>
 
-      <Tabs defaultValue="people">
+      <Tabs defaultValue="directory">
         <TabsList>
-          <TabsTrigger value="people">People ({members.length})</TabsTrigger>
+          <TabsTrigger value="directory">Directory</TabsTrigger>
+          <TabsTrigger value="people">Access ({members.length})</TabsTrigger>
           {canEdit && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="directory" className="pt-4">
+          {project && (
+            <Directory
+              projectId={id}
+              organisationId={project.organisation_id}
+              canEdit={canEdit}
+            />
+          )}
+        </TabsContent>
 
         <TabsContent value="people" className="flex flex-col gap-4 pt-4">
           <form className="flex flex-col gap-3 rounded-lg border p-4" onSubmit={submitPerson}>
             <h2 className="font-semibold">
-              {isAccountAdmin ? 'Add someone to this project' : 'Ask for someone to be added'}
+              {isAccountAdmin ? 'Give someone access to this project' : 'Ask for someone to be added'}
             </h2>
+            <p className="text-muted-foreground text-sm">
+              This is about logins — who can open this project. Naming people in the directory is
+              on the Directory tab and is a separate thing: a person can be in the directory with
+              no login at all.
+            </p>
 
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex min-w-56 flex-1 flex-col gap-2">

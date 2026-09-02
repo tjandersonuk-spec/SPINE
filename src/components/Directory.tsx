@@ -1,0 +1,344 @@
+import { useCallback, useEffect, useState } from 'react'
+
+import { ErrorNote } from '@/components/Shell'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select-native'
+import {
+  addCompanyToProject, addPersonToProject, fetchAppointmentStatus, fetchCatalogue,
+  fetchCompanyDisciplines, fetchContacts, fetchDisciplineGaps, fetchProjectCompanies,
+  fetchProjectDisciplines, fetchProjectPeople, seedSampleProject, setCompanyDiscipline, SLOT_LABELS,
+  type AppointmentSlot, type CatalogueCompany, type Contact, type ProjectCompany,
+  type ProjectPerson,
+} from '@/lib/queries'
+
+type Disc = { code: string; name: string; required: boolean }
+
+function AppointmentDocs({ companyId }: { companyId: string }) {
+  const [slots, setSlots] = useState<AppointmentSlot[]>([])
+  useEffect(() => {
+    fetchAppointmentStatus(companyId).then(setSlots).catch(() => setSlots([]))
+  }, [companyId])
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {slots.map((s) => (
+        <span
+          key={s.slot}
+          title={s.filename ?? 'Nothing uploaded'}
+          className={
+            'rounded border px-2 py-0.5 text-xs ' +
+            (s.state === 'approved'
+              ? 'border-green-700/40 text-green-800 dark:text-green-400'
+              : s.state === 'missing'
+                ? 'text-muted-foreground'
+                : 'border-amber-700/40 text-amber-800 dark:text-amber-400')
+          }
+        >
+          {SLOT_LABELS[s.slot] ?? s.slot}: {s.state}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The project directory. Companies hold disciplines; nothing on this page
+ * assigns work to a company directly, and the gap list is derived from the same
+ * lookup the rest of the application uses.
+ */
+export function Directory({
+  projectId,
+  organisationId,
+  canEdit,
+}: {
+  projectId: string
+  organisationId: string
+  canEdit: boolean
+}) {
+  const [companies, setCompanies] = useState<ProjectCompany[]>([])
+  const [held, setHeld] = useState<{ company_id: string; discipline_code: string }[]>([])
+  const [people, setPeople] = useState<ProjectPerson[]>([])
+  const [disciplines, setDisciplines] = useState<Disc[]>([])
+  const [gaps, setGaps] = useState<{ code: string; name: string }[]>([])
+  const [catalogue, setCatalogue] = useState<CatalogueCompany[]>([])
+  const [contacts, setContacts] = useState<Record<string, Contact[]>>({})
+  const [error, setError] = useState<string | null>(null)
+
+  const [pick, setPick] = useState('')
+  const [code, setCode] = useState('')
+  const [type, setType] = useState('consultant')
+
+  const load = useCallback(() => {
+    Promise.all([
+      fetchProjectCompanies(projectId),
+      fetchCompanyDisciplines(projectId),
+      fetchProjectPeople(projectId),
+      fetchProjectDisciplines(projectId),
+      fetchDisciplineGaps(projectId),
+      fetchCatalogue(organisationId),
+    ])
+      .then(([c, h, pp, d, g, cat]) => {
+        setCompanies(c)
+        setHeld(h)
+        setPeople(pp)
+        setDisciplines(d)
+        setGaps(g)
+        setCatalogue(cat)
+      })
+      .catch((e: Error) => setError(e.message))
+  }, [projectId, organisationId])
+
+  useEffect(load, [load])
+
+  const act = async (fn: () => Promise<void>) => {
+    setError(null)
+    try {
+      await fn()
+      load()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const holdsCode = (companyId: string, c: string) =>
+    held.some((h) => h.company_id === companyId && h.discipline_code === c)
+
+  const onProject = new Set(companies.map((c) => c.catalogue_company_id))
+  const addable = catalogue.filter((c) => !onProject.has(c.id))
+
+  return (
+    <div className="flex flex-col gap-6">
+      <ErrorNote message={error} />
+
+      {/* Hi-vis, and this is the only place in the application it appears: a
+          discipline this project needs that nobody has been given. */}
+      {gaps.length > 0 && (
+        <section className="border-hivis bg-hivis-bg text-hivis-ink rounded-lg border-l-4 p-4">
+          <h3 className="font-semibold">
+            {gaps.length === 1 ? '1 discipline is unallocated' : `${gaps.length} disciplines are unallocated`}
+          </h3>
+          <p className="mt-1 text-sm">
+            Nobody on this project holds{' '}
+            {gaps.map((g) => g.name).join(', ')}. Until someone does, it falls to you.
+          </p>
+        </section>
+      )}
+
+      {canEdit && (
+        <form
+          className="flex flex-wrap items-end gap-2 rounded-lg border p-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            act(async () => {
+              await addCompanyToProject({
+                projectId, catalogueCompanyId: pick, originatorCode: code,
+                companyType: type, disciplines: [],
+              })
+              setPick('')
+              setCode('')
+            })
+          }}
+        >
+          <div className="flex min-w-56 flex-1 flex-col gap-2">
+            <Label htmlFor="pick">Add a firm from the catalogue</Label>
+            <Select id="pick" required value={pick} onChange={(e) => setPick(e.target.value)}>
+              <option value="">Choose…</option>
+              {addable.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex w-28 flex-col gap-2">
+            <Label htmlFor="orig">Code</Label>
+            <Input id="orig" required className="font-mono" placeholder="BEL"
+              value={code} onChange={(e) => setCode(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="ctype">Type</Label>
+            <Select id="ctype" value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="consultant">Consultant</option>
+              <option value="subcontractor">Subcontractor</option>
+              <option value="contractor">Contractor</option>
+              <option value="client">Client</option>
+            </Select>
+          </div>
+          <Button type="submit">Add</Button>
+          <p className="text-muted-foreground w-full text-xs">
+            The firm's name and address are copied onto this project now. Later edits to the
+            catalogue will not change what is recorded here.
+          </p>
+        </form>
+      )}
+
+      {companies.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-10">
+          <p className="text-muted-foreground text-sm">No firms on this project yet.</p>
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  act(async () => {
+                    await seedSampleProject(projectId)
+                  })
+                }
+              >
+                Fill with sample data
+              </Button>
+              <p className="text-muted-foreground max-w-md text-center text-xs">
+                Puts the prototype's demo project in — sixteen firms, twenty-five people, their
+                disciplines and appointment documents, with the same deliberate gaps. For trying
+                the application out; it only works on an empty project.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {companies.map((c) => (
+            <li key={c.id} className="flex flex-col gap-3 rounded-lg border p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <p className="font-medium">
+                    {c.name}{' '}
+                    <span className="text-muted-foreground font-mono text-sm">{c.originator_code}</span>
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {c.company_type}
+                    {c.address && ` · ${c.address}`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {disciplines.filter((d) => d.required).map((d) => {
+                  const on = holdsCode(c.id, d.code)
+                  return canEdit ? (
+                    <button
+                      key={d.code}
+                      type="button"
+                      title={d.name}
+                      onClick={() => act(() => setCompanyDiscipline(c.id, d.code, !on))}
+                      className={
+                        'rounded border px-2 py-0.5 font-mono text-xs transition-colors ' +
+                        (on ? 'bg-primary text-primary-foreground border-transparent'
+                            : 'text-muted-foreground hover:bg-accent')
+                      }
+                    >
+                      {d.code}
+                    </button>
+                  ) : (
+                    <span key={d.code} title={d.name}
+                      className={'rounded border px-2 py-0.5 font-mono text-xs ' +
+                        (on ? 'bg-primary text-primary-foreground border-transparent'
+                            : 'text-muted-foreground opacity-40')}>
+                      {d.code}
+                    </span>
+                  )
+                })}
+              </div>
+
+              <AppointmentDocs companyId={c.id} />
+
+              <div className="flex flex-col gap-1 border-t pt-2">
+                {people.filter((p) => p.company_id === c.id).length === 0 ? (
+                  <p className="text-muted-foreground text-sm">Nobody named yet.</p>
+                ) : (
+                  people.filter((p) => p.company_id === c.id).map((p) => (
+                    <p key={p.id} className="text-sm">
+                      <span className="font-medium">{p.name}</span>
+                      {p.job_role && <span className="text-muted-foreground"> · {p.job_role}</span>}
+                      {p.email && <span className="text-muted-foreground"> · {p.email}</span>}
+                      {p.is_primary && (
+                        <span className="text-muted-foreground"> · primary contact</span>
+                      )}
+                    </p>
+                  ))
+                )}
+                {canEdit && c.catalogue_company_id && (
+                  <AddPerson
+                    companyId={c.id}
+                    catalogueCompanyId={c.catalogue_company_id}
+                    contacts={contacts[c.catalogue_company_id]}
+                    onLoad={(list) =>
+                      setContacts((prev) => ({ ...prev, [c.catalogue_company_id!]: list }))
+                    }
+                    onAdded={load}
+                    onError={setError}
+                    already={people.filter((p) => p.company_id === c.id).map((p) => p.name)}
+                  />
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function AddPerson({
+  companyId, catalogueCompanyId, contacts, onLoad, onAdded, onError, already,
+}: {
+  companyId: string
+  catalogueCompanyId: string
+  contacts: Contact[] | undefined
+  onLoad: (c: Contact[]) => void
+  onAdded: () => void
+  onError: (m: string) => void
+  already: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [pick, setPick] = useState('')
+  const [primary, setPrimary] = useState(false)
+
+  useEffect(() => {
+    if (open && !contacts) fetchContacts(catalogueCompanyId).then(onLoad).catch(() => onLoad([]))
+  }, [open, contacts, catalogueCompanyId, onLoad])
+
+  if (!open) {
+    return (
+      <Button variant="ghost" size="sm" className="self-start" onClick={() => setOpen(true)}>
+        Add a person
+      </Button>
+    )
+  }
+
+  const choices = (contacts ?? []).filter((c) => !already.includes(c.name))
+
+  return (
+    <form
+      className="flex flex-wrap items-end gap-2 pt-1"
+      onSubmit={(e) => {
+        e.preventDefault()
+        addPersonToProject(companyId, pick, primary)
+          .then(() => {
+            setOpen(false)
+            setPick('')
+            onAdded()
+          })
+          .catch((err: Error) => onError(err.message))
+      }}
+    >
+      <Select required value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Person">
+        <option value="">Choose…</option>
+        {choices.map((c) => (
+          <option key={c.id} value={c.id}>{c.name}{c.job_role ? ` — ${c.job_role}` : ''}</option>
+        ))}
+      </Select>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={primary} onChange={(e) => setPrimary(e.target.checked)} />
+        Primary contact
+      </label>
+      <Button type="submit" size="sm">Add</Button>
+      <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      {choices.length === 0 && contacts && (
+        <p className="text-muted-foreground w-full text-xs">
+          Nobody left to add. People are maintained in the account catalogue.
+        </p>
+      )}
+    </form>
+  )
+}

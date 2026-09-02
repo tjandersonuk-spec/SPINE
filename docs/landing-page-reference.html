@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spine — design management for contractors who take on design</title>
+<!--
+  REFERENCE ONLY. This is the intended look and structure of the marketing site,
+  built on the application's own design tokens so the two feel like one product.
+  "Spine" is a placeholder company name, chosen because the two spines are the
+  product's defining idea. Replace it. Figures on the pricing section are
+  structural placeholders, not prices.
+-->
+<style>
+:root{
+  --brand:#1E3A5F; --brand-2:#2F6F8F; --brand-ink:#FFFFFF; --brand-soft:#E7EDF4; --brand-deep:#16304F;
+  --grad-brand:linear-gradient(135deg,var(--brand) 0%,var(--brand-2) 100%);
+  --grad-brand-deep:linear-gradient(135deg,var(--brand-deep) 0%,#123049 100%);
+  --paper:#EEF1F5; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --surface-glass:rgba(255,255,255,.72); --border-glass:rgba(255,255,255,.55);
+  --ink:#14181B; --graphite:#5C646B; --graphite-light:#8B939A;
+  --rule:#DFE3E8; --rule-strong:#C1C8D1;
+  --mesh:
+    radial-gradient(1200px 620px at 12% -14%, rgba(47,111,143,.10), transparent 60%),
+    radial-gradient(1000px 520px at 100% 0%, rgba(30,58,95,.08), transparent 55%),
+    radial-gradient(800px 460px at 30% 110%, rgba(47,111,143,.06), transparent 60%);
+  --hivis:#F2C230; --hivis-bg:#FDF6DC;
+  --hivis-glow:0 0 0 1px rgba(242,194,48,.45), 0 4px 14px rgba(242,194,48,.20);
+  --ok:#2E6F4E; --ok-bg:#E6F0EA; --warn:#9A5B12; --stop:#9B2C2C;
+  --kind-evidence:#2F6F8F; --kind-discuss:#6B4E9B; --kind-money:#3B6E3B; --kind-comply:#8A5A1E;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+  --sans:"Inter","Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --r:12px; --r-sm:8px; --r-xs:6px;
+  --shadow-xs:0 1px 2px rgba(15,23,42,.05);
+  --shadow-sm:0 1px 3px rgba(15,23,42,.05), 0 6px 16px -6px rgba(15,23,42,.10);
+  --shadow-md:0 4px 12px -2px rgba(15,23,42,.10), 0 16px 32px -10px rgba(15,23,42,.14);
+  --shadow-lg:0 10px 24px -6px rgba(15,23,42,.16), 0 28px 56px -16px rgba(15,23,42,.20);
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--mesh),var(--paper);background-attachment:fixed;color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5}
+a{color:var(--brand);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+h1,h2,h3{margin:0 0 .4em;letter-spacing:-.01em;line-height:1.15}
+h1{font-size:40px;font-weight:700}
+h2{font-size:26px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0 0 1em}
+.muted{color:var(--graphite)}
+.tiny{font-size:12.5px}
+.mono{font-family:var(--mono)}
+.btn{
+  display:inline-block;padding:10px 19px;border-radius:var(--r-sm);border:1px solid var(--rule-strong);
+  background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;
+  transition:background .16s var(--ease),border-color .16s var(--ease),box-shadow .16s var(--ease),transform .08s var(--ease);
+}
+.btn:hover{text-decoration:none;background:var(--surface-2);box-shadow:var(--shadow-xs)}
+.btn:active{transform:scale(.98)}
+.btn.primary{
+  background:var(--grad-brand);border-color:transparent;color:var(--brand-ink);
+  box-shadow:0 1px 2px rgba(15,23,42,.08),0 8px 20px -6px rgba(30,58,95,.4);
+}
+.btn.primary:hover{background:var(--grad-brand-deep);box-shadow:0 2px 4px rgba(15,23,42,.10),0 12px 26px -6px rgba(30,58,95,.48)}
+.pill{
+  display:inline-flex;align-items:center;gap:5px;padding:2px 10px 2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;border:1px solid;
+}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;opacity:.85}
+.pill.gap{background:var(--hivis-bg);border-color:var(--hivis);color:#6b5210;box-shadow:var(--hivis-glow)}
+.pill.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.pill.neutral{background:var(--surface-2);border-color:var(--rule);color:var(--graphite)}
+
+/* header — glass over brand gradient, like the application's sidebar */
+header.top{
+  background:var(--grad-brand);color:var(--brand-ink);position:sticky;top:0;z-index:5;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 1px 0 rgba(255,255,255,.08),0 8px 24px -8px rgba(15,23,42,.25);
+}
+header.top .wrap{display:flex;align-items:center;gap:22px;height:58px}
+header.top .logo{font-weight:800;letter-spacing:.18em;font-size:14px}
+header.top .logo span{color:var(--hivis);text-shadow:0 0 12px rgba(242,194,48,.5)}
+header.top nav{display:flex;gap:18px;margin-left:auto;font-size:14px}
+header.top nav a{color:var(--brand-ink);opacity:.85;transition:opacity .16s var(--ease)}
+header.top nav a:hover{opacity:1;text-decoration:none}
+header.top .btn{padding:7px 15px;font-size:13px}
+
+/* hero */
+.hero{padding:78px 0 60px}
+.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
+.hero p.lead{font-size:18px;color:var(--graphite);max-width:520px}
+.hero .cta{display:flex;gap:10px;margin-top:22px}
+/* a real-looking slice of the app as the hero image */
+.appshot{
+  background:var(--surface-glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--border-glass);border-radius:var(--r);
+  box-shadow:var(--shadow-lg);overflow:hidden;font-size:12px;
+}
+.appshot .bar{background:var(--grad-brand);color:var(--brand-ink);padding:9px 13px;font-weight:700;letter-spacing:.14em;font-size:11px}
+.appshot .bar span{color:var(--hivis)}
+.appshot table{width:100%;border-collapse:collapse}
+.appshot th{background:rgba(127,140,152,.08);text-align:left;font-size:10px;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--graphite);padding:8px 11px;border-bottom:1px solid var(--rule)}
+.appshot td{padding:8px 11px;border-bottom:1px solid var(--rule)}
+.appshot tr.gap td{background:var(--hivis-bg)}
+.appshot tr.gap td:first-child{border-left:3px solid var(--hivis);box-shadow:inset 3px 0 8px -4px rgba(242,194,48,.5)}
+
+/* sections */
+section{padding:60px 0}
+section.alt{background:rgba(255,255,255,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.14em;font-weight:700;color:var(--graphite);margin-bottom:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{
+  background:var(--surface-glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--border-glass);border-radius:var(--r);padding:21px;box-shadow:var(--shadow-sm);
+  transition:transform .16s var(--ease),box-shadow .16s var(--ease);
+}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.card.kind{border-left:4px solid var(--rule-strong)}
+.card.kind.evidence{border-left-color:var(--kind-evidence)}
+.card.kind.discuss{border-left-color:var(--kind-discuss)}
+.card.kind.money{border-left-color:var(--kind-money)}
+.card.kind.comply{border-left-color:var(--kind-comply)}
+.card ul{margin:8px 0 0;padding-left:18px;color:var(--graphite);font-size:13.5px}
+.card li{margin-bottom:4px}
+
+/* two spines */
+.spines{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.spine{
+  background:var(--surface-glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--border-glass);border-radius:var(--r);padding:26px;box-shadow:var(--shadow-sm);
+  position:relative;overflow:hidden;
+}
+.spine::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--grad-brand);opacity:.85}
+.spine .n{font-family:var(--mono);font-size:11px;color:var(--graphite);letter-spacing:.1em}
+
+/* pricing */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+.tier{
+  background:var(--surface-glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--border-glass);border-radius:var(--r);padding:23px;display:flex;flex-direction:column;
+  box-shadow:var(--shadow-sm);transition:transform .16s var(--ease),box-shadow .16s var(--ease);
+}
+.tier:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.tier.featured{border-color:rgba(30,58,95,.4);box-shadow:0 10px 32px -8px rgba(30,58,95,.22),var(--shadow-sm)}
+.tier .price{font-family:var(--mono);font-size:27px;font-weight:700;margin:7px 0 2px;font-variant-numeric:tabular-nums}
+.tier .per{font-size:12px;color:var(--graphite);margin-bottom:12px}
+.tier ul{margin:0 0 18px;padding-left:18px;font-size:13.5px;color:var(--graphite);flex:1}
+.tier li{margin-bottom:5px}
+
+/* sign up */
+.form{
+  background:var(--surface-glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--border-glass);border-radius:var(--r);padding:25px;max-width:560px;box-shadow:var(--shadow-sm);
+}
+.field{display:block;margin-bottom:12px}
+.lbl{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--graphite);font-weight:700;margin-bottom:4px}
+input,select{
+  width:100%;padding:9px 12px;border:1px solid var(--rule-strong);border-radius:var(--r-xs);font:inherit;font-size:14px;
+  background:var(--surface);transition:border-color .16s var(--ease),box-shadow .16s var(--ease);
+}
+input:focus-visible,select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(30,58,95,.16),0 0 0 1px var(--brand)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+footer{padding:38px 0;color:var(--graphite);font-size:13px;border-top:1px solid var(--rule)}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+@media (max-width:820px){
+  .hero .wrap,.spines,.grid3,.tiers,.grid2{grid-template-columns:1fr}
+  h1{font-size:30px}
+  header.top nav{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="logo">SPINE<span>·</span>DMP</div>
+    <nav>
+      <a href="#product">Product</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a class="btn" href="#signin" style="margin-left:auto;background:transparent;border-color:rgba(255,255,255,.35);color:var(--brand-ink)">Sign in</a>
+    <a class="btn primary" href="#signup" style="background:var(--hivis);border-color:var(--hivis);color:#3d3006">Start a trial</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="eyebrow">Design management for main contractors</div>
+      <h1>What is due, who owns it, and what nobody has been given.</h1>
+      <p class="lead">The layer above your common data environment. Not a place to store files — a place that knows every deliverable is a discipline's responsibility and every date comes from the programme, so when the job moves, everything moves with it.</p>
+      <div class="cta">
+        <a class="btn primary" href="#signup">Start a trial</a>
+        <a class="btn" href="#product">See the product</a>
+      </div>
+      <p class="tiny muted" style="margin-top:16px">Built by a main contractor's design management team, on live higher-risk building projects.</p>
+    </div>
+    <div class="appshot" aria-hidden="true">
+      <div class="bar">HBC<span>·</span>DMP &nbsp;·&nbsp; Responsibility matrix</div>
+      <table>
+        <thead><tr><th>Ref</th><th>Item</th><th>Lead</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">04.010</td><td>Facade system</td><td>Ashgrove Facades</td><td><span class="pill ok">Allocated</span></td></tr>
+          <tr><td class="mono">04.060</td><td>Roof coverings</td><td>Bellhouse Architects</td><td><span class="pill ok">Allocated</span></td></tr>
+          <tr class="gap"><td class="mono">06.160</td><td>Lifts</td><td>—</td><td><span class="pill gap">Falls to HBC</span></td></tr>
+          <tr><td class="mono">06.170</td><td>Renewables</td><td>Mercia Building Eng.</td><td><span class="pill ok">Allocated</span></td></tr>
+          <tr><td class="mono">07.010</td><td>Hard landscape</td><td>Vale Landscape</td><td><span class="pill neutral">Stage 4</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="spines">
+  <div class="wrap">
+    <div class="eyebrow">The two ideas everything is built on</div>
+    <h2>Two spines. Every module hangs off them.</h2>
+    <div class="spines" style="margin-top:22px">
+      <div class="spine">
+        <div class="n">SPINE 01</div>
+        <h3>Nothing is assigned to a company.</h3>
+        <p class="muted">It is assigned to a <b>discipline</b>, and companies hold disciplines. Novate the architect and every drawing, every warranty, every scope line follows — because nothing was ever pinned to the old company in the first place. And the gap the matrix shows is the gap the warranty register shows, because they are the same lookup.</p>
+      </div>
+      <div class="spine">
+        <div class="n">SPINE 02</div>
+        <h3>No date is ever typed.</h3>
+        <p class="muted">Every date is a <b>programme line plus an offset</b>. Re-import the programme and the whole project reschedules: drawings, instalments, conditions, credits, change-request decisions. Slip the Stage 4 freeze and you see four payment instalments move with it — a cashflow consequence of a design delay that nobody usually connects to the delay itself.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="product">
+  <div class="wrap">
+    <div class="eyebrow">What it does</div>
+    <h2>Three tiers. One codebase. Switch modules on per project.</h2>
+    <p class="muted" style="max-width:640px">The core is always on, because nothing works without the directory and the programme. Everything else is an entitlement — which is also how a toolkit gets phased in, one module at a time.</p>
+    <div class="grid3" style="margin-top:22px">
+      <div class="card kind evidence">
+        <div class="eyebrow">Core · always on</div>
+        <h3>Design control</h3>
+        <ul>
+          <li>Directory, disciplines, master catalogue</li>
+          <li>Responsibility matrix with gap detection</li>
+          <li>Programme and Gantt — the date spine</li>
+          <li>Drawing register, packs, transmittals</li>
+          <li>Tasks, RFIs, meetings, discussion, evidence</li>
+          <li>Consultant front and project dashboard</li>
+          <li>Three-audience period reports</li>
+        </ul>
+      </div>
+      <div class="card kind comply">
+        <div class="eyebrow">Module</div>
+        <h3>Compliance</h3>
+        <ul>
+          <li>Planning conditions and building control</li>
+          <li>Building Safety Act — change control, golden thread, occurrences, gateways</li>
+          <li>BREEAM — your assessor's tracker, scored live</li>
+          <li>Scope of service with discipline templates</li>
+          <li>Pre-assessment, client requirements, handover, highways, utilities checklists</li>
+        </ul>
+      </div>
+      <div class="card kind money">
+        <div class="eyebrow">Module</div>
+        <h3>Commercial</h3>
+        <ul>
+          <li>Fees, negotiated payment schedules, invoices, cashflow</li>
+          <li>Pre-construction fee budget and quote comparison</li>
+          <li>Costed risk and opportunity register</li>
+          <li>Change requests — approval is not implementation</li>
+          <li>Warranties that follow the matrix</li>
+          <li>Material sample approvals, every round kept</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="benefits">
+  <div class="wrap">
+    <div class="eyebrow">Why it is different</div>
+    <h2>It infers. It does not count.</h2>
+    <div class="grid3" style="margin-top:22px">
+      <div class="card">
+        <h3>Derived, never stored</h3>
+        <p class="muted tiny">Construction status, due dates, overdue counts, risk exposure, whether a change may proceed — computed on read, every time. Anything stored that could disagree with reality eventually will, silently. This never does.</p>
+      </div>
+      <div class="card">
+        <h3>Hi-vis means one thing</h3>
+        <p class="muted tiny">An unallocated gap. Not overdue, not urgent, not a warning — a thing nobody has been given. It is the colour a design manager scans for on a Monday, and it is never spent on anything else.</p>
+      </div>
+      <div class="card">
+        <h3>Consultants use it across contractors</h3>
+        <p class="muted tiny">One login, however many main contractors a consultant works for. Each contractor sees only their own projects. The consultant sees their own front on every job — and never sees that the other contractor exists.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="pricing">
+  <div class="wrap">
+    <div class="eyebrow">Pricing</div>
+    <h2>Per host, by module.</h2>
+    <p class="muted" style="max-width:620px">A host is a main contractor's account. Figures below are placeholders showing the structure — set them before this page goes live.</p>
+    <div class="tiers" style="margin-top:22px">
+      <div class="tier">
+        <div class="eyebrow">Core</div>
+        <div class="price">£—</div>
+        <div class="per">per host / month · unlimited projects</div>
+        <ul>
+          <li>Everything in Design control</li>
+          <li>Unlimited consultant and client logins</li>
+          <li>Reports, exports, audit log</li>
+          <li>Brand theming</li>
+        </ul>
+        <a class="btn" href="#signup">Start a trial</a>
+      </div>
+      <div class="tier featured">
+        <div class="eyebrow">Core + Compliance</div>
+        <div class="price">£—</div>
+        <div class="per">per host / month</div>
+        <ul>
+          <li>Everything in Core</li>
+          <li>Planning, building control, building safety</li>
+          <li>BREEAM tracking and scoring</li>
+          <li>Scope of service and all six checklists</li>
+        </ul>
+        <a class="btn primary" href="#signup">Start a trial</a>
+      </div>
+      <div class="tier">
+        <div class="eyebrow">Complete</div>
+        <div class="price">£—</div>
+        <div class="per">per host / month</div>
+        <ul>
+          <li>Everything in Core and Compliance</li>
+          <li>Fees, cashflow, pre-construction budget</li>
+          <li>Risk, change requests, warranties, materials</li>
+          <li>Portfolio dashboards across every project</li>
+        </ul>
+        <a class="btn" href="#signup">Talk to us</a>
+      </div>
+    </div>
+    <p class="tiny muted" style="margin-top:18px">Add-ons to come: energy modelling. Modules can be switched on per project within a host.</p>
+  </div>
+</section>
+
+<section id="about">
+  <div class="wrap">
+    <div class="eyebrow">About</div>
+    <h2>Built on live jobs, not in a lab.</h2>
+    <p class="muted" style="max-width:640px">Spine was built inside a main contractor's design management team, on real higher-risk building projects, by the people who had to answer "what is due and who owns it" every Monday and could not get a straight answer from the CDE. Every module exists because a specific thing went wrong and nobody had a place to see it coming.</p>
+  </div>
+</section>
+
+<section class="alt" id="signup">
+  <div class="wrap">
+    <div class="eyebrow">Sign up</div>
+    <h2>Set up a host account.</h2>
+    <p class="muted" style="max-width:560px">Creates your company's account for approval. Once approved, you'll build your directory and send invites — every person accepts from their own login, so nobody is added to a project they didn't agree to join.</p>
+    <p class="tiny muted" id="signin" style="margin:0 0 14px">Already have an account? In production, <b>Sign in</b> goes straight to the application — this reference page has nowhere to send you.</p>
+    <form class="form" onsubmit="return false">
+      <div class="grid2">
+        <label class="field"><span class="lbl">Company name</span><input placeholder="e.g. HBC Construction"></label>
+        <label class="field"><span class="lbl">Your name</span><input placeholder="Full name"></label>
+        <label class="field"><span class="lbl">Work email</span><input type="email" placeholder="you@company.co.uk"></label>
+        <label class="field"><span class="lbl">Role</span><input placeholder="e.g. Head of design"></label>
+      </div>
+      <label class="field"><span class="lbl">Which tier are you interested in?</span>
+        <select><option>Core</option><option>Core + Compliance</option><option>Complete</option><option>Not sure yet</option></select></label>
+      <button class="btn primary" type="submit">Request an account</button>
+      <p class="tiny muted" style="margin:12px 0 0">We approve accounts by hand. You'll hear from a person, not a robot.</p>
+    </form>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <div class="eyebrow">Contact</div>
+    <h2>Talk to someone who has used it on site.</h2>
+    <p class="muted">hello@spine.example &nbsp;·&nbsp; +44 (0) 000 000 0000 &nbsp;·&nbsp; Placeholder address, to be replaced.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div><b>SPINE</b> · Design management for main contractors. Placeholder company name.</div>
+    <div><a href="#">Privacy</a> &nbsp;·&nbsp; <a href="#">Terms</a> &nbsp;·&nbsp; <a href="#">Security</a></div>
+  </div>
+</footer>
+
+</body>
+</html>

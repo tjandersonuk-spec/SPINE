@@ -67,6 +67,21 @@ except the derived views.
   own login.
 - The Building Safety Act change-control classification guard is enforced by policy/handler, never
   by hiding a button in the UI — a synthetic event from the wrong role must be refused server-side.
+- **RLS decides rows; GRANTs decide columns.** A policy that lets someone edit a row lets them
+  edit *every column of it*, because Supabase grants `authenticated` update on all columns by
+  default. Any column that a role may see but must not write — `organisations.modules`,
+  `projects.modules_override`, `profiles.email`, a reviewer's verdict — needs the blanket update
+  revoked and a column-level grant in its place. Whenever a phase adds a table with an update
+  policy, ask which columns that role has any business writing. A table created by a later migration
+  inherits nothing from an earlier `grant on all tables`, so every migration that adds a table
+  states its own grants — and grants only what that table's policies are meant to allow.
+- **Name the foreign key in any PostgREST embed whose table has more than one to the same
+  parent.** `profiles(name)` is ambiguous the moment a table gains a second reference to
+  `profiles` — an `added_by` beside a `profile_id`, a `reviewed_by` beside a `requested_by` — and
+  fails at run time with "more than one relationship was found", which no type checking catches
+  because the query is a string. Write `profiles!project_members_profile_id_fkey(name)`.
+  `supabase/tests/embeds.test.ts` compares every embed in `queries.ts` against the real constraint
+  catalogue and fails the build, so adding an audit column cannot silently break a page.
 - **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
   never by hiding the button — a direct insert from `internal`, a project admin or a consultant
   must be refused by the database. A project admin staffs their own project from the account's
@@ -121,6 +136,43 @@ person into the account. **Project scope** (account admin or that project's `pro
 someone to one project, and the invitee **must already be a member of the account that owns the
 project** — checked at issue and again at accept, since membership can be revoked while a
 14-day token is live. Membership is only ever created on accept.
+
+Adding someone to an account runs in two directions. **Top down**, an account
+admin invites and the invitation goes straight out. **Bottom up**, anyone working
+on a project may propose someone — they know who is missing long before an admin
+does — but a new member may change what the account is billed for, so it becomes
+a `membership_requests` row that lands with the account's admins. Only their
+approval issues the invitation, and they may change the role on the way through
+because they carry the cost. Nothing reaches the person named until then, and
+the consent step is unchanged: they still accept for themselves.
+
+The platform owner sees accounts and people, **not project contents**. §1b once
+granted "see any account's projects for support"; that is more than running the
+platform needs and a customer's design data is the last thing the landlord
+should read. Counts reach the owner through `account_summary()`, because how
+many projects and members an account has is a billing fact rather than project
+data.
+
+An invitation reaches its addressee two ways, and both must work: the emailed
+link, and the landing page, where anyone signed in with that address sees it
+waiting with Accept and Decline. The email may be filtered or slow; the
+invitation is theirs either way. `my_pending_invitations()` discloses the
+inviting account's name to the addressee alone — an exception to account
+isolation that consent requires, since agreeing to join something you cannot see
+the name of is not consent.
+
+Everyone in an account sees its member list, its outstanding invitations and
+its pending membership requests. §1b once hid invitations from all but admins
+and the addressee; in use that is wrong — a team that cannot see who has been
+invited invites them twice, and whoever asked for someone has no way to see it
+is in hand. Acting on them is unchanged: issuing, revoking, approving and
+declining remain an admin's. Isolation is untouched — none of it crosses an
+account boundary.
+
+`my_accounts()` and `my_projects()` are the only correct way to ask what the
+signed-in person belongs to. Reading `organisation_members` directly returns a
+row per member of each account, because a member may see their colleagues, and
+a five-person account then appears five times.
 
 The personal landing page spans accounts and is the only screen that does: a **My accounts** tab
 (always present, even at one row) and a **Projects** tab listing everything the person can reach

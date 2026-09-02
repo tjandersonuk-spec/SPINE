@@ -91,13 +91,29 @@ except the derived views.
   policy, ask which columns that role has any business writing. A table created by a later migration
   inherits nothing from an earlier `grant on all tables`, so every migration that adds a table
   states its own grants — and grants only what that table's policies are meant to allow.
+- **Every date resolves through `due_date(project, uid, offset, anchor, override)` — and it takes
+  the project.** `programme_tasks.task_uid` is the planner's own ID and is unique *per project*
+  only, so any lookup by uid alone resolves against whichever other project shares the numbering.
+  The prototype computes a due date in four separate copies; there is exactly one here, and a
+  module that wants a date calls it rather than reimplementing it. A table that gains the four
+  anchor columns (`programme_task_uid`, `offset_days`, `anchor`, `due_date_override`) adds its
+  branch to `programme_dependents()` in the same migration, or it disappears from the line
+  inspector — `supabase/tests/phase4.test.ts` fails the build if it doesn't.
+- **Rescheduling writes to `programme_tasks` and nothing else.** No role holds insert or update on
+  it: a revision is applied only by `import_programme()`, which validates the whole file, builds
+  the diff and writes atomically. A line missing from a revision is marked `removed`, never
+  deleted, so anything anchored to it keeps its last date and gains a flag instead of silently
+  losing a deadline.
 - **Name the foreign key in any PostgREST embed whose table has more than one to the same
-  parent.** `profiles(name)` is ambiguous the moment a table gains a second reference to
-  `profiles` — an `added_by` beside a `profile_id`, a `reviewed_by` beside a `requested_by` — and
-  fails at run time with "more than one relationship was found", which no type checking catches
-  because the query is a string. Write `profiles!project_members_profile_id_fkey(name)`.
-  `supabase/tests/embeds.test.ts` compares every embed in `queries.ts` against the real constraint
-  catalogue and fails the build, so adding an audit column cannot silently break a page.
+  parent** — and if you name one, name it correctly. A constraint that does not exist fails at run
+  time exactly like an ambiguous embed, on a query that looks more careful than the one it
+  replaced. `supabase/tests/embeds.test.ts` checks both: that ambiguous embeds are disambiguated,
+  and that every name given resolves to a real foreign key — so neither an added audit column nor
+  a mistyped constraint can silently break a page. `profiles(name)` is ambiguous the moment a
+  table gains a second reference to `profiles` — an `added_by` beside a `profile_id`, a
+  `reviewed_by` beside a `requested_by` — and fails with "more than one relationship was found",
+  which no type checking catches because the query is a string. Write
+  `profiles!project_members_profile_id_fkey(name)`.
 - **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
   never by hiding the button — a direct insert from `internal`, a project admin or a consultant
   must be refused by the database. A project admin staffs their own project from the account's

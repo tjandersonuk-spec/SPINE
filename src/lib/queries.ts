@@ -678,7 +678,7 @@ export async function fetchAppointmentStatus(companyId: string): Promise<Appoint
 
 /** Fill an empty project with the prototype's demo directory. Admin only. */
 export async function seedSampleProject(projectId: string): Promise<string> {
-  const { data, error } = await supabase.rpc('seed_sample_project', { p_project: projectId })
+  const { data, error } = await supabase.rpc('seed_sample_data', { p_project: projectId })
   if (error) throw error
   return data as string
 }
@@ -768,4 +768,132 @@ export const DRM_CATEGORY_NAMES: Record<string, string> = {
   '07': 'External works and infrastructure',
   '08': 'Compliance, performance and statutory',
   '09': 'Interfaces and coordination',
+}
+
+/* ---------------------------------------------------------------- programme */
+
+export type ProgrammeTask = {
+  id: string
+  task_uid: string
+  description: string
+  start_date: string
+  finish_date: string
+  percent_complete: number
+  level: number
+  parent_uid: string | null
+  task_type: 'Task' | 'Summary' | 'Milestone'
+  removed: boolean
+}
+
+export type ProgrammeRollup = {
+  root_uid: string
+  rolled_start: string
+  rolled_finish: string
+  rolled_percent: number | null
+  leaf_count: number
+}
+
+export type ProgrammeImport = {
+  id: string
+  label: string
+  imported_at: string
+  row_count: number
+  summary: ImportReport | Record<string, never>
+  imported_by_name: string | null
+}
+
+/** What import_programme() hands back. A rejected file carries errors and
+ *  nothing else; an applied one carries the diff. */
+export type ImportReport = {
+  ok: boolean
+  row_count?: number
+  errors?: { row: number; field: string; message: string }[]
+  import_id?: string
+  added?: number
+  updated?: number
+  removed?: number
+  restored?: number
+  moved?: {
+    task_uid: string
+    description: string
+    was_start: string
+    now_start: string
+    was_finish: string
+    now_finish: string
+    finish_slip_days: number
+  }[]
+}
+
+export async function fetchProgramme(projectId: string) {
+  const { data, error } = await supabase
+    .from('programme_tasks')
+    .select('id, task_uid, description, start_date, finish_date, percent_complete, level, parent_uid, task_type, removed')
+    .eq('project_id', projectId)
+    .order('task_uid')
+  if (error) throw error
+  return (data ?? []) as unknown as ProgrammeTask[]
+}
+
+export async function fetchProgrammeRollups(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_programme_rollup')
+    .select('root_uid, rolled_start, rolled_finish, rolled_percent, leaf_count')
+    .eq('project_id', projectId)
+  if (error) throw error
+  return (data ?? []) as unknown as ProgrammeRollup[]
+}
+
+export async function fetchProgrammeImports(projectId: string) {
+  // programme_imports has one foreign key to profiles, but naming it costs
+  // nothing and survives the day an audit column adds a second.
+  const { data, error } = await supabase
+    .from('programme_imports')
+    .select('id, label, imported_at, row_count, summary, profiles!programme_imports_imported_by_fkey(name)')
+    .eq('project_id', projectId)
+    .order('imported_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as Omit<ProgrammeImport, 'imported_by_name'> &
+      { profiles: { name: string } | null }
+    const { profiles, ...rest } = row
+    return { ...rest, imported_by_name: profiles?.name ?? null }
+  })
+}
+
+export async function fetchMyWatchedLines(projectId: string) {
+  const { data, error } = await supabase
+    .from('programme_watch')
+    .select('task_uid')
+    .eq('project_id', projectId)
+  if (error) throw error
+  return new Set((data ?? []).map((r) => r.task_uid as string))
+}
+
+export async function watchLine(projectId: string, taskUid: string, on: boolean) {
+  const { error } = await supabase.rpc(
+    on ? 'watch_programme_line' : 'unwatch_programme_line',
+    { p_project: projectId, p_task_uid: taskUid })
+  if (error) throw error
+}
+
+export async function importProgramme(
+  projectId: string, label: string, rows: Record<string, unknown>[],
+): Promise<ImportReport> {
+  const { data, error } = await supabase.rpc('import_programme', {
+    p_project: projectId, p_label: label, p_rows: rows,
+  })
+  if (error) throw error
+  return data as ImportReport
+}
+
+/** Everything dated from one line. Empty until a module gains anchor columns —
+ *  see programme_dependents() in the Phase 4 migration. */
+export async function fetchLineDependents(projectId: string, taskUid: string) {
+  const { data, error } = await supabase.rpc('programme_dependents', {
+    p_project: projectId, p_task_uid: taskUid,
+  })
+  if (error) throw error
+  return (data ?? []) as {
+    module: string; record_id: string; ref: string; description: string; due: string
+  }[]
 }

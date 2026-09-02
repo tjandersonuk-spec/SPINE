@@ -32,7 +32,12 @@ with expected(ord, migration, kind, marker) as (values
   (18,'20260902120000_phase3_drm',                    'table',    'drm_items'),
   -- the seed has no object of its own; it is checked by its row count below
   (19,'20260902120100_phase3_drm_functions',          'function', 'drm_gaps'),
-  (20,'20260902120200_phase3_drm_rls',                'policy',   'drm_items_select')
+  (20,'20260902120200_phase3_drm_rls',                'policy',   'drm_items_select'),
+  (21,'20260902130000_phase4_programme',              'table',    'programme_tasks'),
+  (22,'20260902130100_phase4_due_date',               'function', 'due_date'),
+  (23,'20260902130200_phase4_import',                 'function', 'import_programme'),
+  (24,'20260902130300_phase4_rls',                    'policy',   'programme_tasks_select'),
+  (25,'20260902130400_phase4_sample_programme',       'function', 'seed_sample_data')
 )
 select
   e.ord::numeric as "#",

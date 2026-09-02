@@ -186,19 +186,37 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
       both, the screen does neither
 - [ ] `transfers_at_stage`, `cdp_package` and `level_of_information` are stored but not yet shown
 
-## Phase 4 — Programme and the date spine
+## Phase 4 — Programme and the date spine ✅
 
 *Reference: handover programme section + import template. Open prototype at Programme.*
 
-- [ ] CSV import (uid, description, type, start, finish, percent complete); header validation,
+- [x] CSV import (uid, description, type, start, finish, percent complete); header validation,
       preview, rejected rows returned as CSV
-- [ ] Re-import updates by uid, marks missing lines as removed (never deletes), reports what moved
-- [ ] One `due_date(uid, offset, anchor, override)` function, used everywhere a date appears
-- [ ] Line inspector listing everything dated from it
-- [ ] Tracking: a person can track a line and is notified when it moves
-- [ ] Tests: slipping a finish date moves every anchored due date with no write to those records; a
+- [x] Re-import updates by uid, marks missing lines as removed (never deletes), reports what moved
+- [x] One `due_date(uid, offset, anchor, override)` function, used everywhere a date appears
+- [x] Line inspector listing everything dated from it
+- [x] Tracking: a person can track a line and is notified when it moves
+- [x] Tests: slipping a finish date moves every anchored due date with no write to those records; a
       removed line flags its dependents rather than orphaning them; inspector count equals sum of
       dependents across all modules
+
+`due_date()` takes the **project** as well as the uid. `task_uid` is unique per project only, so
+the signature in the handover notes would resolve against whichever project happened to share the
+planner's numbering — the same fault `drm_leads` had before it was scoped.
+
+Import is a `security definer` function rather than an Edge Function: equally server-side, atomic
+by construction, and unbypassable because no role holds insert or update on `programme_tasks`.
+
+### Remaining in this phase
+
+- **Notification when a tracked line moves.** Tracking works and the import knows exactly what
+  moved; the email itself waits on Phase 16, which is where transactional email is built. Until
+  then a tracked line is visible on the programme page but nothing is sent.
+- **Gantt.** The programme reads as a table. The bar chart is worth doing once there are
+  dependents to draw against it.
+- `programme_dependents()` returns nothing until Phase 5 gives a module the anchor columns. The
+  Phase 4 test fails the build if a table gains `programme_task_uid` without a matching branch,
+  so the inspector cannot silently fall behind.
 
 ## Phase 5 — Drawing register, packs, transmittals
 

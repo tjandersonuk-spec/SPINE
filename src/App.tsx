@@ -11,6 +11,7 @@ import PlatformPeople from '@/pages/platform/People'
 import AccessPage from '@/pages/project/AccessPage'
 import DirectoryPage from '@/pages/project/DirectoryPage'
 import MatrixPage from '@/pages/project/MatrixPage'
+import ProgrammePage from '@/pages/project/ProgrammePage'
 import ProjectLayout from '@/pages/project/ProjectLayout'
 import ProjectSettingsPage from '@/pages/project/SettingsPage'
 import RequestAccount from '@/pages/RequestAccount'
@@ -53,6 +54,7 @@ export default function App() {
           <Route index element={<Navigate to="directory" replace />} />
           <Route path="directory" element={<DirectoryPage />} />
           <Route path="matrix" element={<MatrixPage />} />
+          <Route path="programme" element={<ProgrammePage />} />
           <Route path="access" element={<AccessPage />} />
           <Route path="settings" element={<ProjectSettingsPage />} />
         </Route>

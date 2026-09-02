@@ -5,7 +5,13 @@
 -- auth.uid() matches Supabase's own implementation: it reads the `sub` claim out
 -- of the request.jwt.claims GUC. Tests set that GUC to impersonate a person.
 
-create extension if not exists pgcrypto;
+-- Supabase installs extensions into their own schema, not public, and does not
+-- put that schema on the search_path of a function that pins one. Mirroring
+-- that here is deliberate: it makes an unqualified pgcrypto call fail locally
+-- exactly as it fails in production, instead of passing because the harness
+-- was more generous than the real thing.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create schema if not exists auth;
 
@@ -33,4 +39,4 @@ do $$ begin
   end if;
 end $$;
 
-grant usage on schema public, auth to anon, authenticated;
+grant usage on schema public, auth, extensions to anon, authenticated;

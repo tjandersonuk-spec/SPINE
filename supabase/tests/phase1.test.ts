@@ -1043,3 +1043,46 @@ describe('a login becomes a person', () => {
     expect(email).toBe('after@fresh.example')
   })
 })
+
+describe('invitation tokens do not depend on an extension', () => {
+  test('an account invitation issues a usable token', async () => {
+    const id = await asUser(w.admin, async (c) =>
+      (await c.query(`select invite_to_account($1,'tokentest@elsewhere.example','consultant') as id`, [
+        w.ashgrove,
+      ])).rows[0].id
+    )
+    const token = await asSuperuser(
+      async (c) => (await c.query('select token from invitations where id = $1', [id])).rows[0].token
+    )
+    expect(token).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  test('two tokens issued together are different', async () => {
+    const tokens = await asUser(w.admin, async (c) => {
+      const out: string[] = []
+      for (const email of ['t1@elsewhere.example', 't2@elsewhere.example']) {
+        const id = (
+          await c.query(`select invite_to_account($1,$2,'consultant') as id`, [w.ashgrove, email])
+        ).rows[0].id
+        out.push((await c.query('select token from invitations where id = $1', [id])).rows[0].token)
+      }
+      return out
+    })
+    expect(tokens[0]).not.toEqual(tokens[1])
+  })
+
+  test('nothing in the migrations calls pgcrypto unqualified', async () => {
+    // The harness now installs pgcrypto into `extensions`, as Supabase does, so
+    // this would fail at run time rather than silently working.
+    await asSuperuser(async (c) => {
+      const { rows } = await c.query(`
+        select p.proname from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.prokind = 'f'   -- pg_get_functiondef rejects aggregates
+          and pg_get_functiondef(p.oid) ~ '(^|[^.[:alnum:]_])gen_random_bytes\\s*\\('
+      `)
+      expect(rows.map((r) => r.proname)).toEqual([])
+    })
+  })
+})

@@ -17,7 +17,8 @@ with expected(ord, migration, kind, marker) as (values
   (7, '20260902090600_invitation_token_without_pgcrypto', 'function', 'new_invitation_token'),
   (8, '20260902090700_pending_invitations_in_app',   'column',   'invitations.declined_at'),
   (9, '20260902090800_platform_owner_scope',         'function', 'account_summary'),
-  (10,'20260902091000_membership_requests',          'table',    'membership_requests')
+  (10,'20260902091000_membership_requests',          'table',    'membership_requests'),
+  (11,'20260902091100_my_accounts_and_member_visibility', 'function', 'my_accounts')
 )
 select
   e.ord as "#",

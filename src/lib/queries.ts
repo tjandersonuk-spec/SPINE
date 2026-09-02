@@ -5,6 +5,7 @@ export type Account = {
   name: string
   status: string
   role: string
+  brand_colour: string
 }
 
 export type ProjectRow = {
@@ -24,18 +25,17 @@ export type AccountRequest = {
 }
 
 /**
- * The My accounts tab. Returns only accounts this person is a member of, so it
- * can never name an account they are not in.
+ * The My accounts tab: one row per account this person belongs to.
+ *
+ * Reading organisation_members directly would be wrong, and was. A member may
+ * see everyone else in their account, so that query returns a row per member —
+ * a five-person account came back five times. my_accounts() is one row per
+ * account by construction, so no caller can get it wrong again.
  */
 export async function fetchMyAccounts(): Promise<Account[]> {
-  const { data, error } = await supabase
-    .from('organisation_members')
-    .select('role, organisations(id, name, status)')
+  const { data, error } = await supabase.rpc('my_accounts')
   if (error) throw error
-  return (data ?? []).map((r) => {
-    const o = r.organisations as unknown as { id: string; name: string; status: string }
-    return { id: o.id, name: o.name, status: o.status, role: r.role as string }
-  })
+  return data ?? []
 }
 
 /**

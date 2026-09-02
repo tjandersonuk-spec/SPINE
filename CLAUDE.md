@@ -161,6 +161,19 @@ inviting account's name to the addressee alone — an exception to account
 isolation that consent requires, since agreeing to join something you cannot see
 the name of is not consent.
 
+Everyone in an account sees its member list, its outstanding invitations and
+its pending membership requests. §1b once hid invitations from all but admins
+and the addressee; in use that is wrong — a team that cannot see who has been
+invited invites them twice, and whoever asked for someone has no way to see it
+is in hand. Acting on them is unchanged: issuing, revoking, approving and
+declining remain an admin's. Isolation is untouched — none of it crosses an
+account boundary.
+
+`my_accounts()` and `my_projects()` are the only correct way to ask what the
+signed-in person belongs to. Reading `organisation_members` directly returns a
+row per member of each account, because a member may see their colleagues, and
+a five-person account then appears five times.
+
 The personal landing page spans accounts and is the only screen that does: a **My accounts** tab
 (always present, even at one row) and a **Projects** tab listing everything the person can reach
 across every account, each labelled with its account. Entitlements read through

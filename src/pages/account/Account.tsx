@@ -67,8 +67,8 @@ export default function Account() {
       <ErrorNote message={error} />
       {!isAdmin && (
         <p className="text-muted-foreground text-sm">
-          You are {role ?? 'not a member'} on this account. Only an admin can invite people or
-          create projects.
+          You are {role ?? 'not a member'} on this account. You can see everyone here and what is
+          outstanding; inviting people and creating projects are an admin's.
         </p>
       )}
 
@@ -132,7 +132,9 @@ export default function Account() {
 
         <TabsContent value="invites" className="pt-4">
           {open.length === 0 ? (
-            <Empty>Nothing outstanding. An invitation grants nothing until it is accepted.</Empty>
+            <Empty>
+              Nothing outstanding. An invitation grants nothing until it is accepted.
+            </Empty>
           ) : (
             <ul className="flex flex-col gap-2">
               {open.map((i) => (

@@ -483,16 +483,26 @@ describe('invitations', () => {
     })
   })
 
-  test('an invitation is not visible to the rest of the account', async () => {
+  test('the account can see its own invitations, and nobody outside it can', async () => {
     await asUser(w.admin, (c) =>
       c.query(`select invite_to_account($1,'quiet@elsewhere.example','consultant')`, [w.ashgrove])
     )
+    // A team that cannot see who has been invited invites them twice.
     await asUser(w.consultant, async (c) => {
       const { rows } = await c.query(
         `select id from invitations where email = 'quiet@elsewhere.example'`
       )
-      expect(rows).toHaveLength(0)
+      expect(rows).toHaveLength(1)
     })
+    // Isolation is unchanged: another account and a person in none see nothing.
+    for (const outsider of [w.stranger, w.outsider]) {
+      await asUser(outsider, async (c) => {
+        const { rows } = await c.query(
+          `select id from invitations where email = 'quiet@elsewhere.example'`
+        )
+        expect(rows).toHaveLength(0)
+      })
+    }
   })
 })
 
@@ -1319,8 +1329,16 @@ describe('adding someone from the bottom up needs an admin', () => {
     })
   })
 
-  test('the rest of the account cannot see it, and nor can another account', async () => {
-    for (const who of [w.consultant, w.stranger, w.outsider]) {
+  test('the account can see the request; another account and an outsider cannot', async () => {
+    // Whoever asked needs to see it is in hand, and the team needs to see it so
+    // that two people do not ask for the same person.
+    await asUser(w.consultant, async (c) => {
+      const { rows } = await c.query(
+        `select id from membership_requests where email = 'newbod@structures.example'`
+      )
+      expect(rows).toHaveLength(1)
+    })
+    for (const who of [w.stranger, w.outsider]) {
       await asUser(who, async (c) => {
         const { rows } = await c.query(
           `select id from membership_requests where email = 'newbod@structures.example'`
@@ -1470,6 +1488,120 @@ describe('adding someone from the bottom up needs an admin', () => {
     await asUser(w.admin, async (c) => {
       const { rows } = await c.query('select * from my_membership_requests()')
       expect(rows.map((r) => r.email)).not.toContain('withdrawme@x.example')
+    })
+  })
+})
+
+describe('my_accounts lists each account once', () => {
+  test('a five-person account appears once, not five times', async () => {
+    const person = await asSuperuser(async (c) => {
+      const person = await makePerson(c, 'Solo Member', 'solo@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, person]
+      )
+      // several more people in the same account
+      for (const n of ['a', 'b', 'c']) {
+        const other = await makePerson(c, `Crowd ${n}`, `crowd-${n}@ashgrove.example`)
+        await c.query(
+          `insert into organisation_members (organisation_id, profile_id, role)
+           values ($1,$2,'consultant')`,
+          [w.ashgrove, other]
+        )
+      }
+      return person
+    })
+
+    const members = await asUser(person, async (c) =>
+      Number((await c.query('select count(*) from organisation_members')).rows[0].count)
+    )
+    expect(members).toBeGreaterThan(1) // the policy does show them everyone
+
+    await asUser(person, async (c) => {
+      const { rows } = await c.query('select * from my_accounts()')
+      expect(rows).toHaveLength(1)
+      expect(rows[0].name).toBe('Ashgrove Group')
+      expect(rows[0].role).toBe('consultant')
+    })
+  })
+
+  test('someone in two accounts gets exactly two rows', async () => {
+    const person = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Two Hats', 'twohats@elsewhere.example')
+      for (const [org, role] of [
+        [w.ashgrove, 'consultant'],
+        [w.bellhouse, 'client'],
+      ] as const) {
+        await c.query(
+          `insert into organisation_members (organisation_id, profile_id, role)
+           values ($1,$2,$3)`,
+          [org, p, role]
+        )
+      }
+      return p
+    })
+    await asUser(person, async (c) => {
+      const { rows } = await c.query('select name, role from my_accounts()')
+      expect(rows).toEqual([
+        { name: 'Ashgrove Group', role: 'consultant' },
+        { name: 'Bellhouse', role: 'client' },
+      ])
+    })
+  })
+
+  test('a person in no account gets none, and no error', async () => {
+    await asUser(w.outsider, async (c) => {
+      expect((await c.query('select * from my_accounts()')).rows).toHaveLength(0)
+    })
+  })
+})
+
+describe('asking twice is refused with something readable', () => {
+  test('a second pending request for the same person is refused by name', async () => {
+    const asker = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Keen Asker', 'keen@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, p]
+      )
+      await c.query('insert into project_members (project_id, profile_id) values ($1,$2)', [
+        w.project, p,
+      ])
+      return p
+    })
+    await asUser(asker, async (c) => {
+      await c.query(`select request_membership($1,'twice@x.example','consultant')`, [w.project])
+      const msg = await refused(() =>
+        c.query(`select request_membership($1,'twice@x.example','consultant')`, [w.project])
+      )
+      expect(msg).toMatch(/already asked for that person/)
+      expect(msg).not.toMatch(/constraint|index/i)
+    })
+  })
+
+  test('asking for someone already invited says so', async () => {
+    await asUser(w.admin, (c) =>
+      c.query(`select invite_to_account($1,'pending-invite@x.example','consultant')`, [w.ashgrove])
+    )
+    const asker = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Late Asker', 'late@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, p]
+      )
+      await c.query('insert into project_members (project_id, profile_id) values ($1,$2)', [
+        w.project, p,
+      ])
+      return p
+    })
+    await asUser(asker, async (c) => {
+      const msg = await refused(() =>
+        c.query(`select request_membership($1,'pending-invite@x.example','consultant')`, [w.project])
+      )
+      expect(msg).toMatch(/already been invited/)
     })
   })
 })

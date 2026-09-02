@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
+import { Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase } from '@/lib/supabase'
 import {
-  fetchMyAccountRequests, fetchMyAccounts, fetchMyProjects,
+  fetchMyAccountRequests, fetchMyAccounts, fetchMyProjects, isPlatformOwner,
   type Account, type AccountRequest, type ProjectRow,
 } from '@/lib/queries'
 
@@ -22,15 +22,17 @@ export default function Landing() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [requests, setRequests] = useState<AccountRequest[]>([])
+  const [owner, setOwner] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([fetchMyAccounts(), fetchMyProjects(), fetchMyAccountRequests()])
-      .then(([a, p, r]) => {
+    Promise.all([fetchMyAccounts(), fetchMyProjects(), fetchMyAccountRequests(), isPlatformOwner()])
+      .then(([a, p, r, o]) => {
         setAccounts(a)
         setProjects(p)
         setRequests(r)
+        setOwner(o)
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -39,15 +41,21 @@ export default function Landing() {
   const pending = requests.find((r) => r.status === 'pending')
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-3xl flex-col gap-6 p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Spine</h1>
-        <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
-          Sign out
-        </Button>
-      </header>
-
+    <Shell title="Spine">
       {error && <p className="text-destructive text-sm">{error}</p>}
+
+      {/* Shown only to a platform owner. is_platform_owner() is the real guard;
+          this just keeps the nav honest for everyone else. */}
+      {owner && (
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/platform/accounts">Accounts</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/platform/people">People</Link>
+          </Button>
+        </div>
+      )}
 
       <Tabs defaultValue="projects">
         <TabsList>
@@ -111,15 +119,17 @@ export default function Landing() {
           ) : (
             <ul className="flex flex-col gap-2">
               {accounts.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex items-center justify-between rounded-lg border px-4 py-3"
-                >
-                  <span className="font-medium">{a.name}</span>
-                  <span className="text-muted-foreground text-sm">
-                    {a.role}
-                    {a.status !== 'active' && ` · ${a.status}`}
-                  </span>
+                <li key={a.id}>
+                  <Link
+                    to={`/account/${a.id}`}
+                    className="hover:bg-accent flex items-center justify-between rounded-lg border px-4 py-3"
+                  >
+                    <span className="font-medium">{a.name}</span>
+                    <span className="text-muted-foreground text-sm">
+                      {a.role}
+                      {a.status !== 'active' && ` · ${a.status}`}
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -137,6 +147,6 @@ export default function Landing() {
           ))}
         </TabsContent>
       </Tabs>
-    </main>
+    </Shell>
   )
 }

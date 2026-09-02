@@ -123,11 +123,15 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 - [ ] Email confirmation is required in the Supabase project's Auth settings (a dashboard
       setting, not code) — the sign-up flow already assumes it
-- [ ] Platform-owner console: accounts view (review, amend, approve, reject, lock, archive,
+- [x] Platform-owner console: accounts view (review, amend, approve, reject, lock, archive,
       delete, set modules and tier) and the people view listing every login
-- [ ] Account-admin screens: member directory, issue and revoke invitations, create a project
-- [ ] Project-admin screens: add and remove people on a project
-- [ ] Playwright click-through tests over the above once the screens exist
+- [x] Account-admin screens: member directory, issue and revoke invitations, create a project
+- [x] Project-admin screens: add and remove people on a project
+- [ ] Playwright click-through tests. Blocked on a reachable Supabase: the app talks to GoTrue
+      and PostgREST, which the local PostgreSQL harness does not provide, so these need the
+      hosted project (or Docker, for `supabase start`)
+- [x] Column-level grants, so a policy that permits a row edit cannot permit an entitlement or
+      email change with it
 
 ## Phase 2 — Projects, directory, disciplines, master catalogue
 

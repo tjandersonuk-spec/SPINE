@@ -707,8 +707,12 @@ describe('the account lifecycle', () => {
       return { id, p }
     })
     await asUser(org.p, async (c) => {
-      const res = await c.query(`update organisations set status = 'active' where id = $1`, [org.id])
-      expect(res.rowCount).toBe(0) // the using clause matches no row
+      // Refused twice over: the column grant in 0005 denies `status` outright,
+      // and even without it the policy's using clause matches no row.
+      const msg = await refused(() =>
+        c.query(`update organisations set status = 'active' where id = $1`, [org.id])
+      )
+      expect(msg).toMatch(/permission denied|column/i)
     })
     const status = await asSuperuser(
       async (c) => (await c.query('select status from organisations where id = $1', [org.id])).rows[0].status
@@ -749,14 +753,18 @@ describe('the platform owner', () => {
 
   test('the audit trail cannot be edited by its own subject', async () => {
     await asUser(w.owner, async (c) => {
-      const update = await c.query(`update platform_audit set action = 'tampered'`)
-      expect(update.rowCount).toBe(0)
-      const del = await c.query('delete from platform_audit')
-      expect(del.rowCount).toBe(0)
+      // 0005 revokes insert, update and delete on this table from every
+      // API role, so these are permission denials rather than empty no-ops.
+      for (const sql of [
+        `update platform_audit set action = 'tampered'`,
+        'delete from platform_audit',
+      ]) {
+        expect(await refused(() => c.query(sql)), sql).toMatch(/permission denied/i)
+      }
       const insert = await refused(() =>
         c.query(`insert into platform_audit (owner_id, action) values ($1,'forged')`, [w.owner])
       )
-      expect(insert).toMatch(/row-level security/i)
+      expect(insert).toMatch(/permission denied|row-level security/i)
     })
   })
 
@@ -791,5 +799,189 @@ describe('module entitlements', () => {
       unknown: (await c.query(`select module_on($1,'energy') as v`, [project])).rows[0].v,
     }))
     expect(on).toEqual({ compliance: true, commercial: true, unknown: false })
+  })
+})
+
+describe('column privileges — RLS decides rows, grants decide columns', () => {
+  test('a person cannot change their own email, so they cannot redeem another address', async () => {
+    // Ada is invited. Otto, who holds no membership, tries to become Ada.
+    const token = await asUser(w.admin, async (c) => {
+      const id = (
+        await c.query(`select invite_to_account($1,'target@victim.example','admin') as id`, [
+          w.ashgrove,
+        ])
+      ).rows[0].id
+      return (await c.query('select token from invitations where id = $1', [id])).rows[0].token
+    })
+
+    await asUser(w.outsider, async (c) => {
+      const msg = await refused(() =>
+        c.query(`update profiles set email = 'target@victim.example' where id = $1`, [w.outsider])
+      )
+      expect(msg).toMatch(/permission denied|column/i)
+      // and so the invitation is still not theirs to take
+      const accept = await refused(() => c.query('select accept_invitation($1)', [token]))
+      expect(accept).toMatch(/issued to a different address/)
+    })
+  })
+
+  test('a person can still edit their own name', async () => {
+    await asUser(w.outsider, async (c) => {
+      const res = await c.query(`update profiles set name = 'Otto Renamed' where id = $1`, [
+        w.outsider,
+      ])
+      expect(res.rowCount).toBe(1)
+    })
+  })
+
+  test('an account admin cannot switch on a module they have not been given', async () => {
+    await asUser(w.admin, async (c) => {
+      const msg = await refused(() =>
+        c.query(`update organisations set modules = '{"commercial":true}' where id = $1`, [w.ashgrove])
+      )
+      expect(msg).toMatch(/permission denied|column/i)
+    })
+  })
+
+  test('an account admin cannot change their own tier or status by column', async () => {
+    await asUser(w.admin, async (c) => {
+      for (const col of ['subscription_tier', 'status']) {
+        const msg = await refused(() =>
+          c.query(`update organisations set ${col} = 'complete' where id = $1`, [w.ashgrove])
+        )
+        expect(msg, col).toMatch(/permission denied|column|invalid input/i)
+      }
+    })
+  })
+
+  test('an account admin can still edit branding', async () => {
+    await asUser(w.admin, async (c) => {
+      const res = await c.query(`update organisations set brand_colour = '#123456' where id = $1`, [
+        w.ashgrove,
+      ])
+      expect(res.rowCount).toBe(1)
+    })
+  })
+
+  test('a project admin cannot grant themselves a module through modules_override', async () => {
+    const pa = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Mod Grabber', 'grab@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, p]
+      )
+      await c.query(
+        `insert into project_members (project_id, profile_id, project_role)
+         values ($1,$2,'project_admin')`,
+        [w.project, p]
+      )
+      return p
+    })
+    await asUser(pa, async (c) => {
+      const msg = await refused(() =>
+        c.query(`update projects set modules_override = '{"commercial":true}' where id = $1`, [
+          w.project,
+        ])
+      )
+      expect(msg).toMatch(/permission denied|column/i)
+    })
+  })
+
+  test('a requester cannot forge the review of their own request', async () => {
+    const person = await asSuperuser((c) => makePerson(c, 'Fay Forger', 'fay@forge.example'))
+    const req = await asUser(person, async (c) =>
+      (await c.query(`select request_account('Forge Ltd') as id`)).rows[0].id
+    )
+    await asUser(person, async (c) => {
+      const msg = await refused(() =>
+        c.query(`update account_requests set review_note = 'approved by me' where id = $1`, [req])
+      )
+      expect(msg).toMatch(/permission denied|column/i)
+    })
+  })
+
+  test('the platform owner can amend an account, and it is audited', async () => {
+    await asUser(w.owner, (c) =>
+      c.query(`select update_account_as_owner($1,'Ashgrove Group',null,'complete','{"commercial":true}')`, [
+        w.ashgrove,
+      ])
+    )
+    const row = await asSuperuser(
+      async (c) =>
+        (await c.query('select name, subscription_tier, modules from organisations where id = $1', [
+          w.ashgrove,
+        ])).rows[0]
+    )
+    expect(row.name).toBe('Ashgrove Group')
+    expect(row.subscription_tier).toBe('complete')
+    expect(row.modules).toEqual({ commercial: true })
+
+    await asUser(w.owner, async (c) => {
+      const { rows } = await c.query(
+        `select detail from platform_audit where action = 'update_account'
+         and organisation_id = $1 order by id desc limit 1`,
+        [w.ashgrove]
+      )
+      expect(rows[0].detail.from.name).toBe('Ashgrove')
+      expect(rows[0].detail.to.name).toBe('Ashgrove Group')
+    })
+  })
+
+  test('an account admin cannot amend an account through the owner function', async () => {
+    await asUser(w.admin, async (c) => {
+      const msg = await refused(() =>
+        c.query(`select update_account_as_owner($1,'Hijacked',null,'complete','{}')`, [w.ashgrove])
+      )
+      expect(msg).toMatch(/not permitted/)
+    })
+  })
+
+  test('nobody writes the audit trail through the API', async () => {
+    await asUser(w.owner, async (c) => {
+      const msg = await refused(() =>
+        c.query(`insert into platform_audit (owner_id, action) values ($1,'forged')`, [w.owner])
+      )
+      expect(msg).toMatch(/permission denied|row-level security/i)
+    })
+  })
+})
+
+describe('removing someone from a project', () => {
+  test('remove_from_project leaves the account membership intact', async () => {
+    const person = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Rem Ovable', 'rem@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, p]
+      )
+      await c.query('insert into project_members (project_id, profile_id) values ($1,$2)', [
+        w.project,
+        p,
+      ])
+      return p
+    })
+    await asUser(w.admin, (c) => c.query('select remove_from_project($1,$2)', [w.project, person]))
+    const after = await asSuperuser(async (c) => ({
+      onProject: Number(
+        (await c.query('select count(*) from project_members where profile_id = $1', [person]))
+          .rows[0].count
+      ),
+      inAccount: Number(
+        (await c.query('select count(*) from organisation_members where profile_id = $1', [person]))
+          .rows[0].count
+      ),
+    }))
+    expect(after).toEqual({ onProject: 0, inAccount: 1 })
+  })
+
+  test('a consultant cannot remove anyone', async () => {
+    await asUser(w.consultant, async (c) => {
+      const msg = await refused(() =>
+        c.query('select remove_from_project($1,$2)', [w.project, w.consultant])
+      )
+      expect(msg).toMatch(/not permitted/)
+    })
   })
 })

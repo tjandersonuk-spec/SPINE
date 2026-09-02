@@ -1,8 +1,12 @@
-import { Navigate, Route, Routes, useParams } from 'react-router'
+import { Navigate, Route, Routes } from 'react-router'
 
 import { AuthProvider, useAuth } from '@/lib/auth'
+import Account from '@/pages/account/Account'
 import AcceptInvitation from '@/pages/AcceptInvitation'
 import Landing from '@/pages/Landing'
+import PlatformAccounts from '@/pages/platform/Accounts'
+import PlatformPeople from '@/pages/platform/People'
+import Project from '@/pages/project/Project'
 import RequestAccount from '@/pages/RequestAccount'
 import SignIn from '@/pages/SignIn'
 import SignUp from '@/pages/SignUp'
@@ -14,16 +18,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-/** Placeholder until phase 2 builds the project shell. */
-function Project() {
-  const { id } = useParams()
-  return (
-    <main className="p-6">
-      <p className="text-muted-foreground text-sm">Project {id} — built in phase 2.</p>
-    </main>
-  )
-}
-
+/**
+ * The platform-owner routes are guarded here only so the nav is coherent. The
+ * real guard is is_platform_owner() in every policy and definer function: a
+ * person who reaches these pages another way sees nothing and can do nothing.
+ */
 export default function App() {
   return (
     <AuthProvider>
@@ -35,7 +34,10 @@ export default function App() {
         <Route path="/accept/:token" element={<AcceptInvitation />} />
         <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
         <Route path="/request-account" element={<RequireAuth><RequestAccount /></RequireAuth>} />
+        <Route path="/account/:id" element={<RequireAuth><Account /></RequireAuth>} />
         <Route path="/project/:id" element={<RequireAuth><Project /></RequireAuth>} />
+        <Route path="/platform/accounts" element={<RequireAuth><PlatformAccounts /></RequireAuth>} />
+        <Route path="/platform/people" element={<RequireAuth><PlatformPeople /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

@@ -9,6 +9,7 @@ order and are written to run unchanged against a hosted Supabase project.
 | `migrations/0002_phase1_functions.sql` | Guards and derived reads (`is_account_admin`, `my_projects`, `module_on`, …) |
 | `migrations/0003_phase1_actions.sql` | Actions that create membership or move an account's lifecycle |
 | `migrations/0004_phase1_rls.sql` | Row Level Security on every table |
+| `migrations/0005_phase1_column_grants.sql` | Column-level privileges, and the platform owner's amend and project-removal functions |
 
 ## Applying to Supabase
 
@@ -18,7 +19,9 @@ supabase db push
 ```
 
 Then apply `tests/grants.sql`, which grants the `authenticated` role the table
-and function access the policies then filter.
+and function access the policies then filter. **Apply it before `0005`, not
+after** — `0005` narrows those grants down to individual columns, and a blanket
+grant applied afterwards would undo it.
 
 **Auth settings that are not in these files.** Email confirmation must be
 required in the project's Auth settings. The sign-up flow assumes it: a login is
@@ -45,6 +48,17 @@ Tests connect as the `authenticated` role with `request.jwt.claims` set, exactly
 as PostgREST does. That role holds no `BYPASSRLS`, so the policies genuinely
 apply — which is the whole point. Seeding uses a superuser connection and is the
 only place RLS is bypassed.
+
+### RLS decides rows; GRANTs decide columns
+
+The two are separate mechanisms and the second is easy to forget. A policy that
+lets an account admin edit their own account row lets them edit *every column of
+it* — including `modules`, which is what they are paying you for. `0005` revokes
+the blanket update on every table that has an update policy and re-grants only
+the columns that role has any business writing. `phase1.test.ts` proves three
+escalations are closed: a person changing their own email and then redeeming
+somebody else's invitation, an account admin switching on a module, and a
+project admin doing the same through `modules_override`.
 
 ### One shape to remember when reading the tests
 

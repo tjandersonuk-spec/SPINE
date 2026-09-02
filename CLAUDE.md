@@ -67,6 +67,12 @@ except the derived views.
   own login.
 - The Building Safety Act change-control classification guard is enforced by policy/handler, never
   by hiding a button in the UI — a synthetic event from the wrong role must be refused server-side.
+- **RLS decides rows; GRANTs decide columns.** A policy that lets someone edit a row lets them
+  edit *every column of it*, because Supabase grants `authenticated` update on all columns by
+  default. Any column that a role may see but must not write — `organisations.modules`,
+  `projects.modules_override`, `profiles.email`, a reviewer's verdict — needs the blanket update
+  revoked and a column-level grant in its place. Whenever a phase adds a table with an update
+  policy, ask which columns that role has any business writing.
 - **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
   never by hiding the button — a direct insert from `internal`, a project admin or a consultant
   must be refused by the database. A project admin staffs their own project from the account's

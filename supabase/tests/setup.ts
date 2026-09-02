@@ -8,6 +8,8 @@ const FILES = [
   'supabase/migrations/0003_phase1_actions.sql',
   'supabase/migrations/0004_phase1_rls.sql',
   'supabase/tests/grants.sql',
+  // after the blanket grants, so the column-level revokes are the last word
+  'supabase/migrations/0005_phase1_column_grants.sql',
 ]
 
 const base = ['-h', connection.host, '-p', String(connection.port), '-U', connection.user]

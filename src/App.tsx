@@ -6,8 +6,9 @@ import Account from '@/pages/account/Account'
 import AcceptInvitation from '@/pages/AcceptInvitation'
 import Landing from '@/pages/Landing'
 import PlatformAccounts from '@/pages/platform/Accounts'
+import Profile from '@/pages/Profile'
 import PlatformPeople from '@/pages/platform/People'
-import Project from '@/pages/project/Project'
+import ProjectPage from '@/pages/project/Project'
 import RequestAccount from '@/pages/RequestAccount'
 import SetupNeeded from '@/pages/SetupNeeded'
 import SignIn from '@/pages/SignIn'
@@ -40,8 +41,9 @@ export default function App() {
         <Route path="/accept/:token" element={<AcceptInvitation />} />
         <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
         <Route path="/request-account" element={<RequireAuth><RequestAccount /></RequireAuth>} />
+        <Route path="/me" element={<RequireAuth><Profile /></RequireAuth>} />
         <Route path="/account/:id" element={<RequireAuth><Account /></RequireAuth>} />
-        <Route path="/project/:id" element={<RequireAuth><Project /></RequireAuth>} />
+        <Route path="/project/:id" element={<RequireAuth><ProjectPage /></RequireAuth>} />
         <Route path="/platform/accounts" element={<RequireAuth><PlatformAccounts /></RequireAuth>} />
         <Route path="/platform/people" element={<RequireAuth><PlatformPeople /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />

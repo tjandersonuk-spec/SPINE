@@ -72,7 +72,9 @@ except the derived views.
   default. Any column that a role may see but must not write — `organisations.modules`,
   `projects.modules_override`, `profiles.email`, a reviewer's verdict — needs the blanket update
   revoked and a column-level grant in its place. Whenever a phase adds a table with an update
-  policy, ask which columns that role has any business writing.
+  policy, ask which columns that role has any business writing. A table created by a later migration
+  inherits nothing from an earlier `grant on all tables`, so every migration that adds a table
+  states its own grants — and grants only what that table's policies are meant to allow.
 - **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
   never by hiding the button — a direct insert from `internal`, a project admin or a consultant
   must be refused by the database. A project admin staffs their own project from the account's
@@ -127,6 +129,22 @@ person into the account. **Project scope** (account admin or that project's `pro
 someone to one project, and the invitee **must already be a member of the account that owns the
 project** — checked at issue and again at accept, since membership can be revoked while a
 14-day token is live. Membership is only ever created on accept.
+
+Adding someone to an account runs in two directions. **Top down**, an account
+admin invites and the invitation goes straight out. **Bottom up**, anyone working
+on a project may propose someone — they know who is missing long before an admin
+does — but a new member may change what the account is billed for, so it becomes
+a `membership_requests` row that lands with the account's admins. Only their
+approval issues the invitation, and they may change the role on the way through
+because they carry the cost. Nothing reaches the person named until then, and
+the consent step is unchanged: they still accept for themselves.
+
+The platform owner sees accounts and people, **not project contents**. §1b once
+granted "see any account's projects for support"; that is more than running the
+platform needs and a customer's design data is the last thing the landlord
+should read. Counts reach the owner through `account_summary()`, because how
+many projects and members an account has is a billing fact rather than project
+data.
 
 An invitation reaches its addressee two ways, and both must work: the emailed
 link, and the landing page, where anyone signed in with that address sees it

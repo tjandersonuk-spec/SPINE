@@ -346,3 +346,124 @@ export async function declineInvitation(token: string) {
   const { error } = await supabase.rpc('decline_invitation', { p_token: token })
   if (error) throw error
 }
+
+// ---------------------------------------------------------------------------
+// Editing
+// ---------------------------------------------------------------------------
+
+export type MyProfile = { id: string; name: string; email: string; phone: string | null }
+
+export async function fetchMyProfile(): Promise<MyProfile> {
+  const { data: auth } = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, email, phone')
+    .eq('id', auth.user?.id ?? '')
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateMyProfile(input: { name: string; phone: string }) {
+  const { data: auth } = await supabase.auth.getUser()
+  const { error } = await supabase
+    .from('profiles')
+    .update({ name: input.name.trim(), phone: input.phone.trim() || null })
+    .eq('id', auth.user?.id ?? '')
+  if (error) throw error
+}
+
+/**
+ * Changing an address goes through Auth, never through profiles. The column is
+ * not writable by its owner on purpose: accept_invitation() matches on it, so a
+ * self-service edit would let anyone redeem an invitation addressed to someone
+ * else. Auth emails the new address, and only once that link is followed does
+ * the trigger copy it onto the profile.
+ */
+export async function changeMyEmail(newEmail: string) {
+  const { error } = await supabase.auth.updateUser(
+    { email: newEmail.trim() },
+    { emailRedirectTo: `${window.location.origin}/auth/callback` }
+  )
+  if (error) throw error
+}
+
+export async function updateAccount(id: string, input: { name: string; brandColour: string }) {
+  const { error } = await supabase
+    .from('organisations')
+    .update({ name: input.name.trim(), brand_colour: input.brandColour })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function updateProject(id: string, input: { name: string; code: string }) {
+  const { error } = await supabase
+    .from('projects')
+    .update({ name: input.name.trim(), code: input.code.trim() })
+    .eq('id', id)
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Membership requests — asking for someone to be added, from below
+// ---------------------------------------------------------------------------
+
+export type MembershipRequest = {
+  id: string
+  organisation_id: string
+  account_name: string
+  project_name: string | null
+  email: string
+  person_name: string | null
+  proposed_role: string
+  proposed_project_role: string | null
+  note: string | null
+  requested_by_name: string | null
+  created_at: string
+}
+
+export async function fetchMyMembershipRequests(): Promise<MembershipRequest[]> {
+  const { data, error } = await supabase.rpc('my_membership_requests')
+  if (error) throw error
+  return data ?? []
+}
+
+export async function requestMembership(input: {
+  projectId: string
+  email: string
+  role: string
+  projectRole: string
+  personName?: string
+  note?: string
+}) {
+  const { error } = await supabase.rpc('request_membership', {
+    p_project: input.projectId,
+    p_email: input.email,
+    p_role: input.role,
+    p_project_role: input.projectRole,
+    p_person_name: input.personName || null,
+    p_note: input.note || null,
+  })
+  if (error) throw error
+}
+
+export async function approveMembershipRequest(id: string, role: string, projectRole: string) {
+  const { error } = await supabase.rpc('approve_membership_request', {
+    p_request: id, p_role: role, p_project_role: projectRole,
+  })
+  if (error) throw error
+}
+
+export async function declineMembershipRequest(id: string, reason: string) {
+  const { error } = await supabase.rpc('decline_membership_request', {
+    p_request: id, p_reason: reason,
+  })
+  if (error) throw error
+}
+
+export const ACCOUNT_ROLES = [
+  { value: 'consultant', label: 'Consultant' },
+  { value: 'client', label: 'Client' },
+  { value: 'internal', label: 'Internal' },
+  { value: 'admin', label: 'Admin' },
+] as const

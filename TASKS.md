@@ -72,6 +72,12 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 - [x] Never match on email: typing an address grants nothing
 - [x] Pending invitations appear on the landing page with Accept and Decline, so an invitation
       does not depend on an email arriving; declining is recorded and cannot later be accepted
+- [x] Bottom-up `membership_requests`: anyone on a project may propose someone with a full
+      account role; it lands in the admins' landing area and only their approval issues the
+      invitation, with the role editable at that point
+- [x] Editing: a person edits their own name and phone, and changes their address through Auth
+      (never by writing profiles.email); an account admin edits the account name and brand and
+      their projects' name and code; the platform owner edits accounts but cannot read projects
 
 ### Project creation and project-level administration
 

@@ -1234,3 +1234,242 @@ describe('pending invitations appear in the app', () => {
     })
   })
 })
+
+describe('the platform owner does not see project data', () => {
+  test('projects are invisible to the owner', async () => {
+    await asUser(w.owner, async (c) => {
+      expect((await c.query('select * from projects')).rows).toHaveLength(0)
+      expect((await c.query('select can_see_project($1) as v', [w.project])).rows[0].v).toBe(false)
+      expect((await c.query('select * from project_members')).rows).toHaveLength(0)
+    })
+  })
+
+  test('but counts still reach them, because billing needs them', async () => {
+    await asUser(w.owner, async (c) => {
+      const { rows } = await c.query('select * from account_summary($1)', [w.ashgrove])
+      expect(rows[0].project_count).toBeGreaterThan(0)
+      expect(rows[0].member_count).toBeGreaterThan(0)
+    })
+  })
+
+  test('account_summary tells a stranger nothing', async () => {
+    await asUser(w.stranger, async (c) => {
+      expect((await c.query('select * from account_summary($1)', [w.ashgrove])).rows).toHaveLength(0)
+    })
+  })
+
+  test('account staff still see their own projects', async () => {
+    await asUser(w.internal, async (c) => {
+      expect((await c.query('select id from projects where id = $1', [w.project])).rows).toHaveLength(1)
+    })
+  })
+})
+
+describe('adding someone from the bottom up needs an admin', () => {
+  let member: string
+
+  test('a plain project member can propose someone', async () => {
+    member = await asSuperuser(async (c) => {
+      const p = await makePerson(c, 'Mel Member', 'mel@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, p]
+      )
+      await c.query('insert into project_members (project_id, profile_id) values ($1,$2)', [
+        w.project, p,
+      ])
+      return p
+    })
+    await asUser(member, async (c) => {
+      const { rows } = await c.query(
+        `select request_membership($1,'newbod@structures.example','consultant','member',
+                                   'New Bod','we need a structural engineer') as id`,
+        [w.project]
+      )
+      expect(rows[0].id).toBeTruthy()
+    })
+  })
+
+  test('proposing issues no invitation and creates no membership', async () => {
+    const counts = await asSuperuser(async (c) => ({
+      invites: Number(
+        (await c.query(`select count(*) from invitations where email = 'newbod@structures.example'`))
+          .rows[0].count
+      ),
+      members: Number(
+        (await c.query(
+          `select count(*) from organisation_members m join profiles p on p.id = m.profile_id
+           where lower(p.email) = 'newbod@structures.example'`
+        )).rows[0].count
+      ),
+    }))
+    expect(counts).toEqual({ invites: 0, members: 0 })
+  })
+
+  test("it lands in the admin's queue", async () => {
+    await asUser(w.admin, async (c) => {
+      const { rows } = await c.query('select * from my_membership_requests()')
+      const row = rows.find((r) => r.email === 'newbod@structures.example')
+      expect(row).toBeTruthy()
+      expect(row.requested_by_name).toBe('Mel Member')
+      expect(row.project_name).toBe('Riverside Phase 2')
+      expect(row.proposed_role).toBe('consultant')
+      expect(row.note).toMatch(/structural engineer/)
+    })
+  })
+
+  test('the rest of the account cannot see it, and nor can another account', async () => {
+    for (const who of [w.consultant, w.stranger, w.outsider]) {
+      await asUser(who, async (c) => {
+        const { rows } = await c.query(
+          `select id from membership_requests where email = 'newbod@structures.example'`
+        )
+        expect(rows).toHaveLength(0)
+      })
+    }
+  })
+
+  test('a non-admin cannot approve it', async () => {
+    const id = await asSuperuser(
+      async (c) =>
+        (await c.query(
+          `select id from membership_requests where email = 'newbod@structures.example'`
+        )).rows[0].id
+    )
+    await asUser(member, async (c) => {
+      const msg = await refused(() => c.query('select approve_membership_request($1)', [id]))
+      expect(msg).toMatch(/not permitted/)
+    })
+    await asUser(w.internal, async (c) => {
+      const msg = await refused(() => c.query('select approve_membership_request($1)', [id]))
+      expect(msg).toMatch(/not permitted/)
+    })
+  })
+
+  test('an admin approves, and only then is the invitation issued', async () => {
+    const id = await asSuperuser(
+      async (c) =>
+        (await c.query(
+          `select id from membership_requests where email = 'newbod@structures.example'`
+        )).rows[0].id
+    )
+    await asUser(w.admin, (c) => c.query('select approve_membership_request($1)', [id]))
+    const invite = await asSuperuser(
+      async (c) =>
+        (await c.query(
+          `select role, project_ids, accepted_at from invitations
+           where email = 'newbod@structures.example'`
+        )).rows[0]
+    )
+    expect(invite.role).toBe('consultant')
+    expect(invite.project_ids).toEqual([w.project])
+    // still consent-based: approval issues the invitation, it does not accept it
+    expect(invite.accepted_at).toBeNull()
+  })
+
+  test('the admin may change the role on approval, since they carry the cost', async () => {
+    const { asker, id } = await asSuperuser(async (c) => {
+      const asker = await makePerson(c, 'Opti Mist', 'opti@ashgrove.example')
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'consultant')`,
+        [w.ashgrove, asker]
+      )
+      await c.query('insert into project_members (project_id, profile_id) values ($1,$2)', [
+        w.project, asker,
+      ])
+      return { asker, id: null as string | null }
+    })
+    const reqId = await asUser(asker, async (c) =>
+      (await c.query(`select request_membership($1,'downgrade@x.example','admin') as id`, [w.project]))
+        .rows[0].id
+    )
+    void id
+    await asUser(w.admin, (c) =>
+      c.query(`select approve_membership_request($1,'client')`, [reqId])
+    )
+    const role = await asSuperuser(
+      async (c) =>
+        (await c.query(`select role from invitations where email = 'downgrade@x.example'`)).rows[0].role
+    )
+    expect(role).toBe('client')
+  })
+
+  test('declining records the reason and issues nothing', async () => {
+    const reqId = await asUser(member, async (c) =>
+      (await c.query(`select request_membership($1,'nope@x.example','consultant') as id`, [w.project]))
+        .rows[0].id
+    )
+    await asUser(w.admin, (c) =>
+      c.query(`select decline_membership_request($1,'Already covered by Bellhouse')`, [reqId])
+    )
+    await asUser(member, async (c) => {
+      const { rows } = await c.query(
+        'select status, review_note from membership_requests where id = $1',
+        [reqId]
+      )
+      expect(rows[0].status).toBe('declined')
+      expect(rows[0].review_note).toMatch(/Already covered/)
+    })
+    const invites = await asSuperuser(
+      async (c) =>
+        (await c.query(`select count(*) from invitations where email = 'nope@x.example'`)).rows[0].count
+    )
+    expect(Number(invites)).toBe(0)
+  })
+
+  test('someone with no connection to the project cannot propose', async () => {
+    await asUser(w.outsider, async (c) => {
+      const msg = await refused(() =>
+        c.query(`select request_membership($1,'sneak@x.example','admin')`, [w.project])
+      )
+      expect(msg).toMatch(/not permitted/)
+    })
+  })
+
+  test('proposing an existing member is refused rather than duplicated', async () => {
+    await asUser(member, async (c) => {
+      const msg = await refused(() =>
+        c.query(`select request_membership($1,'cara@bellhouse-arch.example','consultant')`, [w.project])
+      )
+      expect(msg).toMatch(/already a member/)
+    })
+  })
+
+  test('a requester can withdraw their own request but cannot approve it', async () => {
+    const reqId = await asUser(member, async (c) =>
+      (await c.query(`select request_membership($1,'withdrawme@x.example','consultant') as id`, [
+        w.project,
+      ])).rows[0].id
+    )
+    await asUser(member, async (c) => {
+      // Approving their own request is the escalation that matters, and the
+      // with-check clause raises on it while the row is still pending.
+      const msg = await refused(() =>
+        c.query(`update membership_requests set status = 'approved' where id = $1`, [reqId])
+      )
+      expect(msg).toMatch(/row-level security|permission denied/i)
+
+      // Withdrawing is theirs to do.
+      const res = await c.query(`update membership_requests set status = 'withdrawn' where id = $1`, [
+        reqId,
+      ])
+      expect(res.rowCount).toBe(1)
+
+      // And once withdrawn the row is out of their reach entirely: the using
+      // clause no longer matches, so this is a silent no-op, not an error.
+      const after = await c.query(`update membership_requests set status = 'pending' where id = $1`, [
+        reqId,
+      ])
+      expect(after.rowCount).toBe(0)
+    })
+  })
+
+  test('a withdrawn request leaves the admin queue', async () => {
+    await asUser(w.admin, async (c) => {
+      const { rows } = await c.query('select * from my_membership_requests()')
+      expect(rows.map((r) => r.email)).not.toContain('withdrawme@x.example')
+    })
+  })
+})

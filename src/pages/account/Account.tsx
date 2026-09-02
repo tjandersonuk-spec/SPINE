@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select } from '@/components/ui/select-native'
 import {
-  createProject, fetchAccountProjects, fetchInvitations, fetchMembers, fetchMyAccounts,
-  inviteToAccount, removeMember, revokeInvitation,
+  ACCOUNT_ROLES, createProject, fetchAccountProjects, fetchInvitations, fetchMembers,
+  fetchMyAccounts, inviteToAccount, removeMember, revokeInvitation, updateAccount,
   type Invitation, type Member,
 } from '@/lib/queries'
 
@@ -29,12 +30,15 @@ export default function Account() {
   const [inviteRole, setInviteRole] = useState('consultant')
   const [projectName, setProjectName] = useState('')
   const [projectCode, setProjectCode] = useState('')
+  const [editName, setEditName] = useState('')
+  const [brandColour, setBrandColour] = useState('#1E3A5F')
 
   const load = useCallback(() => {
     Promise.all([fetchMyAccounts(), fetchMembers(id), fetchInvitations(id), fetchAccountProjects(id)])
       .then(([accounts, m, i, p]) => {
         const mine = accounts.find((a) => a.id === id)
         setName(mine?.name ?? '')
+        setEditName(mine?.name ?? '')
         setRole(mine?.role ?? null)
         setMembers(m)
         setInvites(i)
@@ -73,6 +77,7 @@ export default function Account() {
           <TabsTrigger value="people">People ({members.length})</TabsTrigger>
           <TabsTrigger value="invites">Invitations ({open.length})</TabsTrigger>
           <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
+          {isAdmin && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="people" className="flex flex-col gap-4 pt-4">
@@ -92,13 +97,12 @@ export default function Account() {
                 <Input id="invite-email" type="email" required placeholder="name@company.co.uk"
                   value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
               </div>
-              <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}
-                className="border-input h-9 rounded-md border bg-transparent px-3 text-sm">
-                <option value="consultant">Consultant</option>
-                <option value="client">Client</option>
-                <option value="internal">Internal</option>
-                <option value="admin">Admin</option>
-              </select>
+              <Select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}
+                aria-label="Role">
+                {ACCOUNT_ROLES.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </Select>
               <Button type="submit">Send invitation</Button>
             </form>
           )}
@@ -194,6 +198,33 @@ export default function Account() {
             </ul>
           )}
         </TabsContent>
+        {isAdmin && (
+          <TabsContent value="settings" className="pt-4">
+            <form
+              className="flex max-w-md flex-col gap-4 rounded-lg border p-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                act(() => updateAccount(id, { name: editName, brandColour }))
+              }}
+            >
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="acct-name">Account name</Label>
+                <Input id="acct-name" required value={editName}
+                  onChange={(e) => setEditName(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="acct-colour">Brand colour</Label>
+                <Input id="acct-colour" type="color" className="h-10 w-24 p-1"
+                  value={brandColour} onChange={(e) => setBrandColour(e.target.value)} />
+              </div>
+              <Button type="submit" className="self-start">Save</Button>
+              <p className="text-muted-foreground text-xs">
+                Your tier and which modules are switched on are not editable here — those are set
+                by the platform owner, because they are what the account is billed for.
+              </p>
+            </form>
+          </TabsContent>
+        )}
       </Tabs>
     </Shell>
   )

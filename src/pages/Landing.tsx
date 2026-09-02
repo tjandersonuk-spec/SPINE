@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
+import { MembershipRequests } from '@/components/MembershipRequests'
 import { PendingInvitations } from '@/components/PendingInvitations'
 import { Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
-  fetchMyAccountRequests, fetchMyAccounts, fetchMyInvitations, fetchMyProjects, isPlatformOwner,
-  type Account, type AccountRequest, type PendingInvitation, type ProjectRow,
+  fetchMyAccountRequests, fetchMyAccounts, fetchMyInvitations, fetchMyMembershipRequests,
+  fetchMyProjects, isPlatformOwner,
+  type Account, type AccountRequest, type MembershipRequest, type PendingInvitation,
+  type ProjectRow,
 } from '@/lib/queries'
 
 /**
@@ -24,6 +27,7 @@ export default function Landing() {
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [requests, setRequests] = useState<AccountRequest[]>([])
   const [invitations, setInvitations] = useState<PendingInvitation[]>([])
+  const [memberRequests, setMemberRequests] = useState<MembershipRequest[]>([])
   const [owner, setOwner] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -35,13 +39,15 @@ export default function Landing() {
       fetchMyAccountRequests(),
       isPlatformOwner(),
       fetchMyInvitations(),
+      fetchMyMembershipRequests(),
     ])
-      .then(([a, p, r, o, i]) => {
+      .then(([a, p, r, o, i, m]) => {
         setAccounts(a)
         setProjects(p)
         setRequests(r)
         setOwner(o)
         setInvitations(i)
+        setMemberRequests(m)
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -69,6 +75,7 @@ export default function Landing() {
       )}
 
       <PendingInvitations invitations={invitations} onChange={load} />
+      <MembershipRequests requests={memberRequests} onChange={load} />
 
       <Tabs defaultValue="projects">
         <TabsList>

@@ -31,6 +31,11 @@ export function Shell({
               <Link to="/">Home</Link>
             </Button>
           )}
+          {pathname !== '/me' && (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/me">Your details</Link>
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()}>
             Sign out
           </Button>

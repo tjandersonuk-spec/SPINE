@@ -26,6 +26,7 @@ with expected(ord, migration, kind, marker) as (values
   (16,'20260902110100_member_visibility_admins_only', 'policy',   'invitations_select'),
   (17,'20260902110200_sample_data',                   'function', 'seed_sample_project'),
   (18,'20260902120000_phase3_drm',                    'table',    'drm_items'),
+  -- the seed has no object of its own; it is checked by its row count below
   (19,'20260902120100_phase3_drm_functions',          'function', 'drm_gaps'),
   (20,'20260902120200_phase3_drm_rls',                'policy',   'drm_items_select')
 )
@@ -50,3 +51,10 @@ select
   end as applied
 from expected e
 order by e.ord;
+
+-- The library seed carries no schema object, so it is checked by counting.
+-- Expect 100 published items and 9 categories once
+-- 20260902120050_phase3_drm_library_seed.sql has run.
+select
+  (select count(*) from drm_library_items where organisation_id is null) as published_items,
+  (select count(*) from drm_categories where organisation_id is null) as published_categories;

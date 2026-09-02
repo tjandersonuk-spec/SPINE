@@ -1,15 +1,17 @@
 import { execFileSync } from 'node:child_process'
+import { readdirSync } from 'node:fs'
+
 import { connection } from './db'
 
+/** The harness, then every migration in filename order — the same order and the
+ *  same bytes the hosted project gets, so the tests cannot pass against a schema
+ *  that production will not have. */
 const FILES = [
   'supabase/tests/local-harness.sql',
-  'supabase/migrations/0001_phase1_identity.sql',
-  'supabase/migrations/0002_phase1_functions.sql',
-  'supabase/migrations/0003_phase1_actions.sql',
-  'supabase/migrations/0004_phase1_rls.sql',
-  'supabase/tests/grants.sql',
-  // after the blanket grants, so the column-level revokes are the last word
-  'supabase/migrations/0005_phase1_column_grants.sql',
+  ...readdirSync('supabase/migrations')
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((f) => `supabase/migrations/${f}`),
 ]
 
 const base = ['-h', connection.host, '-p', String(connection.port), '-U', connection.user]

@@ -5,11 +5,14 @@ order and are written to run unchanged against a hosted Supabase project.
 
 | File | What it holds |
 | --- | --- |
-| `migrations/0001_phase1_identity.sql` | Tables: profiles, organisations, catalogue_companies, memberships, projects, account_requests, invitations, platform_audit |
-| `migrations/0002_phase1_functions.sql` | Guards and derived reads (`is_account_admin`, `my_projects`, `module_on`, …) |
-| `migrations/0003_phase1_actions.sql` | Actions that create membership or move an account's lifecycle |
-| `migrations/0004_phase1_rls.sql` | Row Level Security on every table |
-| `migrations/0005_phase1_column_grants.sql` | Column-level privileges, and the platform owner's amend and project-removal functions |
+| `…_phase1_identity.sql` | Tables: profiles, organisations, catalogue_companies, memberships, projects, account_requests, invitations, platform_audit |
+| `…_phase1_functions.sql` | Guards and derived reads (`is_account_admin`, `my_projects`, `module_on`, …) |
+| `…_phase1_actions.sql` | Actions that create membership or move an account's lifecycle |
+| `…_phase1_rls.sql` | Row Level Security on every table |
+| `…_phase1_grants.sql` | Table and column privileges, and the platform owner's amend and project-removal functions |
+
+Filenames are `<timestamp>_<name>.sql`, which is the format the Supabase CLI
+expects; it reads the leading digits as the version and applies them in order.
 
 ## Applying to Supabase
 
@@ -18,10 +21,10 @@ supabase link --project-ref <ref>
 supabase db push
 ```
 
-Then apply `tests/grants.sql`, which grants the `authenticated` role the table
-and function access the policies then filter. **Apply it before `0005`, not
-after** — `0005` narrows those grants down to individual columns, and a blanket
-grant applied afterwards would undo it.
+That is the whole of it. The migrations are self-contained and order-dependent
+only on each other: the grants migration states the blanket grants itself before
+narrowing them, so it produces the same result on a hosted project and on a
+plain PostgreSQL, whichever way the database was set up.
 
 **Auth settings that are not in these files.** Email confirmation must be
 required in the project's Auth settings. The sign-up flow assumes it: a login is

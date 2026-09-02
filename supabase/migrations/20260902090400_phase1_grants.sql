@@ -1,4 +1,13 @@
--- Phase 1 — column-level privileges.
+-- Phase 1 — table and column privileges.
+--
+-- The blanket grants come first. A hosted Supabase project already applies these
+-- by default privilege, but stating them means this migration produces the same
+-- result on a plain PostgreSQL and does not depend on how the database was set
+-- up. The revokes below are then the last word in both places.
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on all functions in schema public to authenticated;
+
 --
 -- RLS decides which ROWS a policy lets through; it says nothing about which
 -- COLUMNS may be written. Supabase grants `authenticated` update on every column

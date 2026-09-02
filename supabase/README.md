@@ -27,6 +27,35 @@ only on each other: the grants migration states the blanket grants itself before
 narrowing them, so it produces the same result on a hosted project and on a
 plain PostgreSQL, whichever way the database was set up.
 
+### When the CLI cannot reach the database
+
+`supabase db push` opens a direct PostgreSQL connection on port 5432 (or 6543
+for the pooler). Corporate networks commonly block both, and the CLI then hangs
+on "Initialising login role...". The dashboard's SQL editor goes over HTTPS and
+is unaffected, so:
+
+```bash
+npm run db:bundle
+```
+
+That writes `supabase/bundle.sql` — every migration, in order, wrapped in a
+single transaction. Paste the whole file into the SQL editor and press Run. If
+anything fails the transaction rolls back and the database is untouched, so a
+failure is safe to read and re-run.
+
+The file is generated on demand and gitignored: the migrations remain the source
+of truth and the bundle cannot drift from them.
+
+Note that the CLI will not know these migrations ran, because its history table
+lives in the database it could not reach. If you later get onto a network that
+allows the connection, tell it with:
+
+```bash
+supabase migration repair --status applied <version>
+```
+
+for each version, or it will try to apply them a second time.
+
 **Auth settings that are not in these files.** Email confirmation must be
 required in the project's Auth settings. The sign-up flow assumes it: a login is
 worthless until the address is proved, and the whole invitation model rests on

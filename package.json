@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:start": "/usr/lib/postgresql/16/bin/pg_ctl -D /home/pgtest/pgdata -o '-p 5433 -k /tmp' -l /home/pgtest/pg.log start",
-    "db:stop": "/usr/lib/postgresql/16/bin/pg_ctl -D /home/pgtest/pgdata stop"
+    "db:stop": "/usr/lib/postgresql/16/bin/pg_ctl -D /home/pgtest/pgdata stop",
+    "db:bundle": "node scripts/bundle-migrations.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.3",

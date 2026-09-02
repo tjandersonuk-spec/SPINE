@@ -25,89 +25,89 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 ### Logins and confirmation
 
-- [ ] `profiles` (people) — one row per human, one login, created on sign-up
+- [x] `profiles` (people) — one row per human, one login, created on sign-up
 - [ ] Email confirmation required; an unconfirmed login reaches the confirmation screen and
       nothing else
-- [ ] Sign-up creates **no** organisation, **no** membership and **no** request — a login on its
+- [x] Sign-up creates **no** organisation, **no** membership and **no** request — a login on its
       own grants nothing
-- [ ] A confirmed login with zero memberships can sign in and lands on the personal landing page;
+- [x] A confirmed login with zero memberships can sign in and lands on the personal landing page;
       every data query returns empty rather than erroring
 
 ### Accounts and requests
 
-- [ ] `organisations` (accounts) with `status` pending/active/suspended/archived and the
+- [x] `organisations` (accounts) with `status` pending/active/suspended/archived and the
       lifecycle columns (approved/suspended/archived by and at, suspend reason)
-- [ ] `account_requests` — raised from the landing page by any confirmed login; visible to its
+- [x] `account_requests` — raised from the landing page by any confirmed login; visible to its
       requester and the platform owner only; status pending/approved/rejected/withdrawn with a
       review note the requester can read
-- [ ] `approve_account_request()` as one transaction taking the **reviewed** values, so a name or
+- [x] `approve_account_request()` as one transaction taking the **reviewed** values, so a name or
       tier can be corrected before the account exists; creates the account active and exactly one
       `admin` membership for the requester
-- [ ] Lock (`suspended`) and archive (`archived`) as distinct, reversible, platform-owner-only
+- [x] Lock (`suspended`) and archive (`archived`) as distinct, reversible, platform-owner-only
       operations — suspended is expected back and blocks sign-in; archived is finished and stays
       readable by its members
-- [ ] Delete only from `archived`, name typed to confirm, `platform_audit` row written **before**
+- [x] Delete only from `archived`, name typed to confirm, `platform_audit` row written **before**
       the cascade so the trail survives its subject
-- [ ] Suspension enforced in every policy via `account_is_live()`, not only at sign-in — a live
+- [x] Suspension enforced in every policy via `account_is_live()`, not only at sign-in — a live
       session must stop working immediately
 
 ### Memberships
 
-- [ ] `organisation_members` (person × account × role × company); roles admin, internal,
+- [x] `organisation_members` (person × account × role × company); roles admin, internal,
       consultant, client
-- [ ] `project_members` (person × project × project role: project_admin | member) — distinct from
+- [x] `project_members` (person × project × project role: project_admin | member) — distinct from
       `project_people`, which is the directory snapshot and may have no login
-- [ ] Account `admin` and `internal` see every project in their account with no `project_members`
+- [x] Account `admin` and `internal` see every project in their account with no `project_members`
       row; consultants and clients see only their rows
 
 ### Invitations — one table, two scopes
 
-- [ ] `invitations` with `scope` organisation | project, token, 14-day expiry, accepted-at,
+- [x] `invitations` with `scope` organisation | project, token, 14-day expiry, accepted-at,
       revoked-at, and the shape constraints per scope — membership created only on accept
-- [ ] Organisation scope: account `admin` only; brings a person into the account; may name
+- [x] Organisation scope: account `admin` only; brings a person into the account; may name
       initial `project_ids`
-- [ ] Project scope: account `admin` or that project's `project_admin`; **the invitee must
+- [x] Project scope: account `admin` or that project's `project_admin`; **the invitee must
       already hold membership of the account that owns the project** — checked at issue *and*
       re-checked at accept, because membership can be revoked while a token is live
-- [ ] Never match on email: typing an address grants nothing
+- [x] Never match on email: typing an address grants nothing
 
 ### Project creation and project-level administration
 
-- [ ] **Only an account `admin` may create a project** — enforced by the insert policy on
+- [x] **Only an account `admin` may create a project** — enforced by the insert policy on
       `projects`, not by hiding a button; an `internal`, a `project_admin` and a consultant are
       all refused at the database
-- [ ] A `project_admin` may add and remove people on their own project, drawn only from that
+- [x] A `project_admin` may add and remove people on their own project, drawn only from that
       account's members; removal leaves the account membership and other projects intact
-- [ ] A `project_admin` cannot widen the account — bringing a new firm or person into the
+- [x] A `project_admin` cannot widen the account — bringing a new firm or person into the
       tenancy stays an account admin's decision
 
 ### The platform owner
 
-- [ ] `platform_owners` table and `is_platform_owner()`; every select policy on account-scoped
+- [x] `platform_owners` table and `is_platform_owner()`; every select policy on account-scoped
       tables gains `or is_platform_owner()`
 - [ ] Accounts view: list every account, review/amend/approve/reject requests, lock, archive,
       delete, set modules and tier
 - [ ] **People view: every login on the platform**, including logins with zero memberships, with
       email, confirmation state, sign-up date, last seen, and the accounts they belong to — these
       people appear in no other list in the product
-- [ ] `platform_audit`, separate from the per-account change log, with no update or delete policy
+- [x] `platform_audit`, separate from the per-account change log, with no update or delete policy
       for anyone including platform owners
-- [ ] No account admin can see this layer or that it exists
+- [x] No account admin can see this layer or that it exists
 
 ### The landing page
 
-- [ ] Personal landing page for every signed-in person, whatever their memberships
-- [ ] **My accounts** tab — always present, even at one row; carries account settings, the member
+- [x] Personal landing page for every signed-in person, whatever their memberships
+- [x] **My accounts** tab — always present, even at one row; carries account settings, the member
       directory, and "Request an account" plus request status when empty
-- [ ] **Projects** tab — every project this person can reach across every account, each labelled
+- [x] **Projects** tab — every project this person can reach across every account, each labelled
       with its account, each a link into the project UI; `my_projects()`
-- [ ] Account isolation: the labelling is derived from the viewer's own memberships and never
+- [x] Account isolation: the labelling is derived from the viewer's own memberships and never
       names an account they are not in
 
 ### Entitlements and billing seam
 
-- [ ] `module_on(project_id, key)`; `projects.modules_override` merged over the account's map
-- [ ] Billing not built. Leave `subscription_tier` and `modules` as the fields it will price
+- [x] `module_on(project_id, key)`; `projects.modules_override` merged over the account's map
+- [x] Billing not built. Leave `subscription_tier` and `modules` as the fields it will price
       against; no money on `organisations` itself
 
 ### Tests
@@ -118,6 +118,16 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
       non-admin's direct `insert` into `projects` is refused; a project invite to a non-member is
       refused at issue; an invite whose target lost membership is refused at accept; a host admin
       cannot list other accounts and the platform owner can list every login
+
+### Remaining in this phase
+
+- [ ] Email confirmation is required in the Supabase project's Auth settings (a dashboard
+      setting, not code) — the sign-up flow already assumes it
+- [ ] Platform-owner console: accounts view (review, amend, approve, reject, lock, archive,
+      delete, set modules and tier) and the people view listing every login
+- [ ] Account-admin screens: member directory, issue and revoke invitations, create a project
+- [ ] Project-admin screens: add and remove people on a project
+- [ ] Playwright click-through tests over the above once the screens exist
 
 ## Phase 2 — Projects, directory, disciplines, master catalogue
 

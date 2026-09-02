@@ -1,66 +1,43 @@
-import { useState } from 'react'
-import { Moon, Sun } from 'lucide-react'
+import { Navigate, Route, Routes, useParams } from 'react-router'
 
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { AuthProvider, useAuth } from '@/lib/auth'
+import AcceptInvitation from '@/pages/AcceptInvitation'
+import Landing from '@/pages/Landing'
+import RequestAccount from '@/pages/RequestAccount'
+import SignIn from '@/pages/SignIn'
+import SignUp from '@/pages/SignUp'
 
-function App() {
-  const [count, setCount] = useState(0)
-  const [dark, setDark] = useState(false)
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { session, loading } = useAuth()
+  if (loading) return null
+  if (!session) return <Navigate to="/sign-in" replace />
+  return <>{children}</>
+}
 
-  const toggleTheme = () => {
-    setDark((prev) => {
-      document.documentElement.classList.toggle('dark', !prev)
-      return !prev
-    })
-  }
-
+/** Placeholder until phase 2 builds the project shell. */
+function Project() {
+  const { id } = useParams()
   return (
-    <main className="bg-background text-foreground flex min-h-svh flex-col items-center justify-center gap-6 p-6">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleTheme}
-        aria-label="Toggle theme"
-        className="absolute top-4 right-4"
-      >
-        {dark ? <Sun /> : <Moon />}
-      </Button>
-
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Vite + React + shadcn/ui</CardTitle>
-          <CardDescription>
-            Tailwind CSS v4 and TypeScript, ready to build on.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" placeholder="Ada Lovelace" />
-          </div>
-          <p className="text-muted-foreground text-sm">
-            Edit <code className="font-mono">src/App.tsx</code> and save to test HMR.
-          </p>
-        </CardContent>
-        <CardFooter className="flex gap-2">
-          <Button onClick={() => setCount((c) => c + 1)}>Count is {count}</Button>
-          <Button variant="outline" onClick={() => setCount(0)}>
-            Reset
-          </Button>
-        </CardFooter>
-      </Card>
+    <main className="p-6">
+      <p className="text-muted-foreground text-sm">Project {id} — built in phase 2.</p>
     </main>
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/sign-in" element={<SignIn />} />
+        <Route path="/sign-up" element={<SignUp />} />
+        {/* Supabase returns here from the confirmation and recovery links. */}
+        <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+        <Route path="/accept/:token" element={<AcceptInvitation />} />
+        <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
+        <Route path="/request-account" element={<RequireAuth><RequestAccount /></RequireAuth>} />
+        <Route path="/project/:id" element={<RequireAuth><Project /></RequireAuth>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
+  )
+}

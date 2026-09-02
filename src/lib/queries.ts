@@ -293,9 +293,11 @@ export type ProjectMember = {
 }
 
 export async function fetchProjectMembers(projectId: string): Promise<ProjectMember[]> {
+  // project_members holds two foreign keys to profiles — profile_id and
+  // added_by — so the embed must say which one it means.
   const { data, error } = await supabase
     .from('project_members')
-    .select('profile_id, project_role, profiles(name, email)')
+    .select('profile_id, project_role, profiles!project_members_profile_id_fkey(name, email)')
     .eq('project_id', projectId)
   if (error) throw error
   return (data ?? []) as unknown as ProjectMember[]

@@ -75,6 +75,13 @@ except the derived views.
   policy, ask which columns that role has any business writing. A table created by a later migration
   inherits nothing from an earlier `grant on all tables`, so every migration that adds a table
   states its own grants — and grants only what that table's policies are meant to allow.
+- **Name the foreign key in any PostgREST embed whose table has more than one to the same
+  parent.** `profiles(name)` is ambiguous the moment a table gains a second reference to
+  `profiles` — an `added_by` beside a `profile_id`, a `reviewed_by` beside a `requested_by` — and
+  fails at run time with "more than one relationship was found", which no type checking catches
+  because the query is a string. Write `profiles!project_members_profile_id_fkey(name)`.
+  `supabase/tests/embeds.test.ts` compares every embed in `queries.ts` against the real constraint
+  catalogue and fails the build, so adding an audit column cannot silently break a page.
 - **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
   never by hiding the button — a direct insert from `internal`, a project admin or a consultant
   must be refused by the database. A project admin staffs their own project from the account's

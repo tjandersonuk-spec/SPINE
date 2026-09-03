@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { Empty, ErrorNote, Shell } from '@/components/Shell'
+import { Empty, ErrorNote } from '@/components/ui/notes'
 import { Input } from '@/components/ui/input'
 import { Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { fetchAllPeople, type OwnerPerson } from '@/lib/queries'
+import { PageHead } from '@/components/ui/panel'
 
 /**
  * Every login on the platform. The rows that matter most are the ones with no
@@ -30,7 +31,8 @@ export default function PlatformPeople() {
   const unattached = people.filter((p) => p.accounts.length === 0).length
 
   return (
-    <Shell title="People">
+    <>
+      <PageHead title="People" />
       <ErrorNote message={error} />
       <div className="flex flex-col gap-2">
         <Input placeholder="Filter by name or email" value={filter}
@@ -74,6 +76,6 @@ export default function PlatformPeople() {
           </Table>
         </TableScroll>
       )}
-    </Shell>
+    </>
   )
 }

@@ -265,11 +265,14 @@ export async function removeMember(organisationId: string, profileId: string) {
   if (error) throw error
 }
 
+/** Only an account admin may create a project; the insert policy refuses
+ *  everybody else. Returns the new project's id so the caller can go there. */
 export async function createProject(organisationId: string, name: string, code: string) {
-  const { error } = await supabase.rpc('create_project', {
+  const { data, error } = await supabase.rpc('create_project', {
     p_org: organisationId, p_name: name, p_code: code,
   })
   if (error) throw error
+  return data as string
 }
 
 export async function fetchAccountProjects(organisationId: string) {
@@ -3389,4 +3392,30 @@ export async function fetchPortfolioTrend(orgId: string | null = null, days = 90
     'projects', 'issued', 'anticipated', 'overdue', 'open_tasks',
     'drm_gaps', 'risk_expected', 'certified',
   ]))
+}
+
+/* ------------------------------------------------ workspace shell support */
+
+/** The one registry of modules a tenant can be sold. Everything that lists
+ *  modules -- the platform owner's editor, project settings -- renders from
+ *  this, so adding a bolt-on is one row in the database plus its page. */
+export type ModuleEntry = { key: string; label: string; group: string; sort: number }
+
+export async function fetchModuleCatalogue() {
+  const { data, error } = await supabase.rpc('module_catalogue')
+  if (error) throw error
+  return (data ?? []) as ModuleEntry[]
+}
+
+export type AccountBranding = {
+  organisation_id: string; account_name: string
+  brand_colour: string; logo_path: string | null; theme: 'light' | 'dark'
+}
+
+/** Branding for screens outside a project: the tenant's one colour and light
+ *  or dark, and nothing else about the account. */
+export async function fetchAccountBranding(orgId: string) {
+  const { data, error } = await supabase.rpc('account_branding', { p_org: orgId })
+  if (error) throw error
+  return (data ?? null) as AccountBranding | null
 }

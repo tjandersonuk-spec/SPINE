@@ -5,7 +5,8 @@ import { supabaseConfigProblem } from '@/lib/supabase'
 import Account from '@/pages/account/Account'
 import AcceptInvitation from '@/pages/AcceptInvitation'
 import ConfirmEmail from '@/pages/ConfirmEmail'
-import Landing from '@/pages/Landing'
+import AccountsPage from '@/pages/Accounts'
+import Home from '@/pages/Home'
 import Portfolio from '@/pages/Portfolio'
 import PlatformAccounts from '@/pages/platform/Accounts'
 import Profile from '@/pages/Profile'
@@ -35,6 +36,7 @@ import ProjectSettingsPage from '@/pages/project/SettingsPage'
 import TrackedPage from '@/pages/project/TrackedPage'
 import TransmittalsPage from '@/pages/project/TransmittalsPage'
 import RequestAccount from '@/pages/RequestAccount'
+import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import SetupNeeded from '@/pages/SetupNeeded'
 import SignIn from '@/pages/SignIn'
 import SignUp from '@/pages/SignUp'
@@ -68,11 +70,18 @@ export default function App() {
         {/* Supabase returns here from the confirmation and recovery links. */}
         <Route path="/auth/callback" element={<Navigate to="/" replace />} />
         <Route path="/accept/:token" element={<AcceptInvitation />} />
-        <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
-        <Route path="/request-account" element={<RequireAuth><RequestAccount /></RequireAuth>} />
-        <Route path="/me" element={<RequireAuth><Profile /></RequireAuth>} />
-        <Route path="/portfolio" element={<RequireAuth><Portfolio /></RequireAuth>} />
-        <Route path="/account/:id" element={<RequireAuth><Account /></RequireAuth>} />
+        {/* Everything signed-in that is not inside a project shares the one
+            shell with the workspace nav. There is no second landing page. */}
+        <Route element={<RequireAuth><WorkspaceLayout /></RequireAuth>}>
+          <Route path="/" element={<Home />} />
+          <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/me" element={<Profile />} />
+          <Route path="/account/:id" element={<Account />} />
+          <Route path="/request-account" element={<RequestAccount />} />
+          <Route path="/platform/accounts" element={<PlatformAccounts />} />
+          <Route path="/platform/people" element={<PlatformPeople />} />
+        </Route>
         {/* Everything inside a project renders in the shell; the sidebar is
             the navigator, so each entry is a route rather than a tab. */}
         <Route path="/project/:id" element={<RequireAuth><ProjectLayout /></RequireAuth>}>
@@ -108,8 +117,6 @@ export default function App() {
           <Route path="access" element={<AccessPage />} />
           <Route path="settings" element={<ProjectSettingsPage />} />
         </Route>
-        <Route path="/platform/accounts" element={<RequireAuth><PlatformAccounts /></RequireAuth>} />
-        <Route path="/platform/people" element={<RequireAuth><PlatformPeople /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>

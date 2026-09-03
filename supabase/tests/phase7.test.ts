@@ -227,42 +227,46 @@ describe('module entitlements', () => {
     expect(r.rows[0]).toEqual({ d: true, b: true })
   })
 
-  test('a project override wins over the account', async () => {
+  test('a project override wins over the account, downwards only', async () => {
+    // An account admin may switch a module off for one job. Switching one ON
+    // that the account does not have is refused -- that is the platform
+    // owner's to sell, and a true in the override was a back door to it.
     await asUser(w.admin, (c) =>
-      c.query(`select set_project_modules($1,'{"drm":false,"breeam":true}'::jsonb)`, [w.project]))
+      c.query(`select set_project_modules($1,'{"drm":false}'::jsonb)`, [w.project]))
     const r = await asUser(w.consultant, (c) =>
       c.query(`select module_on($1,'drm') as drm, module_on($1,'breeam') as breeam,
                       module_on($1,'directory') as inherited`, [w.project]))
-    // drm and breeam flip; directory is untouched by the override and still
-    // comes from the account.
-    expect(r.rows[0]).toEqual({ drm: false, breeam: true, inherited: true })
+    // drm flips off; breeam stays off from the account; directory is untouched.
+    expect(r.rows[0]).toEqual({ drm: false, breeam: false, inherited: true })
   })
 
   test('the shell sees the merged map, not the two halves', async () => {
     const s = (await asUser(w.consultant, (c) =>
       c.query('select project_shell($1) as s', [w.project]))).rows[0].s
-    // The override flipped drm and breeam; directory came from the account;
-    // everything nobody mentioned is on.
+    // The override switched drm off; breeam is off from the account; directory
+    // came from the account; everything nobody mentioned is on.
     expect(s.modules.drm).toBe(false)
-    expect(s.modules.breeam).toBe(true)
+    expect(s.modules.breeam).toBe(false)
     expect(s.modules.directory).toBe(true)
     expect(s.modules.programme).toBe(true)
   })
 
   test('a module key nothing answers to is refused', async () => {
     // Entitling a key no page reads would silently entitle nothing.
-    expect(await denied(w.admin, `select set_modules($1,'{"telepathy":true}'::jsonb)`, [w.org]))
-      .toMatch(/No module called/)
     expect(await denied(w.admin,
-      `select set_project_modules($1,'{"telepathy":true}'::jsonb)`, [w.project]))
+      `select set_project_modules($1,'{"telepathy":false}'::jsonb)`, [w.project]))
       .toMatch(/No module called/)
   })
 
-  test('only an account admin changes entitlements', async () => {
+  test('the account map is the platform owner’s; a project is the admin’s, downwards', async () => {
+    // An account admin cannot set their own account's entitlements at all --
+    // that is a customer switching on a bolt-on nobody sold them.
+    expect(await denied(w.admin, `select set_modules($1,'{"drm":true}'::jsonb)`, [w.org]))
+      .toMatch(/platform owner/)
     expect(await denied(w.consultant, `select set_modules($1,'{"drm":true}'::jsonb)`, [w.org]))
-      .toMatch(/account admin/)
+      .toMatch(/platform owner/)
     expect(await denied(w.consultant,
-      `select set_project_modules($1,'{"drm":true}'::jsonb)`, [w.project]))
+      `select set_project_modules($1,'{"drm":false}'::jsonb)`, [w.project]))
       .toMatch(/account admin/)
   })
 

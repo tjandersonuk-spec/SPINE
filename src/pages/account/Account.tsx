@@ -4,8 +4,9 @@ import { Link, useParams } from 'react-router'
 import { Catalogue } from '@/components/Catalogue'
 import { Disciplines } from '@/components/Disciplines'
 import { DrmLibrary } from '@/components/DrmLibrary'
-import { Empty, ErrorNote, Shell } from '@/components/Shell'
+import { Empty, ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
+import { PageHead } from '@/components/ui/panel'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -66,7 +67,8 @@ export default function Account() {
   const open = invites.filter((i) => !i.accepted_at && !i.revoked_at)
 
   return (
-    <Shell title={name || 'Account'} back={{ to: '/', label: 'My accounts' }}>
+    <>
+      <PageHead title={name || 'Account'} />
       <ErrorNote message={error} />
       {!isAdmin && (
         <p className="text-muted-foreground text-sm">
@@ -246,6 +248,6 @@ export default function Account() {
           </TabsContent>
         )}
       </Tabs>
-    </Shell>
+    </>
   )
 }

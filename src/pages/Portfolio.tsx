@@ -2,9 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
 import { TrendChart } from '@/components/portfolio/TrendChart'
-import { Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
-import { Panel } from '@/components/ui/panel'
+import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { fmtDate, gbp } from '@/lib/format'
 import {
@@ -52,11 +51,13 @@ export default function Portfolio() {
   useEffect(load, [load])
 
   if (loading) {
-    return <Shell title="Portfolio"><p className="text-graphite text-sm">Loading…</p></Shell>
+    return <>
+      <PageHead title="Portfolio" /><p className="text-graphite text-sm">Loading…</p></>
   }
 
   return (
-    <Shell title="Portfolio">
+    <>
+      <PageHead title="Portfolio" />
       {error && (
         <Panel kind="comply" className="mb-4"><p className="text-stop text-sm">{error}</p></Panel>
       )}
@@ -109,7 +110,7 @@ export default function Portfolio() {
           {tab === 'trends' && <Trends points={trend} />}
         </>
       )}
-    </Shell>
+    </>
   )
 }
 

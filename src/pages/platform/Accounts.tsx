@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { Empty, ErrorNote, Shell } from '@/components/Shell'
+import { Empty, ErrorNote } from '@/components/ui/notes'
+import { ModuleEditor } from '@/components/platform/ModuleEditor'
 import { Button } from '@/components/ui/button'
+import { PageHead } from '@/components/ui/panel'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   approveRequest, deleteAccount, fetchAllAccounts, fetchPendingRequests, rejectRequest,
-  setAccountStatus, type OwnerAccount, type OwnerRequest,
+  setAccountModules, setAccountStatus, type OwnerAccount, type OwnerRequest,
 } from '@/lib/queries'
 
 const slugify = (s: string) =>
@@ -38,12 +40,9 @@ function RequestRow({ req, onDone }: { req: OwnerRequest; onDone: () => void }) 
     }
   }
 
-  const modules =
-    tier === 'complete'
-      ? { compliance: true, commercial: true }
-      : tier === 'compliance'
-        ? { compliance: true, commercial: false }
-        : { compliance: false, commercial: false }
+  // The tier is a label on the contract; the modules are what is actually
+  // sold, named explicitly. Everything on until the owner unticks it.
+  const [modules, setModules] = useState<Record<string, boolean>>({})
 
   return (
     <Card>
@@ -79,6 +78,10 @@ function RequestRow({ req, onDone }: { req: OwnerRequest; onDone: () => void }) 
             </select>
           </div>
         </div>
+        <div>
+          <p className="mb-2 text-sm font-medium">Modules this account is sold</p>
+          <ModuleEditor value={modules} onChange={setModules} disabled={busy} />
+        </div>
         <ErrorNote message={error} />
         <div className="flex flex-wrap items-end gap-2">
           <Button
@@ -111,6 +114,7 @@ function AccountRow({ a, onDone }: { a: OwnerAccount; onDone: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  const [draft, setDraft] = useState<Record<string, boolean>>(a.modules ?? {})
 
   const run = async (fn: () => Promise<void>) => {
     setError(null)
@@ -130,15 +134,30 @@ function AccountRow({ a, onDone }: { a: OwnerAccount; onDone: () => void }) {
       <CardHeader>
         <CardTitle className="text-base">{a.name}</CardTitle>
         <CardDescription>
-          {a.status} · {a.subscription_tier ?? 'no tier'} ·{' '}
-          {Object.entries(a.modules ?? {})
-            .filter(([, on]) => on)
-            .map(([k]) => k)
-            .join(', ') || 'core only'}
+          {a.status} · {a.subscription_tier ?? 'no tier'}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <ErrorNote message={error} />
+        <details className="border-rule rounded border px-3 py-2">
+          <summary className="cursor-pointer text-sm font-medium">
+            Modules — {Object.values(a.modules ?? {}).filter((v) => v === false).length === 0
+              ? 'everything'
+              : `${Object.values(a.modules ?? {}).filter((v) => v === false).length} switched off`}
+          </summary>
+          <div className="pt-3">
+            <ModuleEditor value={draft} onChange={setDraft} disabled={busy} />
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" disabled={busy}
+                onClick={() => run(() => setAccountModules(a.id, draft))}>
+                Save modules
+              </Button>
+              <span className="text-graphite self-center text-xs">
+                Switching one off hides it on every project in the account and deletes nothing.
+              </span>
+            </div>
+          </div>
+        </details>
         <div className="flex flex-wrap gap-2">
           {a.status !== 'active' && (
             <Button size="sm" disabled={busy} onClick={() => run(() => setAccountStatus(a.id, 'active'))}>
@@ -194,7 +213,8 @@ export default function PlatformAccounts() {
   useEffect(load, [load])
 
   return (
-    <Shell title="Accounts">
+    <>
+      <PageHead title="Accounts" />
       <ErrorNote message={error} />
       <Tabs defaultValue="requests">
         <TabsList>
@@ -216,6 +236,6 @@ export default function PlatformAccounts() {
           )}
         </TabsContent>
       </Tabs>
-    </Shell>
+    </>
   )
 }

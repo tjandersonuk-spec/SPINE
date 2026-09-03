@@ -40,7 +40,7 @@ export default function Profile() {
     <>
       <PageHead title="Your details" />
       <ErrorNote message={error} />
-      {saved && <p className="text-sm text-green-700 dark:text-green-500">{saved}</p>}
+      {saved && <p className="text-ok-ink text-sm">{saved}</p>}
 
       <form
         className="flex max-w-md flex-col gap-4"

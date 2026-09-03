@@ -5,7 +5,7 @@
  */
 export function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-graphite border-rule rounded-lg border border-dashed px-4 py-8 text-center text-sm">
+    <p className="text-graphite border-rule-strong rounded-lg border border-dashed bg-white/[0.015] px-4 py-8 text-center text-sm">
       {children}
     </p>
   )
@@ -14,7 +14,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
 export function ErrorNote({ message }: { message: string | null }) {
   if (!message) return null
   return (
-    <p className="border-stop/40 bg-stop-bg text-stop rounded-md border px-3 py-2 text-sm">
+    <p className="border-stop/40 bg-stop-bg text-stop-ink shadow-stop-halo rounded-md border px-3 py-2 text-sm">
       {message}
     </p>
   )

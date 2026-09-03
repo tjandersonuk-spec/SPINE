@@ -136,18 +136,37 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   `report_attention()`, because a dashboard is read by the person looking at it.
 - Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
   token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
-- **The design tokens are the prototype's, and they come in three groups with a hard boundary
-  between them.** *Brand* (`--brand` and its derivations) is the only thing a tenant may change,
-  and it drives nav, primary buttons and links — nothing else. *Structural* (paper, ink, rules,
-  elevation) flips for dark mode and is not customisable, because legibility is not a matter of
-  taste. *Semantic* (`--hivis`, `--ok`, `--warn`, `--stop`, and the four kind tints) is never
-  customisable and never themed — only its ground moves in dark mode, far enough to stay legible
-  and no further. Design direction, from the prototype's own first comment: *structure is drafting
-  ink, signal is hi-vis, codes are monospace*.
+- **The design tokens come in three groups with a hard boundary between them.** *Brand*
+  (`--brand` and its derivations, including the glow and the highlight edge, which are
+  `color-mix`ed from it in CSS) is the only thing a tenant may change, and it drives nav accents,
+  primary buttons, links and focus — nothing else. The platform default is cyan `#0BB4E8`; there
+  is no second fixed accent colour, because a violet beside a tenant's brand is a second brand.
+  *Structural* (paper, glass, ink, rules, elevation, chrome) flips for the light theme and is not
+  customisable, because legibility is not a matter of taste. *Semantic* (`--hivis`, `--ok`,
+  `--warn`, `--stop`, and the four kind tints) is never customisable: its **hue** is fixed in both
+  themes and only its shade and ground follow the paper, because a green legible on white is
+  invisible on obsidian and one hex cannot serve both. Design direction: *structure is drafting
+  ink on luminous glass, signal is hi-vis, codes are monospace*.
+- **Dark is the default and light is the override.** `:root` holds the obsidian set;
+  `[data-theme="light"]` holds paper. `applyTheme()` writes the attribute and nothing else, the
+  `dark:` variant keys on its absence, and `organisations.theme` defaults to `'dark'`. The chrome —
+  header and sidebar — is obsidian in both themes: it frames the page rather than being part of it.
+- **One surface: `glass`.** Every container — `Panel`, `TableScroll`, `Card`, `Stat`, the report
+  sheets — is the `glass` utility (frosted backing, hairline, ambient depth, specular top rim);
+  `glass-hi` is the same surface lit in the brand for the selected one, and `glass-popover` is the
+  less see-through version for menus, dialogs and drawers. Do not compose a container from
+  `bg-card border shadow` by hand; a second recipe is a second material. The print stylesheet
+  replaces the glass tokens with opaque white and switches every `backdrop-filter` off.
+- **Hi-vis in the chrome is the matrix gap count and nothing else.** The active nav item is lit in
+  the brand, and the invitations-waiting badge is the brand: an invitation is not a gap. `Stat`'s
+  `gap` tone and `Pill`'s `gap` tone are hi-vis because they count unallocated things; an alert
+  tile is `warn`, which is orange, never amber.
 - **Every code is monospace and every table is the dense one.** A reference, an originator code, a
   discipline letter, a drawing number and a programme UID are read down a column, not across a
-  sentence: use `<Code>` and the `Table` primitives in `src/components/ui/table.tsx` rather than a
-  bare `<table>`. A gap row gets `gap` on `<TR>` and nothing else does.
+  sentence: use `<Code>` (`tag` boxes it as a chip where a code stands alone) and the `Table`
+  primitives in `src/components/ui/table.tsx` rather than a bare `<table>`. No zebra striping,
+  ever: the only row decoration is `gap` on `<TR>`, and nothing else gets it. Headers are
+  `Eyebrow`-style — 10px monospace, tracked, uppercase — and a figure is a `Stat`.
 - **The discipline list is the prototype's twenty-six, and each carries its ISO 19650 letter.**
   Mechanical, electrical and public health are three appointments, not one. The letter is what
   Phase 5's naming convention is built from, so it is set when the discipline is, never after.

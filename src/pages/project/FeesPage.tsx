@@ -474,9 +474,9 @@ function AddFee({
   const valid = reference.trim() !== '' && company !== '' && Number(value) > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule w-full max-w-[520px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover w-full max-w-[520px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           // Refuses empty input rather than creating a blank row.
@@ -564,9 +564,9 @@ function AddInstalment({
   const valid = reference.trim() !== '' && company !== '' && Number(value) > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule w-full max-w-[560px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover w-full max-w-[560px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return
@@ -671,9 +671,9 @@ function AddInvoice({
   const valid = reference.trim() !== '' && company !== '' && Number(value) > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule w-full max-w-[520px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover w-full max-w-[520px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return

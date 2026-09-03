@@ -86,7 +86,8 @@ with expected(ord, migration, kind, marker) as (values
   (68,'20260902240000_phase14_snapshots',             'table',    'snapshots'),
   (69,'20260902240100_phase14_portfolio',             'function', 'portfolio_projects'),
   (70,'20260902250000_entitlements_owner_only',       'function', 'module_catalogue'),
-  (71,'20260902250100_strip_legacy_module_keys',      'function', 'modules_off_count')
+  (71,'20260902250100_strip_legacy_module_keys',      'function', 'modules_off_count'),
+  (72,'20260902260000_theme_default_dark',           'default',  'organisations.theme=dark')
 )
 select
   e.ord::numeric as "#",
@@ -106,6 +107,14 @@ select
       where table_schema = 'public'
         and table_name = split_part(e.marker, '.', 1)
         and column_name = split_part(e.marker, '.', 2))
+    -- 'default' is for a migration that only changes a column default: the
+    -- marker is <table>.<column>=<text the default must contain>.
+    when 'default' then exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = split_part(e.marker, '.', 1)
+        and column_name = split_part(split_part(e.marker, '.', 2), '=', 1)
+        and column_default like '%' || split_part(e.marker, '=', 2) || '%')
     -- 'source' is for a migration that only replaces a function: the marker is
     -- <function>:<text the new body must contain>.
     when 'source' then exists (

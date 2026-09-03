@@ -918,6 +918,18 @@ knowingly, not a drift.
   `logo_path` and the slot is there.
 - **Playwright** for the switcher, the menu and the `/` decision is still outstanding.
 
+## Interlude — luminous glass ✅
+
+The restyle, and only the restyle: no business logic, model, schema relationship or state flow
+moved. Dark obsidian is the default presentation with light as the override; every container is
+the one `glass` utility; tables lose their zebra and gain a monospace eyebrow header; badges are
+luminous capsules; the shell is a frosted header and sidebar with the brand as the active accent;
+the report title block is an engineering HUD strip; figures are `Stat` tiles. The tenant brand
+still flows through `applyBrand()` — cyan is the new default, not a fixed accent — and the
+semantic hues are unchanged, with shades that follow the ground. One migration
+(`20260902260000_theme_default_dark`) moves `organisations.theme` to `'dark'`, which no screen had
+ever written.
+
 ## Phase 15 — Marketing site and sign-up
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*

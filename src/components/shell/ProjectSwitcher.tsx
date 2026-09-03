@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { Button } from '@/components/ui/button'
+import { fieldClass } from '@/components/ui/input'
 import { createProject, type Account, type ProjectRow } from '@/lib/queries'
 
 /**
@@ -43,7 +44,7 @@ export function ProjectSwitcher({
           else if (v === NEW) setCreating(true)
           else if (v) navigate(`/project/${v}/home`)
         }}
-        className="max-w-[300px] rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs text-white"
+        className="hover:border-rule-highlight max-w-[300px] rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-white transition-colors duration-150 hover:bg-white/[0.08] focus-visible:border-primary/60 focus-visible:outline-none"
         aria-label="Project"
       >
         {!currentId && projects.length <= 1 && (
@@ -100,9 +101,9 @@ function NewProject({
   const valid = org !== '' && name.trim() !== '' && code.trim() !== ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule text-foreground w-full max-w-[460px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover text-foreground w-full max-w-[460px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           // Refuses empty input rather than creating a blank project.
@@ -122,7 +123,7 @@ function NewProject({
           <label className="mb-3 block">
             <span className="mb-1 block text-xs font-medium">Account</span>
             <select value={org} onChange={(e) => setOrg(e.target.value)}
-              className="border-rule w-full rounded border px-2 py-2 text-sm">
+              className={fieldClass}>
               {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </label>
@@ -131,12 +132,12 @@ function NewProject({
           <label className="w-[120px]">
             <span className="mb-1 block text-xs font-medium">Code</span>
             <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="BRK"
-              className="border-rule w-full rounded border px-2 py-2 font-mono text-sm uppercase" />
+              className={fieldClass + ' font-mono uppercase'} />
           </label>
           <label className="flex-1">
             <span className="mb-1 block text-xs font-medium">Name</span>
             <input value={name} onChange={(e) => setName(e.target.value)}
-              className="border-rule w-full rounded border px-3 py-2 text-sm" />
+              className={fieldClass} />
           </label>
         </div>
         {error && <p className="text-stop mb-3 text-sm">{error}</p>}

@@ -47,8 +47,9 @@ describe('one colour in, the whole brand layer out', () => {
 
   test('the tint and the hover keep the hue rather than washing to grey', () => {
     const t = deriveBrand('#1E3A5F')!
-    const [, g, b] = parseHex(t.brandSoft)!
-    expect(b).toBeGreaterThan(g)          // still blue, not washed to grey
+    // The tint is the brand itself at low alpha — the same hue on any ground —
+    // never a mix with white that would vanish on the dark theme.
+    expect(t.brandSoft).toBe('rgba(30, 58, 95, 0.14)')
     expect(parseHex(t.brandDeep)![2]).toBeLessThan(parseHex(t.brand)![2])
   })
 

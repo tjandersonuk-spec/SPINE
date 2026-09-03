@@ -1,6 +1,32 @@
 import { useState } from 'react'
 
 /**
+ * The crystalline mark beside the wordmark: a facetted stone in the brand
+ * colour with a soft glow, so the header carries the tenant's colour even when
+ * their logo is a raster that cannot be recoloured.
+ */
+export function CrystalMark({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className={`text-primary shrink-0 ${className}`}
+      style={{ filter: 'drop-shadow(0 0 6px color-mix(in srgb, var(--brand) 55%, transparent))' }}
+    >
+      <path
+        d="M12 2 20 9 12 22 4 9Z"
+        fill="currentColor"
+        fillOpacity="0.18"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M4 9h16M12 2 8.5 9 12 22M12 2l3.5 7L12 22" stroke="currentColor" strokeWidth="1" strokeOpacity="0.7" fill="none" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+/**
  * The logo above the sign-in card.
  *
  * Two things make it sit on the page rather than on top of it. The page behind

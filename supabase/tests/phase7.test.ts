@@ -146,7 +146,8 @@ describe('the shell reads branding without reading the account', () => {
     const s = r.rows[0].s
     expect(s.brand_colour).toBe('#0B1A2B')
     expect(s.account_name).toBe('HBC7')
-    expect(s.theme).toBe('light')
+    // Dark is the platform default; light is a choice an account makes.
+    expect(s.theme).toBe('dark')
     // Every module key, resolved: what the account said, and true wherever it
     // said nothing. The client never sees the raw map, so it cannot
     // reimplement the absent-means-on rule and disagree with the database.

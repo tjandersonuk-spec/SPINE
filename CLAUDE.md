@@ -84,9 +84,21 @@ except the derived views.
 - **There is exactly one `programme_timeline()`**, called by the dashboard and by Phase 13's
   period report. Two functions drawing the same bar would eventually draw different pictures.
   The dashboard's `decision_queue()` is keyed on `auth.uid()` and answers "what is waiting on
-  me"; the report's equivalent answers "what is waiting on this audience" and is a **separate
+  me"; `report_attention()` answers "what is waiting on this audience" and is a **separate
   function**, because a report addressed to a client that referenced whoever generated it would
-  leak whose account produced it.
+  leak whose account produced it. A test asserts `report_attention` contains no `auth.uid()`.
+- **A report is a query, never a document.** Nothing is drafted, saved or versioned — there is no
+  report table, and a test fails the build if one appears — so there is never a stale copy to
+  reconcile against the live project. **The audience decides content in one place**, in the four
+  report functions, never as `if audience === 'client'` in a template: a section missing from a
+  client report is missing because the query returned nothing, which is the only way the rule and
+  what is rendered cannot drift apart. `report_scope()` **raises** rather than substituting, so a
+  consultant asking for a rival's report gets a refusal and not their own figures under another
+  company's name. Consultant health is internal only; gone-quiet is withheld from the client
+  entirely (a stall is a tone judgement, not a fact for an automated document); "coming up" is
+  identical for all three, because a date is not commercially sensitive. The **client exclusion
+  list is a commercial and liability judgement**, not a permissions one — review it with whoever
+  owns that decision before go-live, and do not let it drift by feature addition.
 - **A consultant's front is scoped through `my_company_tree()`**, which recurses: a firm is
   answerable for the specialists it appointed under itself. A rival on the same project is
   absent from every figure, not merely unhighlighted.

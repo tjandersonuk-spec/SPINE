@@ -1,0 +1,236 @@
+-- Phase 13, part one -- the report spine: who may generate what, over which
+-- period, and what the document must say it left out.
+--
+-- Three audiences, one engine, three pages, and NOTHING STORED. A report is a
+-- query over a date range plus an audience filter, rendered on request. There
+-- is no draft, no version and no saved document, so there is never a stale copy
+-- to reconcile against the live project.
+
+-- ------------------------------------------------------------- the audiences
+create or replace function report_audiences()
+returns text[]
+language sql
+immutable
+as $$
+  select array['internal','client','consultant'];
+$$;
+
+grant execute on function report_audiences() to authenticated;
+
+-- Which audiences this caller may generate on this project.
+--
+-- ACCESS CONTROL MIRRORS ROLE, not a report-specific permission. Account staff
+-- may generate any of the three; a `client` may only ever generate the client
+-- report; a consultant may only ever generate their own. Returned so the UI can
+-- offer the right list -- but the UI offering it is not what enforces it. See
+-- report_scope() below.
+create or replace function my_report_audiences(p_project uuid)
+returns text[]
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select case
+    when not can_see_project(p_project) then '{}'::text[]
+    when exists (select 1 from projects p
+                 where p.id = p_project and is_account_staff(p.organisation_id))
+      then array['internal','client','consultant']
+    when exists (select 1 from projects p
+                 join organisation_members m on m.organisation_id = p.organisation_id
+                 where p.id = p_project and m.profile_id = auth.uid() and m.role = 'client')
+      then array['client']
+    else array['consultant']
+  end;
+$$;
+
+grant execute on function my_report_audiences(uuid) to authenticated;
+
+-- The lock, and the only thing that actually enforces it.
+--
+-- Returns the company the report is scoped to -- null for internal and client,
+-- the consultant's own company for a consultant report -- and RAISES rather
+-- than quietly substituting when the caller asks for something they may not
+-- have. A consultant posting another company's id must get a refusal, not a
+-- report full of their own figures that hides the attempt, and not a UI dead
+-- end that a direct call walks straight past.
+create or replace function report_scope(
+  p_project uuid, p_audience text, p_company uuid default null
+) returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare v_allowed text[]; v_mine uuid;
+begin
+  if not (p_audience = any(report_audiences())) then
+    raise exception 'Unknown report audience: %', p_audience using errcode = '22023';
+  end if;
+  v_allowed := my_report_audiences(p_project);
+  if not (p_audience = any(v_allowed)) then
+    raise exception 'Not permitted to generate the % report on this project', p_audience
+      using errcode = '42501';
+  end if;
+
+  if p_audience <> 'consultant' then
+    -- An internal or client report is project-wide. A company id passed with
+    -- one is meaningless rather than harmless, so it is refused rather than
+    -- ignored: a caller who thinks they are scoping something is wrong.
+    if p_company is not null then
+      raise exception 'A % report is project-wide and takes no company', p_audience
+        using errcode = '22023';
+    end if;
+    return null;
+  end if;
+
+  -- A consultant report is always scoped to one company.
+  if exists (select 1 from projects p
+             where p.id = p_project and is_account_staff(p.organisation_id)) then
+    -- Account staff may generate one for any company on the project, because
+    -- they can already see every figure in it.
+    if p_company is null then
+      raise exception 'A consultant report needs a company' using errcode = '22023';
+    end if;
+    if not exists (select 1 from companies c
+                   where c.id = p_company and c.project_id = p_project) then
+      raise exception 'No such company on this project' using errcode = 'P0002';
+    end if;
+    return p_company;
+  end if;
+
+  -- A consultant gets their own, and only their own. Their own company tree is
+  -- the whole permitted set: a firm may report on the specialists it appointed
+  -- under itself, and on nobody else.
+  select company_id into v_mine from my_company_tree(p_project)
+   where p_company is null or company_id = p_company
+   limit 1;
+  if v_mine is null then
+    raise exception 'Not permitted to generate a report for that company'
+      using errcode = '42501';
+  end if;
+  return coalesce(p_company, v_mine);
+end;
+$$;
+
+grant execute on function report_scope(uuid, text, uuid) to authenticated;
+
+-- A company tree rooted at any company, not just the caller's own.
+--
+-- my_company_tree() answers "which companies am I answerable for", keyed on
+-- auth.uid(). A report may be generated BY account staff ABOUT a consultant, so
+-- the same recursion is needed from an arbitrary root. Same rule either way: a
+-- firm is answerable for the specialists it appointed under itself.
+create or replace function company_tree(p_project uuid, p_company uuid)
+returns table (company_id uuid)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  with recursive tree as (
+    select c.id from companies c
+    where c.id = p_company and c.project_id = p_project
+    union all
+    select c.id from companies c
+    join tree t on c.parent_id = t.id
+    where c.project_id = p_project
+  )
+  select id from tree;
+$$;
+
+grant execute on function company_tree(uuid, uuid) to authenticated;
+
+-- --------------------------------------------------------------- the period
+--
+-- A week is a rolling seven-day window ending on the given day; a month is a
+-- rolling calendar month. BOTH ENDS INCLUSIVE, and computed here rather than in
+-- the browser so the figures on the page and the figures in a later export
+-- cannot disagree about where the boundary was.
+create or replace function report_period(p_kind text default 'week', p_end date default null)
+returns table (kind text, start_date date, end_date date, label text)
+language sql
+immutable
+as $$
+  select
+    k.kind,
+    case k.kind when 'month' then (e.d - interval '1 month')::date + 1
+                else e.d - 6 end,
+    e.d,
+    to_char(case k.kind when 'month' then (e.d - interval '1 month')::date + 1
+                        else e.d - 6 end, 'DD Mon YYYY')
+      || ' – ' || to_char(e.d, 'DD Mon YYYY')
+  from (select case when p_kind = 'month' then 'month' else 'week' end as kind) k,
+       (select coalesce(p_end, current_date) as d) e;
+$$;
+
+grant execute on function report_period(text, date) to authenticated;
+
+-- ------------------------------------------------------------ the exclusions
+--
+-- One string per audience, stating plainly what was left out, rendered ON THE
+-- DOCUMENT ITSELF. An omission a reader cannot see stated is indistinguishable
+-- from an oversight -- and on a report that leaves out the fee position and the
+-- risk register, that difference is the whole point.
+--
+-- The client list is not a permissions question the way most visibility in this
+-- product is. It is a commercial and liability judgement, made once, here, and
+-- it should be reviewed by whoever owns that decision before a report goes out.
+-- Do not let it drift by feature addition without the same review.
+create or replace function report_exclusions(p_audience text)
+returns text
+language sql
+immutable
+as $$
+  select case p_audience
+    when 'client' then
+      'Not shown: consultant fees and cashflow, the risk and opportunity register, '
+      || 'individual consultant performance, and safety or regulatory matters, which are '
+      || 'reported through their own channels rather than an automated summary.'
+    when 'consultant' then
+      'Scoped to this company''s own contribution. No other company''s figures, no '
+      || 'project-wide commercial position, and no pre-construction budget are shown.'
+    else
+      'Full internal position. Not for external circulation without review.'
+  end;
+$$;
+
+grant execute on function report_exclusions(text) to authenticated;
+
+-- The header block: who it is about, who generated it, and when. One query so
+-- the three pages cannot disagree about their own title.
+create or replace function report_header(
+  p_project uuid, p_audience text, p_company uuid default null
+) returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare v_co uuid; v_result jsonb;
+begin
+  v_co := report_scope(p_project, p_audience, p_company);
+  select jsonb_build_object(
+    'project_code', p.code,
+    'project_name', p.name,
+    'audience', p_audience,
+    'company_id', v_co,
+    'company_name', (select c.name from companies c where c.id = v_co),
+    'title', case p_audience
+      when 'internal' then 'Internal report'
+      when 'client' then 'Client report'
+      else coalesce((select c.name from companies c where c.id = v_co), 'Consultant')
+           || ' — activity report' end,
+    'generated_on', current_date,
+    -- Named on the document, because a report that says who produced it is a
+    -- different object from one that does not. The AUDIENCE content, though,
+    -- never references the signed-in person -- see report_attention().
+    'generated_by', (select pr.name from profiles pr where pr.id = auth.uid()),
+    'exclusions', report_exclusions(p_audience)
+  ) into v_result
+  from projects p where p.id = p_project;
+  return v_result;
+end;
+$$;
+
+grant execute on function report_header(uuid, text, uuid) to authenticated;

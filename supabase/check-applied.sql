@@ -78,7 +78,11 @@ with expected(ord, migration, kind, marker) as (values
   (60,'20260902220600_phase12_changereq',             'function', 'set_change_status'),
   (61,'20260902220700_phase12_rls',                   'policy',   'fees_select'),
   (62,'20260902220800_phase12_programme_dependents',  'source',   'programme_dependents:Instalment'),
-  (63,'20260902220900_phase12_can_see_admin_only',    'source',   'can_see:is_account_admin')
+  (63,'20260902220900_phase12_can_see_admin_only',    'source',   'can_see:is_account_admin'),
+  (64,'20260902230000_phase13_reports',               'function', 'report_scope'),
+  (65,'20260902230100_phase13_report_page1',          'function', 'report_compliance_rows'),
+  (66,'20260902230200_phase13_report_page2',          'function', 'report_attention'),
+  (67,'20260902230300_phase13_report_page3',          'function', 'report_activity')
 )
 select
   e.ord::numeric as "#",

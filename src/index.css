@@ -239,3 +239,61 @@
     letter-spacing: -0.01em;
   }
 }
+
+/* ---------------------------------------------------------------- print
+   Reports are printed, not rendered server-side. window.print() against this
+   stylesheet is the whole PDF path — a second templating path would be a
+   second place for the figures to be wrong.
+
+   A .report-sheet is one A4 page. Everything outside the report — the shell,
+   the sidebar, the controls — is .noprint and does not exist on paper. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  .noprint,
+  nav,
+  aside,
+  header.app-header {
+    display: none !important;
+  }
+
+  html, body {
+    background: #fff !important;
+    font-size: 10.5pt;
+  }
+
+  /* The mesh and every elevation are screen affordances; on paper they are
+     just toner. */
+  * {
+    box-shadow: none !important;
+    background-image: none !important;
+  }
+
+  main, .print-root {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .report-sheet {
+    page-break-after: always;
+    break-after: page;
+    padding: 0;
+    border: none;
+  }
+  .report-sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* A table split across a page break loses its head, and a row split in half
+     is unreadable. */
+  table { page-break-inside: auto; }
+  tr, .report-block { page-break-inside: avoid; break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  a { text-decoration: none; color: inherit; }
+}

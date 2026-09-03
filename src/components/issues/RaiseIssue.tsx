@@ -77,9 +77,9 @@ export function RaiseIssue({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-6 backdrop-blur-sm">
       <div
-        className="bg-card border-rule w-full max-w-[620px] rounded-lg border shadow-2xl"
+        className="glass-popover w-full max-w-[620px] rounded-lg"
         role="dialog"
         aria-label={isRfi ? 'Raise an RFI' : 'Raise a task'}
       >

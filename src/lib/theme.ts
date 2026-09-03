@@ -77,6 +77,8 @@ const mix = (
 export type BrandTokens = {
   brand: string
   brandInk: string
+  /** A translucent tint of the brand — rgba, not hex — so it reads as the
+   *  brand on obsidian and on paper alike without knowing which is under it. */
   brandSoft: string
   brandDeep: string
   brand2: string
@@ -92,8 +94,12 @@ export function deriveBrand(hex: string): BrandTokens | null {
   return {
     brand: toHex(rgb),
     brandInk: toHex(ink),
-    // A tint for panel grounds, and a darker hover. Both keep the hue.
-    brandSoft: toHex(mix(rgb, WHITE, 0.88)),
+    // A tint for grounds, a darker hover and a lighter companion. All keep
+    // the hue. The tint is a transparency of the brand rather than a mix with
+    // white: mixed with white it was a pale wash that vanished on the dark
+    // theme, whereas a 14% brand over whatever ground is there is the same
+    // idea on both.
+    brandSoft: `rgba(${rgb.map(Math.round).join(', ')}, 0.14)`,
     brandDeep: toHex(mix(rgb, BLACK, 0.35)),
     brand2: toHex(mix(rgb, WHITE, 0.35)),
     inkContrast: Math.round(contrast(rgb, ink) * 100) / 100,
@@ -114,8 +120,14 @@ export function applyBrand(hex: string): BrandTokens | null {
   return t
 }
 
-/** Light or dark. Structural tokens flip; semantic grounds move only far enough
- *  to stay legible, which the stylesheet handles. */
+/** Light or dark. Dark is the stylesheet's default; light is the override, so
+ *  the attribute is the whole switch. Structural tokens flip and the semantic
+ *  shades follow the ground; the hues and the brand do not move. */
 export function applyTheme(theme: 'light' | 'dark') {
   document.documentElement.setAttribute('data-theme', theme)
+}
+
+/** What the document is showing now. Absent means dark: that is the default. */
+export function currentTheme(): 'light' | 'dark' {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 
 import { TrendChart } from '@/components/portfolio/TrendChart'
 import { Button } from '@/components/ui/button'
+import { Stat } from '@/components/ui/stat'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { fmtDate, gbp } from '@/lib/format'
@@ -117,15 +118,7 @@ export default function Portfolio() {
 function Figure({
   n, label, tone,
 }: { n: number; label: string; tone?: 'stop' | 'warn' | 'gap' }) {
-  const colour = tone === 'stop' ? 'text-stop' : tone === 'warn' ? 'text-warn' : ''
-  return (
-    <div>
-      <p className={'font-mono text-2xl font-bold tracking-tight ' + colour}>{n}</p>
-      <p className="text-graphite-light text-[10px] font-bold tracking-[0.13em] uppercase">
-        {label}
-      </p>
-    </div>
-  )
+  return <Stat label={label} value={n} tone={tone} className="mb-0 min-w-[140px]" />
 }
 
 function Projects({ rows }: { rows: PortfolioProject[] }) {

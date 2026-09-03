@@ -27,9 +27,9 @@ export function IssueDetail({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/35" onClick={onClose} role="presentation">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm" onClick={onClose} role="presentation">
       <aside
-        className="bg-card border-rule flex h-full w-full max-w-[600px] flex-col border-l shadow-2xl"
+        className="glass-popover flex h-full w-full max-w-[600px] flex-col"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label={`Issue ${issue.reference}`}

@@ -53,7 +53,7 @@ export const PROJECT_NAV: NavGroup[] = [
       { key: 'dashboard', label: 'Home', to: 'home' },
       { key: 'issues', label: 'Tasks and RFIs', to: 'issues' },
       { key: 'meetings', label: 'Meetings', to: 'meetings' },
-      { key: 'summary', label: 'Monday summary', to: null },
+      { key: 'summary', label: 'Monday summary', to: 'summary' },
     ],
   },
   {
@@ -105,7 +105,7 @@ export const PROJECT_NAV: NavGroup[] = [
     title: 'Handover',
     items: [
       { key: 'handover', label: 'Handover checklist', to: 'handover' },
-      { key: 'gateways', label: 'Gateways', to: null },
+      { key: 'gateways', label: 'Gateways', to: 'gateways' },
       { key: 'warranties', label: 'Warranties', to: 'warranties' },
     ],
   },
@@ -113,7 +113,7 @@ export const PROJECT_NAV: NavGroup[] = [
     title: 'Reporting',
     items: [
       { key: 'reports', label: 'Period report', to: 'reports' },
-      { key: 'audit', label: 'Audit', to: null },
+      { key: 'audit', label: 'Audit', to: 'audit' },
     ],
   },
   {

@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils'
  *
  * Dense by design: a design manager reads a hundred matrix rows or four hundred
  * register rows down a column, so the row height, the small uppercase headers
- * and the top-aligned cells are all doing work. The rules are taken from the
- * prototype rather than invented.
+ * and the top-aligned cells are all doing work. No zebra: a stripe is a
+ * decoration that competes with the one decoration that means something.
  *
  * Wrap in <TableScroll> so a wide table scrolls inside itself instead of
  * pushing the page sideways.
@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 export function TableScroll({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
-      className={cn('border-rule bg-card overflow-x-auto rounded-lg border shadow-xs', className)}
+      className={cn('glass overflow-x-auto rounded-lg', className)}
       {...props}
     />
   )
@@ -34,9 +34,9 @@ export function TH({ className, ...props }: React.ComponentProps<'th'>) {
   return (
     <th
       className={cn(
-        // small, uppercase, tracked out — a label, not a heading
-        'text-graphite-light border-rule-strong border-b-[1.5px] bg-[rgba(127,140,152,0.06)]',
-        'px-2.5 py-2 text-left text-[10px] font-bold tracking-[0.08em] whitespace-nowrap uppercase',
+        // small, uppercase, tracked, monospace — a label, not a heading
+        'text-graphite-light border-glass-line border-b bg-white/[0.02]',
+        'px-2.5 py-2 text-left font-mono text-[10px] font-medium tracking-widest whitespace-nowrap uppercase',
         className
       )}
       {...props}
@@ -50,9 +50,9 @@ export function TBody({ className, ...props }: React.ComponentProps<'tbody'>) {
 
 /**
  * `gap` is the only decoration this table has, and it means exactly one thing:
- * something nobody has been given. The left rule and the wash are the same
- * treatment the prototype uses, so the eye finds it at a glance down a long
- * list without reading a word.
+ * something nobody has been given. The hi-vis edge and the inner halo are the
+ * same treatment everywhere a gap is shown, so the eye finds it at a glance
+ * down a long list without reading a word.
  */
 export function TR({
   className,
@@ -63,10 +63,10 @@ export function TR({
   return (
     <tr
       className={cn(
-        'transition-colors duration-100',
+        'transition-colors duration-150',
         gap
-          ? 'bg-hivis-bg text-hivis-ink border-l-hivis border-l-[3px] hover:brightness-[0.98]'
-          : 'hover:bg-[rgba(127,140,152,0.08)]',
+          ? 'bg-hivis-bg text-hivis-ink border-l-hivis shadow-hivis-halo border-l-4 hover:brightness-110'
+          : 'hover:bg-primary/[0.04]',
         muted && 'opacity-50',
         className
       )}
@@ -78,17 +78,27 @@ export function TR({
 export function TD({ className, ...props }: React.ComponentProps<'td'>) {
   return (
     <td
-      className={cn('border-rule border-b px-2.5 py-[7px] align-top', className)}
+      className={cn('border-rule border-b px-2.5 py-1.5 align-top', className)}
       {...props}
     />
   )
 }
 
-/** A reference, a code, a drawing number — anything read down a column. */
-export function Code({ className, ...props }: React.ComponentProps<'span'>) {
+/**
+ * A reference, a code, a drawing number — anything read down a column.
+ * `tag` boxes it as a discipline or code chip, for the places a code stands
+ * alone rather than heads a row.
+ */
+export function Code({
+  className, tag = false, ...props
+}: React.ComponentProps<'span'> & { tag?: boolean }) {
   return (
     <span
-      className={cn('font-mono text-[0.92em] tracking-[-0.01em] tabular-nums', className)}
+      className={cn(
+        'font-mono text-[0.92em] tracking-[-0.01em] tabular-nums',
+        tag && 'text-brand-2 border-primary/30 bg-primary/10 inline-block rounded-md border px-1.5 py-0.5 text-xs',
+        className
+      )}
       {...props}
     />
   )
@@ -100,12 +110,14 @@ export function Pill({
   className,
   ...props
 }: React.ComponentProps<'span'> & { tone?: 'neutral' | 'ok' | 'warn' | 'stop' | 'gap' }) {
+  // Luminous capsules: a tinted glass ground, a hairline of the same hue, and
+  // ink light enough to sit on it. Only the gap glows outward.
   const tones = {
-    neutral: 'bg-surface-2 border-rule text-graphite',
-    ok: 'bg-ok-bg border-ok text-ok',
-    warn: 'bg-warn-bg border-warn text-warn',
-    stop: 'bg-stop-bg border-stop text-stop',
-    gap: 'bg-hivis-bg border-hivis text-hivis-ink',
+    neutral: 'bg-surface-2/60 border-rule-strong text-graphite backdrop-blur-sm',
+    ok: 'bg-ok-bg border-ok/30 text-ok-ink shadow-ok',
+    warn: 'bg-warn-bg border-warn/30 text-warn-ink',
+    stop: 'bg-stop-bg border-stop/30 text-stop-ink',
+    gap: 'bg-hivis-bg border-hivis/40 text-hivis-ink shadow-hivis',
   }
   return (
     <span

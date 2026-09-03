@@ -5,6 +5,7 @@ import { Money } from '@/components/commercial/Money'
 import { fmtDate } from '@/lib/format'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
+import { Stat } from '@/components/ui/stat'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
@@ -182,14 +183,11 @@ function Figure({
   label, value, signed,
 }: { label: string; value: number; signed?: boolean }) {
   return (
-    <div>
-      <p className="text-graphite-light text-[10px] font-bold tracking-[0.13em] uppercase">
-        {label}
-      </p>
-      <p className="font-mono text-2xl font-bold tracking-tight">
-        <Money value={value} className="text-2xl" tone={signed ? 'signed' : 'plain'} />
-      </p>
-    </div>
+    <Stat
+      label={label}
+      value={<Money value={value} className="text-3xl" tone={signed ? 'signed' : 'plain'} />}
+      className="mb-0 min-w-[160px]"
+    />
   )
 }
 
@@ -421,9 +419,9 @@ function AddLine({
   const valid = reference.trim() !== '' && title.trim() !== ''
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule w-full max-w-[520px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover w-full max-w-[520px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return
@@ -502,9 +500,9 @@ function AddQuote({
   const valid = (companyId !== '' || supplier.trim() !== '') && Number(value) > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule w-full max-w-[520px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover w-full max-w-[520px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           if (!valid) return

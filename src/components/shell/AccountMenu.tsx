@@ -42,7 +42,7 @@ export function AccountMenu({
     }
   }, [open])
 
-  const item = 'block w-full rounded px-2.5 py-1.5 text-left text-[13px] hover:bg-surface-2'
+  const item = 'block w-full rounded px-2.5 py-1.5 text-left text-[13px] transition-colors duration-100 hover:bg-primary/10'
 
   return (
     <div ref={ref} className="relative">
@@ -51,12 +51,12 @@ export function AccountMenu({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-xs hover:bg-white/15"
+        className="hover:border-rule-highlight flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs transition-colors duration-150 hover:bg-white/[0.08]"
       >
         <span className="max-w-[160px] truncate">{name || 'Account'}</span>
         {waiting > 0 && (
           <span
-            className="bg-hivis rounded-full px-1.5 font-mono text-[10px] font-bold text-[#3d3006]"
+            className="bg-primary text-primary-foreground shadow-brand rounded-full px-1.5 font-mono text-[10px] font-bold"
             title={`${waiting} waiting for you`}
           >
             {waiting}
@@ -68,10 +68,10 @@ export function AccountMenu({
       {open && (
         <div
           role="menu"
-          className="bg-card border-rule text-foreground absolute right-0 z-50 mt-1.5 w-[260px] rounded-lg border p-1.5 shadow-2xl"
+          className="glass-popover text-foreground absolute right-0 z-50 mt-1.5 w-[260px] rounded-lg p-1.5"
           onClick={() => setOpen(false)}
         >
-          <div className="text-graphite px-2.5 pt-1 pb-1.5 text-[10px] font-bold tracking-[0.13em] uppercase">
+          <div className="text-graphite-light px-2.5 pt-1 pb-1.5 font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
             Signed in as
           </div>
           <Link to="/me" className={item} role="menuitem">
@@ -86,7 +86,7 @@ export function AccountMenu({
             </Link>
           )}
 
-          <div className="text-graphite px-2.5 pt-2.5 pb-1.5 text-[10px] font-bold tracking-[0.13em] uppercase">
+          <div className="text-graphite-light px-2.5 pt-2.5 pb-1.5 font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
             My accounts
           </div>
           {accounts.length === 0 ? (
@@ -116,7 +116,7 @@ export function AccountMenu({
 
           {owner && (
             <>
-              <div className="text-graphite px-2.5 pt-2.5 pb-1.5 text-[10px] font-bold tracking-[0.13em] uppercase">
+              <div className="text-graphite-light px-2.5 pt-2.5 pb-1.5 font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
                 Platform
               </div>
               <Link to="/platform/accounts" className={item} role="menuitem">Accounts</Link>
@@ -124,7 +124,7 @@ export function AccountMenu({
             </>
           )}
 
-          <div className="border-rule mt-1.5 flex gap-1 border-t pt-1.5">
+          <div className="border-glass-line mt-1.5 flex gap-1 border-t pt-1.5">
             <button type="button" onClick={onToggleDark} className={item} role="menuitem">
               {dark ? 'Light mode' : 'Dark mode'}
             </button>

@@ -2075,3 +2075,133 @@ export async function applyScopeTemplates(
   if (error) throw error
   return data as { ok: boolean; added: number }
 }
+
+/* ------------------------------------------------- building safety (HRB) */
+
+export type ChangeRequest = {
+  id: string
+  reference: string
+  title: string
+  description: string | null
+  reason: string | null
+  status: string
+  from_company_id: string | null
+  to_company_id: string | null
+  impact_scope: string | null
+  impact_weeks: number
+  impact_cost: string | null
+  decision_task_uid: string | null
+  decision_offset_days: number
+  decision_anchor: 'start' | 'finish'
+  decision_due: string | null
+  effective_date: string | null
+  bsa_controlled: boolean
+  bsa_class: 'Recordable' | 'Notifiable' | 'Major' | null
+  bsa_class_by: string | null
+  bsa_class_at: string | null
+  bsa_class_note: string | null
+  bsa_notified_at: string | null
+  bsa_objected: boolean
+  bsa_app_submitted: string | null
+  bsa_app_decided: string | null
+  bsa_app_outcome: string | null
+  bsa_state: string
+  bsa_verdict: 'proceed' | 'warn' | 'stop'
+  bsa_detail: string
+  headline_status: string
+  approved_with_nothing_listed: boolean
+  amendments: number
+  amendments_outstanding: number
+  raised_at: string
+}
+
+export type Occurrence = {
+  id: string; reference: string; title: string; description: string | null
+  kind: string | null; status: string; assessment: string | null
+  occurred_at: string | null; discovered_at: string | null; reported_at: string | null
+}
+
+export type GoldenThreadRow = {
+  drawing_id: string; document_number: string; title: string | null
+  g2_revision?: string; revision_now?: string; due?: string | null
+}
+
+export async function fetchChangeRequests(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_change_requests')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('raised_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as ChangeRequest[]
+}
+
+/** Whether the caller holds the statutory duty. The database refuses the act
+ *  either way; this only decides whether to offer it. */
+export async function canClassify(projectId: string) {
+  const { data, error } = await supabase.rpc('can_classify', { p_project: projectId })
+  if (error) throw error
+  return data === true
+}
+
+/** The app never suggests a category. It takes one and records the basis. */
+export async function classifyChange(
+  changeId: string, bsaClass: 'Recordable' | 'Notifiable' | 'Major' | null, note: string,
+) {
+  const { error } = await supabase.rpc('classify_change', {
+    p_change: changeId, p_class: bsaClass, p_note: note,
+  })
+  if (error) throw error
+}
+
+export async function fetchGoldenThreadMoved(projectId: string) {
+  const { data, error } = await supabase.rpc('golden_thread_moved', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as GoldenThreadRow[]
+}
+
+export async function fetchGoldenThreadNeverIssued(projectId: string) {
+  const { data, error } = await supabase.rpc('golden_thread_never_issued', {
+    p_project: projectId,
+  })
+  if (error) throw error
+  return (data ?? []) as GoldenThreadRow[]
+}
+
+export async function stampG2Baseline(projectId: string) {
+  const { data, error } = await supabase.rpc('stamp_g2_baseline', { p_project: projectId })
+  if (error) throw error
+  return data as { ok: boolean; baselined: number }
+}
+
+export async function fetchOccurrences(projectId: string) {
+  const { data, error } = await supabase
+    .from('occurrences')
+    .select('id, reference, title, description, kind, status, assessment, occurred_at, discovered_at, reported_at')
+    .eq('project_id', projectId)
+    .order('raised_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as Occurrence[]
+}
+
+export type HrbSettings = {
+  hrb: boolean; hrb_reason: string | null
+  g2_reference: string | null; g2_approved_date: string | null
+  commencement_notified: string | null
+  hrb_notify_days: number; hrb_major_weeks: number
+}
+
+export async function fetchHrbSettings(projectId: string) {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('hrb, hrb_reason, g2_reference, g2_approved_date, commencement_notified, hrb_notify_days, hrb_major_weeks')
+    .eq('id', projectId)
+    .single()
+  if (error) throw error
+  return data as unknown as HrbSettings
+}
+
+export async function updateHrbSettings(projectId: string, patch: Partial<HrbSettings>) {
+  const { error } = await supabase.from('projects').update(patch).eq('id', projectId)
+  if (error) throw error
+}

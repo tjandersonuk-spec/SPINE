@@ -159,6 +159,24 @@ except the derived views.
   own login.
 - The Building Safety Act change-control classification guard is enforced by policy/handler, never
   by hiding a button in the UI — a synthetic event from the wrong role must be refused server-side.
+  The classification columns on `change_requests` sit outside the update grant, so
+  `classify_change()` is the only path to them and it re-checks `can_classify()` itself. **Internal
+  staff cannot classify**: a designation the client's own dutyholder did not make is not a
+  designation, and the fact that the UI would not offer them the button is not what stops them.
+- **A change request's work status is derived, in twelve states, by one function.** `work_status()`
+  answers whether work may proceed from the classification, the notification and the acceptance
+  together — never from a stored flag someone forgot to clear. Every state is tested, and a
+  meta-test fails the build if a thirteenth appears without one. The notification and acceptance
+  periods are **columns, not constants**: the published figures disagree with each other, so the
+  project carries the ones it is working to.
+- **The golden-thread baseline is stamped once.** `g2_revision` records the revision that was
+  current at gateway 2 and a trigger refuses to change it; `golden_thread_moved()` and
+  `golden_thread_never_issued()` are then derivations off the register rather than a second list
+  somebody maintains. A drawing that moved after gateway 2 and one that never went out at all are
+  different findings and are reported separately.
+- **An occurrence is not a risk.** Mandatory occurrence reporting is a statutory duty with its own
+  audience and its own clock, so it is its own table — folding it into `risks` would put a
+  regulator's report behind the risk register's `named` default.
 - **RLS decides rows; GRANTs decide columns.** A policy that lets someone edit a row lets them
   edit *every column of it*, because Supabase grants `authenticated` update on all columns by
   default. Any column that a role may see but must not write — `organisations.modules`,

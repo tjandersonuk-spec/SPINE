@@ -461,22 +461,60 @@ gets accepted silently where a blank gets asked about.
 - **A scope-template apply screen.** `suggested_scope_templates()` and `apply_scope_templates()`
   are built and tested; the picker that pre-checks the suggestions sits with the appointment UI.
 
-## Phase 10 — Building safety (higher-risk buildings)
+## Phase 10 — Building safety (higher-risk buildings) ✅
 
 *Reference: handover building-safety section. Open prototype at Building safety and a change request on the demo project.*
 
-- [ ] Project-level HRB flag; non-HRB projects never see this
-- [ ] Change request classification (recordable/notifiable/major) — only Principal Designer (BSA)
+- [x] Project-level HRB flag; non-HRB projects never see this
+- [x] Change request classification (recordable/notifiable/major) — only Principal Designer (BSA)
       discipline or admin may classify, enforced by policy not UI; app never suggests a category;
       store who/when/basis
-- [ ] "May work proceed" as a view (never a column) covering all ten states; objection/
-      determination periods are host-configurable fields, not constants
-- [ ] Golden thread: designation on register rows + baseline stamped at Gateway 2; report what's
+- [x] "May work proceed" as a view (never a column) covering every state; objection/determination
+      periods are host-configurable fields, not constants
+- [x] Golden thread: designation on register rows + baseline stamped at Gateway 2; report what's
       moved since and what was designated but never issued
-- [ ] Mandatory occurrence reports: own table, separate from risks
-- [ ] Gateway checklist as a checklist template, not a separate module
-- [ ] Tests: a synthetic classification event from a non-PDB user is refused; work-status function
-      returns correct state for all ten cases; objection window follows host setting
+- [x] Mandatory occurrence reports: own table, separate from risks
+- [x] Tests: a synthetic classification event from a non-PDB user is refused; work-status returns
+      the correct state for every case; the objection window follows the host setting
+
+**`change_requests` arrives here rather than in Phase 12.** The classification hangs off it and
+cannot be built without it, so the table lands in the shape the notes give it, minus the money —
+`variation_id` references `fees`, which is Phase 12's to create.
+
+**The classification columns are outside the update grant entirely.** `classify_change()` is the
+only way to set them and it checks `can_classify()` server-side, so a synthetic event from
+someone senior who does not hold the duty is refused by the database rather than by a hidden
+button. The test drives the function directly for exactly that reason. **Internal staff
+deliberately cannot classify** — it is a named statutory duty, not a seniority.
+
+**Twelve states, every one tested, and a test that fails if a thirteenth appears untested.** The
+notes name six; enumerating honestly produced twelve, including "marked decided with no outcome
+recorded", which nobody designed and which stops rather than guessing which way it went.
+
+**The periods are settings.** The notifiable objection window is quoted as both ten working days
+and fourteen across published sources, and a major determination as four to six weeks. A test
+widens the window and watches the same change move from *clear* back to *in the window*.
+
+**The Phase 4 anchor guard was extended, and it needed to be.** `change_requests` carries two
+anchor pairs named `decision_*` and `effective_*`; the guard only knew `programme_task_uid` and
+would have let both through. It now matches any `<x>_task_uid` with an offset beside it, checks
+every anchored **column** rather than every table, and was verified by deleting one branch and
+watching it name the missing column.
+
+### Remaining in this phase
+
+- **The gateway checklist** is a checklist template, which is Phase 9's engine — it needs the
+  template rows written, not code. Add them to `checklist_templates` with `type = 'handover'` or
+  a new type when the gateway content is agreed with whoever holds the duty.
+- **Raising and editing change requests** has schema, RLS and the derived view, but the create
+  and edit screens belong with Phase 12, where the commercial half (variations, amendments
+  ticked off by name) is built. The building-safety page reads them today.
+- **Occurrence entry** is read-only on the page; the form is small and follows.
+
+**A caveat carried from the notes into the build.** The categories, the periods and the reporting
+threshold are regulatory matters that move. Everything here should be reviewed by whoever holds
+the PDB duty before it is used on a live scheme, and the periods must stay editable rather than
+becoming constants in a later refactor.
 
 ## Phase 11 — BREEAM
 

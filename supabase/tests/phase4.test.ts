@@ -364,44 +364,68 @@ describe('roll-ups are computed, never stored', () => {
 
 describe('the line inspector', () => {
   test('reaches every anchored table, and no table that only links', async () => {
-    // A table is *anchored* when it carries the full set -- programme_task_uid
-    // with offset_days and anchor beside it. Those are records with a date, and
-    // every one of them must be reachable from the inspector, or slipping a
-    // line silently moves work nobody can see.
+    // A table is *anchored* when it carries a <something>_task_uid with a
+    // matching <something>_offset_days beside it. Not only the canonical
+    // programme_task_uid: change_requests carries TWO pairs, decision_* and
+    // effective_*, and a guard that only knew the canonical name would have
+    // let both through silently.
     const anchored = await asUser(w.admin, (c) =>
-      c.query(`select c.table_name from information_schema.columns c
+      c.query(`select distinct c.table_name, c.column_name
+               from information_schema.columns c
                join information_schema.tables t
                  on t.table_schema = c.table_schema and t.table_name = c.table_name
                 and t.table_type = 'BASE TABLE'   -- a view inherits the columns
-               where c.table_schema = 'public' and c.column_name = 'programme_task_uid'
-                 and c.table_name in (
-                   select table_name from information_schema.columns
-                   where table_schema = 'public' and column_name = 'offset_days')
-               order by 1`))
+               where c.table_schema = 'public'
+                 and c.column_name like '%task_uid'
+                 -- programme_tasks IS the programme, and programme_watch is a
+                 -- personal star on a line. Neither is a dependent with a date.
+                 and c.table_name not in ('programme_tasks', 'programme_watch')
+                 and exists (
+                   select 1 from information_schema.columns o
+                   where o.table_schema = 'public' and o.table_name = c.table_name
+                     -- Two shapes in use: the canonical programme_task_uid
+                     -- pairs with a plain offset_days, while a table carrying
+                     -- more than one date prefixes both (decision_task_uid with
+                     -- decision_offset_days).
+                     and o.column_name in (
+                       'offset_days',
+                       replace(c.column_name, 'task_uid', 'offset_days')))
+               order by 1, 2`))
 
-    // A table carrying programme_task_uid *without* offset_days is a resource
-    // link, not a date -- drawing_pack_programme is the case this exists for. A
-    // pack points at a line so the people doing that work can find the drawings;
-    // a drawing's due date comes from its own anchor columns and nowhere else.
-    // If one of these ever appears in programme_dependents(), a pack has started
-    // influencing a date, which is the exact ambiguity the rule forbids.
+    // A <something>_task_uid with NO offset beside it is a resource link, not a
+    // date -- drawing_pack_programme is the case this exists for. A pack points
+    // at a line so the people doing that work can find the drawings; a
+    // drawing's due date comes from its own anchor columns and nowhere else. If
+    // one of these ever appears in programme_dependents(), a pack has started
+    // influencing a date.
     const linksOnly = await asUser(w.admin, (c) =>
-      c.query(`select c.table_name from information_schema.columns c
+      c.query(`select distinct c.table_name
+               from information_schema.columns c
                join information_schema.tables t
                  on t.table_schema = c.table_schema and t.table_name = c.table_name
                 and t.table_type = 'BASE TABLE'
-               where c.table_schema = 'public' and c.column_name = 'programme_task_uid'
-                 and c.table_name not in (
-                   select table_name from information_schema.columns
-                   where table_schema = 'public' and column_name = 'offset_days')
-                 and c.table_name <> 'programme_watch'
+               where c.table_schema = 'public'
+                 and c.column_name like '%task_uid'
+                 and c.table_name not in ('programme_tasks', 'programme_watch')
+                 and not exists (
+                   select 1 from information_schema.columns o
+                   where o.table_schema = 'public' and o.table_name = c.table_name
+                     and o.column_name in (
+                       'offset_days',
+                       replace(c.column_name, 'task_uid', 'offset_days')))
                order by 1`))
 
     const src = (await asUser(w.admin, (c) =>
       c.query(`select prosrc from pg_proc where proname = 'programme_dependents'`)))
       .rows[0].prosrc as string
 
-    for (const t of anchored.rows) expect(src).toContain(t.table_name)
+    // Every anchored COLUMN must be resolved, not merely its table mentioned:
+    // change_requests appearing once would otherwise satisfy a table-level
+    // check while one of its two dates went unreported.
+    expect(anchored.rows.length).toBeGreaterThan(3)
+    for (const a of anchored.rows) {
+      expect(src, `${a.table_name}.${a.column_name}`).toContain(a.column_name)
+    }
     for (const t of linksOnly.rows) expect(src).not.toContain(t.table_name)
   })
 

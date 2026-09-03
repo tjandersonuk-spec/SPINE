@@ -11,6 +11,7 @@ import Profile from '@/pages/Profile'
 import PlatformPeople from '@/pages/platform/People'
 import AccessPage from '@/pages/project/AccessPage'
 import BepPage from '@/pages/project/BepPage'
+import BuildingSafetyPage from '@/pages/project/BuildingSafetyPage'
 import ChangeLogPage from '@/pages/project/ChangeLogPage'
 import ExportsPage from '@/pages/project/ExportsPage'
 import HomePage from '@/pages/project/HomePage'
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="transmittals" element={<TransmittalsPage />} />
           <Route path="planning" element={<TrackedPage kind="planning" />} />
           <Route path="bc" element={<TrackedPage kind="bc" />} />
+          <Route path="bsa" element={<BuildingSafetyPage />} />
           <Route path="scope" element={<TrackedPage kind="scope" />} />
           <Route path="preassessment" element={<TrackedPage kind="checklist:precon" />} />
           <Route path="client" element={<TrackedPage kind="checklist:client" />} />

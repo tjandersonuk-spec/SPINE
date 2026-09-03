@@ -1165,18 +1165,24 @@ export async function issueTransmittal(projectId: string, opts: {
 export async function fetchDirectoryPeople(projectId: string) {
   const { data, error } = await supabase
     .from('project_people')
-    .select('id, company_id, name, job_role, email, companies!inner(project_id, name)')
+    .select('id, company_id, name, job_role, email, profile_id, companies!inner(project_id, name)')
     .eq('companies.project_id', projectId)
     .order('name')
   if (error) throw error
   return (data ?? []).map((r) => {
     const row = r as unknown as {
       id: string; company_id: string; name: string; job_role: string | null
-      email: string | null; companies: { name: string }
+      email: string | null; profile_id: string | null; companies: { name: string }
     }
     return {
       id: row.id, company_id: row.company_id, name: row.name,
-      job_role: row.job_role, email: row.email, company_name: row.companies.name,
+      job_role: row.job_role, email: row.email,
+      // The login behind this directory row, if there is one. A visibility list
+      // holds profile ids because can_see() compares them against auth.uid();
+      // a directory row with no login cannot be named in one, and would not be
+      // able to see anything anyway.
+      profile_id: row.profile_id,
+      company_name: row.companies.name,
     }
   })
 }
@@ -1429,5 +1435,333 @@ export async function approveAppointmentDocument(id: string, approved: boolean) 
     approved_by: approved ? (me.user?.id ?? null) : null,
     approved_at: approved ? new Date().toISOString() : null,
   }).eq('id', id)
+  if (error) throw error
+}
+
+/* ------------------------------------------------- issues, RFIs, meetings */
+
+export type Issue = {
+  id: string
+  reference: string
+  title: string
+  description: string | null
+  category: string | null
+  person_id: string | null
+  programme_task_uid: string | null
+  offset_days: number
+  anchor: 'start' | 'finish'
+  due_date_override: string | null
+  priority: number
+  status: 'Open' | 'Closed'
+  source_kind: 'irs' | 'comment' | 'rfi' | 'meeting'
+  origin_comment_id: string | null
+  rfi_question: string | null
+  rfi_response: string | null
+  rfi_status: 'Open' | 'Answered' | 'Closed' | null
+  raised_meeting_id: string | null
+  raised_by: string | null
+  raised_at: string
+  due: string | null
+  anchor_state: 'ok' | 'missing' | 'removed' | 'unanchored'
+  overdue: boolean
+  urgency: number
+}
+
+export type Meeting = {
+  id: string
+  reference: string
+  title: string
+  meeting_type: string
+  meeting_date: string
+  location: string | null
+  status: string
+  notes: string | null
+}
+
+export type Comment = {
+  id: string
+  entity_type: string
+  entity_id: string
+  author_id: string
+  body: string
+  parent_id: string | null
+  created_at: string
+  edited_at: string | null
+  author_name: string | null
+}
+
+export type EvidenceRow = {
+  id: string
+  entity_type: string
+  entity_id: string
+  name: string | null
+  drawing_id: string | null
+  storage_path: string | null
+  revision_at_add: string | null
+  revision_at_review: string | null
+  added_at: string
+  reviewed_at: string | null
+  document_number: string | null
+  revision_now: string | null
+  state: 'Awaiting review' | 'Reviewed' | 'Revised since review'
+}
+
+export const ISSUE_KIND_LABELS: Record<Issue['source_kind'], string> = {
+  irs: 'Task',
+  comment: 'From a discussion',
+  rfi: 'RFI',
+  meeting: 'From a meeting',
+}
+
+export async function fetchIssues(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_issues')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('urgency', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as Issue[]
+}
+
+export async function raiseIssue(projectId: string, opts: {
+  title: string
+  kind: Issue['source_kind']
+  description?: string | null
+  personId?: string | null
+  taskUid?: string | null
+  offsetDays?: number
+  anchor?: 'start' | 'finish'
+  priority?: number
+  rfiQuestion?: string | null
+  originCommentId?: string | null
+  meetingId?: string | null
+  visibility?: Record<string, unknown> | null
+}) {
+  const { data, error } = await supabase.rpc('raise_issue', {
+    p_project: projectId,
+    p_title: opts.title,
+    p_kind: opts.kind,
+    p_description: opts.description ?? null,
+    p_person: opts.personId ?? null,
+    p_task_uid: opts.taskUid ?? null,
+    p_offset: opts.offsetDays ?? 0,
+    p_anchor: opts.anchor ?? 'finish',
+    p_priority: opts.priority ?? 50,
+    p_rfi_question: opts.rfiQuestion ?? null,
+    p_origin_comment: opts.originCommentId ?? null,
+    p_meeting: opts.meetingId ?? null,
+    p_agenda_item: null,
+    p_visibility: opts.visibility ?? null,
+  })
+  if (error) throw error
+  return data as { ok: boolean; id: string; reference: string }
+}
+
+export async function answerRfi(issueId: string, response: string) {
+  const { error } = await supabase.rpc('answer_rfi', {
+    p_issue: issueId, p_response: response,
+  })
+  if (error) throw error
+}
+
+export async function closeIssue(issueId: string, reopen = false) {
+  const { error } = await supabase.rpc('close_issue', {
+    p_issue: issueId, p_open: reopen,
+  })
+  if (error) throw error
+}
+
+export async function updateIssue(id: string, patch: {
+  title?: string; description?: string | null; category?: string | null
+  person_id?: string | null; programme_task_uid?: string | null
+  offset_days?: number; anchor?: 'start' | 'finish'
+  due_date_override?: string | null; priority?: number
+  visibility?: Record<string, unknown>
+}) {
+  const { error } = await supabase.from('issues').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchMeetings(projectId: string) {
+  const { data, error } = await supabase
+    .from('meetings')
+    .select('id, reference, title, meeting_type, meeting_date, location, status, notes')
+    .eq('project_id', projectId)
+    .order('meeting_date', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as Meeting[]
+}
+
+export async function fetchComments(projectId: string, entityType: string, entityId: string) {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('id, entity_type, entity_id, author_id, body, parent_id, created_at, edited_at, ' +
+            'profiles!comments_author_id_fkey(name)')
+    .eq('project_id', projectId)
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as Omit<Comment, 'author_name'> & { profiles: { name: string } | null }
+    const { profiles, ...rest } = row
+    return { ...rest, author_name: profiles?.name ?? null }
+  })
+}
+
+export async function addComment(
+  projectId: string, entityType: string, entityId: string, body: string,
+  parentId: string | null = null,
+) {
+  const { data: me } = await supabase.auth.getUser()
+  const { data, error } = await supabase.from('comments')
+    .insert({
+      project_id: projectId, entity_type: entityType, entity_id: entityId,
+      author_id: me.user?.id, body, parent_id: parentId,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id as string
+}
+
+export async function editComment(id: string, body: string) {
+  const { error } = await supabase.from('comments')
+    .update({ body, edited_at: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteComment(id: string) {
+  const { error } = await supabase.from('comments').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** Attach a live register link to a comment — never a filename someone typed. */
+export async function attachDrawingToComment(commentId: string, drawingId: string) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('comment_attachments')
+    .insert({ comment_id: commentId, drawing_id: drawingId, uploaded_by: me.user?.id })
+  if (error) throw error
+}
+
+export async function fetchCommentAttachments(commentIds: string[]) {
+  if (commentIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('v_comment_attachments')
+    .select('id, comment_id, name, drawing_id, storage_path, document_number, revision_now, cde_url')
+    .in('comment_id', commentIds)
+  if (error) throw error
+  return (data ?? []) as unknown as {
+    id: string; comment_id: string; name: string | null; drawing_id: string | null
+    storage_path: string | null; document_number: string | null
+    revision_now: string | null; cde_url: string | null
+  }[]
+}
+
+export async function fetchEvidence(projectId: string, entityType: string, entityId: string) {
+  const { data, error } = await supabase
+    .from('v_evidence')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('added_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as EvidenceRow[]
+}
+
+export async function addEvidence(
+  projectId: string, entityType: string, entityId: string,
+  target: { drawingId?: string | null; name?: string | null; storagePath?: string | null },
+) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('evidence').insert({
+    project_id: projectId, entity_type: entityType, entity_id: entityId,
+    drawing_id: target.drawingId ?? null, name: target.name ?? null,
+    storage_path: target.storagePath ?? null, added_by: me.user?.id,
+  })
+  if (error) throw error
+}
+
+export async function reviewEvidence(id: string, reviewed = true) {
+  const { error } = await supabase.rpc('review_evidence', {
+    p_evidence: id, p_reviewed: reviewed,
+  })
+  if (error) throw error
+}
+
+export type AgendaItem = { id: string; position: number; heading: string; notes: string | null }
+
+export async function fetchAgenda(meetingId: string) {
+  const { data, error } = await supabase
+    .from('meeting_agenda_items')
+    .select('id, position, heading, notes')
+    .eq('meeting_id', meetingId)
+    .order('position')
+  if (error) throw error
+  return (data ?? []) as unknown as AgendaItem[]
+}
+
+export async function addAgendaItem(meetingId: string, position: number, heading: string) {
+  const { error } = await supabase.from('meeting_agenda_items')
+    .insert({ meeting_id: meetingId, position, heading })
+  if (error) throw error
+}
+
+export async function fetchMeetingPeople(meetingId: string) {
+  const { data, error } = await supabase
+    .from('meeting_people')
+    .select('person_id, role, project_people!inner(name, companies!inner(name))')
+    .eq('meeting_id', meetingId)
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as {
+      person_id: string; role: string
+      project_people: { name: string; companies: { name: string } }
+    }
+    return {
+      person_id: row.person_id, role: row.role as 'attendee' | 'apology' | 'distribution',
+      name: row.project_people.name, company_name: row.project_people.companies.name,
+    }
+  })
+}
+
+export async function setMeetingPerson(
+  meetingId: string, personId: string, role: 'attendee' | 'apology' | 'distribution' | null,
+) {
+  // A person's role is replaced, not edited — there is no update grant.
+  await supabase.from('meeting_people')
+    .delete().eq('meeting_id', meetingId).eq('person_id', personId)
+  if (role) {
+    const { error } = await supabase.from('meeting_people')
+      .insert({ meeting_id: meetingId, person_id: personId, role })
+    if (error) throw error
+  }
+}
+
+/** Items on this meeting's agenda, whether raised here or carried forward. */
+export async function fetchMeetingIssues(meetingId: string) {
+  const { data, error } = await supabase
+    .from('issue_agenda_refs')
+    .select('issue_id, added_at, issues!inner(reference, title, status, source_kind, raised_meeting_id)')
+    .eq('meeting_id', meetingId)
+    .order('added_at')
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as {
+      issue_id: string; added_at: string
+      issues: {
+        reference: string; title: string; status: string
+        source_kind: string; raised_meeting_id: string | null
+      }
+    }
+    return { issue_id: row.issue_id, ...row.issues }
+  })
+}
+
+export async function carryIssueForward(issueId: string, meetingId: string) {
+  const { error } = await supabase.rpc('carry_issue_forward', {
+    p_issue: issueId, p_meeting: meetingId, p_agenda_item: null,
+  })
   if (error) throw error
 }

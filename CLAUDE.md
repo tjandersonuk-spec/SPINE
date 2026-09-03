@@ -94,7 +94,22 @@ except the derived views.
   function: `project` (everyone on the project — the default for tasks), `named` (raiser + owner +
   listed people only — the default for risks), `parties` (company trees + named people — change
   requests), `internal` (host's own staff only — pre-construction). Admin always sees everything,
-  overriding whichever mode applies.
+  overriding whichever mode applies. **The raiser and the owner are never locked out of their own
+  record** — a list that hides an item from the person carrying it reads as the item having
+  vanished. A `named` list holds **profile ids**, because `can_see()` compares them against
+  `auth.uid()`; a directory row with no login behind it cannot be named in one. A mode no branch
+  understands is refused by `visibility_is_valid()` at write time rather than falling through to
+  "everyone", which would be the worst possible default. Later phases add their audience to this
+  column, never a `*_distribution` table of their own.
+- **A record of who did what is never writable.** `reviewed_by`/`reviewed_at`/`revision_at_review`
+  on evidence, `closed_by`/`closed_at` and the RFI response fields on issues, `raised_by` and
+  every generated `reference` — all outside the update grant, written only by the definer function
+  that performs the act. The revision at add and at review is stamped by trigger from the
+  register: the reviewer states that they reviewed it, but which revision that was is a fact
+  rather than their opinion.
+- **A generated reference sequence is keyed on the prefix, not the kind.** Three issue kinds share
+  the `TSK` prefix, so keying `next_reference()` on the kind gives each its own counter and they
+  collide at `TSK-001`.
 - Invitations are consent-based. Adding someone to a directory creates an invite; typing an email
   address grants nothing. Membership is only created when the invited person accepts from their
   own login.

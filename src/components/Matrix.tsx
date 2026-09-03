@@ -304,6 +304,7 @@ export function Matrix({
 
       {detail && (
         <DrmItemDetail
+          projectId={projectId}
           item={detail}
           disciplines={disciplines}
           leads={leads}

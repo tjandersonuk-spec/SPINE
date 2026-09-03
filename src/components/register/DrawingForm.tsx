@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { CommentThread } from '@/components/issues/CommentThread'
 import { Button } from '@/components/ui/button'
 import { Code } from '@/components/ui/table'
 import {
@@ -222,6 +223,16 @@ export function DrawingForm({
               Leave it empty unless you mean it.
             </span>
           </label>
+          {drawing && (
+            <>
+              <h3 className="mt-5 mb-2 text-sm font-semibold">Discussion</h3>
+              <CommentThread
+                projectId={projectId}
+                entityType="drawing"
+                entityId={drawing.id}
+              />
+            </>
+          )}
         </div>
 
         <footer className="border-rule flex items-center justify-end gap-2 border-t px-5 py-3">

@@ -269,20 +269,47 @@ never appear at all.
 
 Nothing outstanding in this phase.
 
-## Phase 6 — Tasks, RFIs, meetings, comments, evidence
+## Phase 6 — Tasks, RFIs, meetings, comments, evidence ✅
 
 *Reference: handover issues, meetings, comments, evidence sections.*
 
-- [ ] One issues store, `source` column distinguishes tasks/RFIs/comment-raised actions/meeting
+- [x] One issues store, `source_kind` distinguishes tasks/RFIs/comment-raised actions/meeting
       items — never a parallel table
-- [ ] Comments: polymorphic (`entity_type`, `entity_id`), may attach a file or a live register
+- [x] Comments: polymorphic (`entity_type`, `entity_id`), may attach a file or a live register
       link; a task can be raised from any comment carrying its origin
-- [ ] Evidence: one polymorphic table (named file or live register link), `reviewed_by`,
+- [x] Evidence: one polymorphic table (named file or live register link), `reviewed_by`,
       `reviewed_at`, revision at review; derived state awaiting/reviewed/revised-since-review — a
       later revision reopens review with no write
-- [ ] Meetings: agenda items can become tasks; distribution list follows the transmittal rule
-- [ ] Tests: a comment's drawing link shows current revision; revising an evidence drawing flips
+- [x] Meetings: agenda items can become tasks; attendance is the distribution list
+- [x] Tests: a comment's drawing link shows current revision; revising an evidence drawing flips
       its state with no write; an RFI and a task are rows in the same table
+
+**One `visibility` primitive, not a table per module.** The handover notes give `issue_distribution`
+its own table, with more to follow for risks and change requests. Four tables meaning almost the
+same thing is four chances for "who can see this" to differ subtly, and the difference only ever
+surfaces as a leak — so §1a's decision wins: one jsonb column, one `can_see()`, four modes. The
+raiser and the owner are never locked out of their own item, and a mode nothing understands is
+refused at write time rather than falling through to "everyone".
+
+**Both revisions are stamped by trigger, never passed in.** The reviewer states that they reviewed
+it; which revision that was is a fact about the register, not their opinion. `reviewed_by`,
+`reviewed_at` and `revision_at_review` are outside the update grant entirely, so nobody can mark
+their own submission reviewed by writing the column.
+
+**A reference sequence is keyed on the prefix, not the kind.** Three kinds share `TSK` — typed,
+comment-raised and meeting-raised — so keying the sequence on the kind gives each its own counter
+and they collide at `TSK-001`. Caught by the tests rather than by a user.
+
+### Remaining in this phase
+
+- **Evidence has a schema, a derived state and an API, but only one place to reach it.** It hangs
+  off any entity; the panels that show it are added as each module that needs it is built —
+  planning conditions and building control in Phase 10, fees in Phase 12.
+- **Comment attachments upload only register links, not files.** The bucket and the policies are
+  there and `comment_attachments.storage_path` is ready; the file picker is not, because the same
+  control belongs beside evidence and is worth building once.
+- **Distribution on an issue is set when it is raised, not edited afterwards.** `visibility` is in
+  the update grant so the owner may change it; there is no screen for it yet.
 
 ## Phase 7 — Change log, exports, the shell
 

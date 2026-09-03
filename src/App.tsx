@@ -13,6 +13,8 @@ import AccessPage from '@/pages/project/AccessPage'
 import BepPage from '@/pages/project/BepPage'
 import DirectoryPage from '@/pages/project/DirectoryPage'
 import MatrixPage from '@/pages/project/MatrixPage'
+import IssuesPage from '@/pages/project/IssuesPage'
+import MeetingsPage from '@/pages/project/MeetingsPage'
 import ProgrammePage from '@/pages/project/ProgrammePage'
 import RegisterPage from '@/pages/project/RegisterPage'
 import ProjectLayout from '@/pages/project/ProjectLayout'
@@ -64,6 +66,8 @@ export default function App() {
           <Route path="matrix" element={<MatrixPage />} />
           <Route path="programme" element={<ProgrammePage />} />
           <Route path="bep" element={<BepPage />} />
+          <Route path="issues" element={<IssuesPage />} />
+          <Route path="meetings" element={<MeetingsPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="transmittals" element={<TransmittalsPage />} />
           <Route path="access" element={<AccessPage />} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { CommentThread } from '@/components/issues/CommentThread'
 import { Button } from '@/components/ui/button'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
@@ -22,8 +23,9 @@ const STAGES = ['', '2', '3', '4', '5', '6', '7']
 const LOI = ['', 'LOD 200', 'LOD 300', 'LOD 350', 'LOD 400', 'LOD 500']
 
 export function DrmItemDetail({
-  item, disciplines, leads, canEdit, onClose, onChanged,
+  projectId, item, disciplines, leads, canEdit, onClose, onChanged,
 }: {
+  projectId: string
   item: DrmItem
   disciplines: { code: string; name: string }[]
   leads: DrmLead[]
@@ -218,6 +220,8 @@ export function DrmItemDetail({
               className="border-rule w-full rounded border px-3 py-2 text-sm"
             />
           </label>
+          <h3 className="mt-5 mb-2 text-sm font-semibold">Discussion</h3>
+          <CommentThread projectId={projectId} entityType="drm_item" entityId={item.id} />
         </div>
 
         <footer className="border-rule border-t px-5 py-3">

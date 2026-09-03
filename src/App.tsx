@@ -13,6 +13,7 @@ import AccessPage from '@/pages/project/AccessPage'
 import BepPage from '@/pages/project/BepPage'
 import ChangeLogPage from '@/pages/project/ChangeLogPage'
 import ExportsPage from '@/pages/project/ExportsPage'
+import HomePage from '@/pages/project/HomePage'
 import DirectoryPage from '@/pages/project/DirectoryPage'
 import MatrixPage from '@/pages/project/MatrixPage'
 import IssuesPage from '@/pages/project/IssuesPage'
@@ -63,7 +64,8 @@ export default function App() {
         {/* Everything inside a project renders in the shell; the sidebar is
             the navigator, so each entry is a route rather than a tab. */}
         <Route path="/project/:id" element={<RequireAuth><ProjectLayout /></RequireAuth>}>
-          <Route index element={<Navigate to="directory" replace />} />
+          <Route index element={<Navigate to="home" replace />} />
+          <Route path="home" element={<HomePage />} />
           <Route path="directory" element={<DirectoryPage />} />
           <Route path="matrix" element={<MatrixPage />} />
           <Route path="programme" element={<ProgrammePage />} />

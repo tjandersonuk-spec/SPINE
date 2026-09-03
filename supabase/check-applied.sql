@@ -55,7 +55,8 @@ with expected(ord, migration, kind, marker) as (values
   -- This migration creates no new object -- it replaces two functions -- so it
   -- is checked by looking inside one of them. A marker naming an object an
   -- EARLIER migration created would read true whether or not this one ran.
-  (40,'20260902170200_phase7_modules_default_on',     'source',   'module_on:module_keys')
+  (40,'20260902170200_phase7_modules_default_on',     'source',   'module_on:module_keys'),
+  (41,'20260902180000_phase8_dashboard',              'function', 'my_company_tree')
 )
 select
   e.ord::numeric as "#",

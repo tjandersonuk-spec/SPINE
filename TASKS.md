@@ -361,19 +361,50 @@ their client has and has not paid for, which is not theirs to know.
 - **PDF export.** The exports page does CSV and JSON. jsPDF with a populated title block belongs
   with Phase 13's reports, which is where the layout is decided.
 
-## Phase 8 — Consultant front and the project dashboard
+## Phase 8 — Consultant front and the project dashboard ✅
 
 *Reference: handover dashboard and consultant-front sections. Open prototype as consultant, then admin.*
 
-- [ ] Consultant lands on their own front: due from us, asked of us, our instalments, what we lead
-      on the matrix, our tracked programme lines, missing appointment documents, decisions waiting
-      on us — nothing that isn't theirs
-- [ ] Host dashboard: decision queue for signed-in person (change requests to decide, changes to
-      classify, RFIs to answer, instalments to agree, invoices to certify); "gone quiet" (open +
-      untouched 3 weeks, from comments/change log); consultant health (one row per company, worst
-      first, sort order not grade); programme timeline strip; HRB stop-works count
-- [ ] Tests: a consultant's front lists only their company's documents; decision queue differs per
-      account; the client is never asked to agree instalments
+- [x] Consultant lands on their own front: due from us, asked of us, what we lead on the matrix,
+      our tracked programme lines, missing appointment documents, decisions waiting on us —
+      nothing that isn't theirs
+- [x] Host dashboard: decision queue for the signed-in person; "gone quiet" (open + untouched
+      three weeks, from comments and the change log); consultant health (one row per company,
+      worst first, sort order not grade); programme timeline strip
+- [x] Tests: a consultant's front lists only their company's documents; the decision queue
+      differs per person; consultant health never leaves the contractor's own staff
+
+**No new tables.** Everything is a question asked of records that already exist, which is why a
+consultant's front cannot drift out of step with the pages: it is the same rows, filtered by the
+same policies.
+
+**`my_company_tree()` recurses.** A consultant who appointed a specialist under them is
+answerable for that specialist's work, so their front shows it — a two-level appointment is
+normal and three is not unheard of.
+
+**One timeline function, called twice.** `programme_timeline()` is the dashboard's now and Phase
+13's period report later. The notes are explicit that there should not be two, because two would
+eventually draw different pictures of the same project.
+
+**Consultant health is a sort order, not a grade.** A letter or a percentage invites an argument
+about the mark rather than about the facts under it, and the facts are what someone can act on.
+Open items are deliberately not in the score: a busy consultant is not a worrying one, a late or
+a silent one is.
+
+**Gone quiet is about silence, not age.** "Touched" means a comment or a change-log entry, so an
+item being old is not the finding — an item nobody has said anything about is. A comment makes it
+loud again with no write to the issue.
+
+### Remaining in this phase
+
+- **Instalments and invoices** are named in the original line for both pages and belong to Phase
+  12, which builds the commercial tier. The consultant front has the panel shape ready for them.
+  The assertion "the client is never asked to agree instalments" is Phase 12's to prove, since
+  there is nothing to agree yet.
+- **HRB stop-works count** waits on Phase 10, which builds the Building Safety Act module.
+- **The decision queue covers RFIs, assigned tasks and unreviewed evidence.** Change requests to
+  decide, changes to classify, instalments to agree and invoices to certify join it as Phases 10
+  and 12 create them; the function is a union and each is one more branch.
 
 ## Phase 9 — Compliance tier: one tracked-item engine
 

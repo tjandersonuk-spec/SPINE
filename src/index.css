@@ -201,6 +201,12 @@
   --color-kind-comply: var(--kind-comply);
   --color-kind-comply-bg: var(--kind-comply-bg);
 
+  /* The brand layer applyBrand() writes. Exposed so a class can name it: an
+     unexposed token produces no CSS at all and the element renders invisible. */
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-deep: var(--brand-deep);
   --color-brand-canvas: var(--brand-canvas);
   --color-brand-canvas-ink: var(--brand-canvas-ink);
 

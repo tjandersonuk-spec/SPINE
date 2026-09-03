@@ -93,7 +93,9 @@ with expected(ord, migration, kind, marker) as (values
   (75,'20260902270000_sample_delivery_data',         'function', 'seed_sample_compliance'),
   (76,'20260902280000_default_template_libraries',   'count',    'checklist_templates'),
   (77,'20260902290000_template_editing',            'function', 'fork_risk_templates'),
-  (78,'20260902300000_sample_data_tops_up',         'source',   'seed_sample_project:left as it is')
+  (78,'20260902300000_sample_data_tops_up',         'source',   'seed_sample_project:left as it is'),
+  (79,'20260902310000_phase16_notifications',       'table',    'notifications'),
+  (80,'20260902310100_phase16_digest',              'function', 'build_digest')
 )
 select
   e.ord::numeric as "#",

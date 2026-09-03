@@ -629,14 +629,14 @@ describe('the risk register', () => {
   })
 
   test('the library loads with no owner and no date', async () => {
-    // This test owns the published library: it asserts exact counts, so the
-    // defaults that ship with the product are cleared first and restored by
-    // nothing -- the suite rebuilds the database from the migrations each run.
-    await asSuperuser((c) => c.query('delete from risk_templates'))
+    // The fixtures belong to this account rather than the published set: the
+    // loader reads "the account's fork, or the published default if it has
+    // none", so an account with its own two rows never sees the shipped
+    // thirty-four and the counts below mean what they say.
     await asSuperuser((c) => c.query(
       `insert into risk_templates (organisation_id, reference, kind, title, category, likelihood)
-       values (null,'RT-01','risk','Late statutory approval','Statutory',4),
-              (null,'RT-02','opportunity','Reuse site-won material','Ground',3)`))
+       values ($1,'RT-01','risk','Late statutory approval','Statutory',4),
+              ($1,'RT-02','opportunity','Reuse site-won material','Ground',3)`, [w.org]))
     const r = await one(w.admin, 'select * from load_risk_library($1)', [w.project])
     expect([r.added, r.skipped]).toEqual([2, 0])
 
@@ -657,7 +657,8 @@ describe('the risk register', () => {
     // Skip on title match, like every other template loader here.
     const again = await one(w.admin, 'select * from load_risk_library($1)', [w.project])
     expect([again.added, again.skipped]).toEqual([0, 2])
-    await asSuperuser((c) => c.query('delete from risk_templates'))
+    await asSuperuser((c) => c.query(
+      'delete from risk_templates where organisation_id = $1', [w.org]))
   })
 })
 

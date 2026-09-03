@@ -191,8 +191,17 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   broken rather than empty, and a library with no published default cannot be forked at all. The
   shipped content is written for this product and is deliberately not BG6, not the CIC schedules
   and not BREEAM: those are licensed, are never shipped, and are loaded per-project by whoever
-  holds the licence. A test that asserts an exact count against a library must clear the published
-  rows first and say that it owns the library, rather than being written around the defaults.
+  holds the licence. **An account edits the fork, never the published set**: every write policy
+  reads `organisation_id is not null and is_account_admin(...)`, and `organisation_id` is outside
+  the update grant so a row cannot be moved into another account — the row policy would accept
+  that write, because it checks the row being written rather than the one it started from. The
+  fork is not automatic: reading the published set is the right answer for an account that agrees
+  with it, and forking on first read would hand every account a frozen copy of whatever shipped
+  the day they signed up. Forking again brings in what is new and leaves every edit alone.
+  **A test must scope its template fixtures to its own account** rather than inserting published
+  rows or deleting the shipped ones: the libraries read "the account's fork, or the published
+  default if it has none", so account-scoped fixtures isolate themselves, while deleting the
+  published rows reaches across every other suite sharing the database.
 - Warranties resolve their owner live through the DRM lead discipline. **Never add a `company_id`
   column to warranties** — same gap the matrix shows, same fix.
 - **A pack holds references, and never a date.** `drawing_pack_programme` links a pack to a
@@ -382,6 +391,10 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   The deliberate wrongness (seven unallocated duties, seven overdue drawings, one drawing never
   issued, a rejected sample, a change the regulator objected to, a rating capped by an outstanding
   prerequisite) is the point and is commented where it is written. It found the two bugs above.
+  **It tops up rather than refusing**, and every section returns early when its own data is
+  present: run it on an empty project and it fills everything, run it again and it fills only what
+  is missing. It reaches from project settings, not only from an empty directory page — a control
+  that disappears once it has done half its job is one nobody can finish.
 
 ## Structural decisions the product makes that the prototype doesn't
 

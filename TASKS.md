@@ -973,6 +973,27 @@ and none of them adds a derivation: every figure on them is one another page alr
 `src/theme.test.ts` now fails the build for a nav entry with `to: null` or a target with no route,
 so this cannot recur silently.
 
+## Interlude — template editing, and the seed where you can find it ✅
+
+Two gaps that both read as "the feature is missing" from the outside.
+
+**An account had nowhere to change its templates.** The DRM library had an editor; the other four
+did not, and two of them (risk, warranty) had no fork function at all, so they could only ever be
+read from the published set. None of the five carried an UPDATE grant either, so even a forked row
+could be inserted and deleted but never corrected. Now: `fork_risk_templates()` and
+`fork_warranty_templates()`, `account_risk_templates()` and `account_warranty_templates()` stating
+the fork-or-published rule once each, column-level UPDATE grants that deliberately exclude
+`organisation_id`, and a Templates tab on the account page covering all four libraries.
+
+**The sample data was reachable from one place that disappeared.** The button lived only on an
+empty directory page, so a project seeded before the rest of the sample data existed had a
+directory and no way to ask for the other eleven modules — `seed_sample_project()` raised rather
+than returning, which made `seed_sample_data()` fail on its first step. It now returns, the whole
+seed is idempotent end to end, and it reaches from project settings.
+
+`supabase/tests/templates.test.ts` holds the boundary: a tenant edits its fork, cannot touch a
+published row or another account's, and cannot move a template between accounts.
+
 ## Phase 15 — Marketing site and sign-up
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*

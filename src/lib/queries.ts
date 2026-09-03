@@ -2005,6 +2005,113 @@ export async function fetchTrackedItems(projectId: string, kind: string) {
  * question of all of them, and doing that as nine round trips would be nine
  * chances for the page to disagree with itself.
  */
+/* ------------------------------------------------------------ template libraries
+ * Five libraries, one shape: read the account's fork if it has one, otherwise
+ * the published set. The read functions state that rule once each in SQL; the
+ * client never reimplements it, because a second copy of "which library am I
+ * on" is how a page starts editing rows a project is not loading.
+ */
+export type ChecklistTemplate = {
+  id: string; organisation_id: string | null; type: string; reference: string
+  heading: string; title: string; prompt: string | null
+  discipline: string | null; sort_order: number
+}
+export type ScopeTemplateItem = {
+  id: string; template_id: string; reference: string; heading: string
+  description: string; riba_stage: string
+}
+export type RiskTemplate = {
+  id: string; organisation_id: string | null; reference: string
+  kind: 'risk' | 'opportunity'; title: string; description: string | null
+  category: string | null; likelihood: number; sort_order: number
+}
+export type WarrantyTemplate = {
+  id: string; organisation_id: string | null; reference: string; drm_ref: string
+  title: string; description: string | null; period_years: number | null
+  beneficiary: string | null; form: string | null; sort_order: number
+}
+
+export async function fetchAccountChecklistTemplates(orgId: string, type: string) {
+  const { data, error } = await supabase
+    .rpc('account_checklist_templates', { p_org: orgId, p_type: type })
+  if (error) throw error
+  return (data ?? []) as ChecklistTemplate[]
+}
+
+export async function fetchAccountScopeTemplates(orgId: string) {
+  const { data, error } = await supabase.rpc('account_scope_templates', { p_org: orgId })
+  if (error) throw error
+  return (data ?? []) as ScopeTemplate[]
+}
+
+export async function fetchScopeTemplateItems(templateId: string) {
+  const { data, error } = await supabase
+    .from('scope_template_items')
+    .select('id, template_id, reference, heading, description, riba_stage')
+    .eq('template_id', templateId)
+    .order('reference')
+  if (error) throw error
+  return (data ?? []) as ScopeTemplateItem[]
+}
+
+export async function fetchAccountRiskTemplates(orgId: string) {
+  const { data, error } = await supabase.rpc('account_risk_templates', { p_org: orgId })
+  if (error) throw error
+  return (data ?? []) as RiskTemplate[]
+}
+
+export async function fetchAccountWarrantyTemplates(orgId: string) {
+  const { data, error } = await supabase.rpc('account_warranty_templates', { p_org: orgId })
+  if (error) throw error
+  return (data ?? []) as WarrantyTemplate[]
+}
+
+/** Take a copy of a published library so the account can edit it. Idempotent:
+ *  forking again brings in what is new and leaves every edit alone. */
+export async function forkTemplateLibrary(
+  orgId: string,
+  which: 'checklist' | 'scope' | 'risk' | 'warranty',
+): Promise<number> {
+  const fn = {
+    checklist: 'fork_checklist_templates', scope: 'fork_scope_templates',
+    risk: 'fork_risk_templates', warranty: 'fork_warranty_templates',
+  }[which]
+  const { data, error } = await supabase.rpc(fn, { p_org: orgId })
+  if (error) throw error
+  return (data as number) ?? 0
+}
+
+const TEMPLATE_TABLES = {
+  checklist: 'checklist_templates', scope: 'scope_templates',
+  scopeItem: 'scope_template_items', risk: 'risk_templates',
+  warranty: 'warranty_templates',
+} as const
+export type TemplateKind = keyof typeof TEMPLATE_TABLES
+
+/** Edit one field of one template row. The published rows are refused by the
+ *  row policy, and organisation_id is refused by the column grant, so neither
+ *  needs guarding here. */
+export async function updateTemplateRow(
+  kind: TemplateKind, id: string, patch: Record<string, unknown>,
+) {
+  const { error } = await supabase.from(TEMPLATE_TABLES[kind]).update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function addTemplateRow(
+  kind: TemplateKind, row: Record<string, unknown>,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from(TEMPLATE_TABLES[kind]).insert(row).select('id').single()
+  if (error) throw error
+  return (data as { id: string }).id
+}
+
+export async function deleteTemplateRow(kind: TemplateKind, id: string) {
+  const { error } = await supabase.from(TEMPLATE_TABLES[kind]).delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function fetchOverdueTracked(projectId: string) {
   const { data, error } = await supabase
     .from('v_tracked_items')
@@ -2080,6 +2187,9 @@ export async function deleteTrackedItem(id: string) {
 
 export type ScopeTemplate = {
   id: string; name: string; discipline: string | null; is_core: boolean
+  /** Absent when the row came from suggested_scope_templates(), which answers a
+   *  project question and does not care whose library the template is in. */
+  organisation_id?: string | null
 }
 
 export async function fetchSuggestedScopeTemplates(projectId: string, companyId: string) {

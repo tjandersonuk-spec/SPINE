@@ -59,31 +59,27 @@ beforeAll(async () => {
       `insert into company_disciplines (company_id, discipline_code)
        values ($1,'A'), ($2,'M'), ($3,'M')`, [arch, mep, mepTwo])
 
-    // This suite owns the published library: it builds a small controlled one
-    // and asserts exact counts against it, so the defaults that ship with the
-    // product are cleared first. Deleting them here rather than working around
-    // them keeps every count below meaning what it says.
-    await c.query('delete from scope_template_items')
-    await c.query('delete from scope_templates where organisation_id is null')
-    await c.query('delete from checklist_templates where organisation_id is null')
-
-    // Published templates: one checklist, and two scope templates — the core
-    // standard plus an architectural one.
+    // The fixtures belong to this account, not to the published set. That is
+    // what isolates them: every library reads "the account's fork, or the
+    // published default if it has none", so an account with its own rows never
+    // sees the shipped ones and the counts below mean what they say. Deleting
+    // the shipped rows instead would reach across every other suite sharing
+    // this database.
     await c.query(
       `insert into checklist_templates (organisation_id, type, reference, heading, title,
                                         prompt, discipline, sort_order)
-       values (null,'handover','HO-001','Statutory','Building regulations completion certificate',
+       values ($1,'handover','HO-001','Statutory','Building regulations completion certificate',
                'From building control.','A',10),
-              (null,'handover','HO-002','Mechanical','Commissioning records',
+              ($1,'handover','HO-002','Mechanical','Commissioning records',
                'All plant.','M',20),
-              (null,'handover','HO-003','General','O&M manuals',null,null,30)`)
+              ($1,'handover','HO-003','General','O&M manuals',null,null,30)`, [org])
 
     const coreTemplate = (await c.query(
       `insert into scope_templates (organisation_id, name, discipline, is_core)
-       values (null,'Standard services',null,true) returning id`)).rows[0].id
+       values ($1,'Standard services',null,true) returning id`, [org])).rows[0].id
     const archTemplate = (await c.query(
       `insert into scope_templates (organisation_id, name, discipline, is_core)
-       values (null,'Architectural services','A',false) returning id`)).rows[0].id
+       values ($1,'Architectural services','A',false) returning id`, [org])).rows[0].id
     await c.query(
       `insert into scope_template_items (template_id, reference, heading, description, riba_stage)
        values ($1,'STD-01','General','Attend design team meetings','3'),
@@ -170,7 +166,7 @@ describe('loading a checklist copies the template', () => {
 
   test('editing the template afterwards leaves the loaded project untouched', async () => {
     // The thing that gets "improved" into a live link by someone being helpful.
-    await asUser(w.admin, (c) => c.query('select fork_checklist_templates($1)', [w.org]))
+    // No fork call: this account's templates are already its own.
     await asUser(w.admin, (c) => c.query(
       `update checklist_templates set title = 'Reworded in the template'
        where organisation_id = $1 and reference = 'HO-001'`, [w.org]))
@@ -182,15 +178,12 @@ describe('loading a checklist copies the template', () => {
   })
 
   test('and the published template cannot be edited at all', async () => {
-    const before = await asUser(w.admin, (c) =>
-      c.query(`select title from checklist_templates
-               where organisation_id is null and reference = 'HO-001'`))
-    await asUser(w.admin, (c) => c.query(
+    // The published library is what every account that has not forked is
+    // reading, so one tenant editing it would edit it for all of them. Not an
+    // error: the row policy simply does not match, and nothing is updated.
+    const r = await asUser(w.admin, (c) => c.query(
       `update checklist_templates set title = 'Tampered' where organisation_id is null`))
-    const after = await asUser(w.admin, (c) =>
-      c.query(`select title from checklist_templates
-               where organisation_id is null and reference = 'HO-001'`))
-    expect(after.rows[0].title).toBe(before.rows[0].title)
+    expect(r.rowCount).toBe(0)
   })
 })
 
@@ -274,8 +267,9 @@ describe('scope templates apply as a selection, per discipline', () => {
         [w.project]))
     expect(rows.rows.map((r) => r.ref)).toEqual(['ARC-01', 'ARC-02', 'STD-01', 'STD-02'])
 
-    // Rename the template; the applied rows keep what they were given.
-    await asUser(w.admin, (c) => c.query('select fork_scope_templates($1)', [w.org]))
+    // Rename the template; the applied rows keep what they were given. No fork
+    // call: this account's templates are already its own, and forking here
+    // would pull the shipped library in beside them.
     await asUser(w.admin, (c) => c.query(
       `update scope_templates set name = 'Renamed later'
        where organisation_id = $1 and is_core`, [w.org]))

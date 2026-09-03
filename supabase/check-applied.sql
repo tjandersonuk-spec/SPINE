@@ -91,7 +91,9 @@ with expected(ord, migration, kind, marker) as (values
   (73,'20260902260100_reference_counter_per_prefix', 'source',   'next_reference:Keyed on the prefix'),
   (74,'20260902260200_breeam_score_is_a_percentage', 'source',   'report_metrics:round(b.score_achieved)::text'),
   (75,'20260902270000_sample_delivery_data',         'function', 'seed_sample_compliance'),
-  (76,'20260902280000_default_template_libraries',   'count',    'checklist_templates')
+  (76,'20260902280000_default_template_libraries',   'count',    'checklist_templates'),
+  (77,'20260902290000_template_editing',            'function', 'fork_risk_templates'),
+  (78,'20260902300000_sample_data_tops_up',         'source',   'seed_sample_project:left as it is')
 )
 select
   e.ord::numeric as "#",

@@ -1,8 +1,9 @@
 import Papa from 'papaparse'
 
 import {
-  fetchChangeLog, fetchIssues, fetchMeetings, fetchPacks, fetchProgramme, fetchProjectCompanies,
-  fetchProjectPeople, fetchRegister, fetchTransmittals, fetchDrmItems, fetchDrmLeads,
+  fetchActiveBreeamScheme, fetchBreeamCredits, fetchChangeLog, fetchIssues, fetchMeetings,
+  fetchPacks, fetchProgramme, fetchProjectCompanies, fetchProjectPeople, fetchRegister,
+  fetchTransmittals, fetchDrmItems, fetchDrmLeads,
 } from '@/lib/queries'
 
 /**
@@ -67,6 +68,23 @@ export const EXPORTS: ModuleExport[] = [
   {
     key: 'transmittals', label: 'Transmittals', module: 'tx',
     fetch: (p) => fetchTransmittals(p) as unknown as Promise<Record<string, unknown>[]>,
+  },
+  {
+    key: 'breeam', label: 'BREEAM tracker', module: 'breeam',
+    fetch: async (p) => {
+      // The live scheme's credits, with the state the tracker shows. Same view
+      // the page reads, so the export carries exactly what the exporter sees.
+      const scheme = await fetchActiveBreeamScheme(p)
+      if (!scheme) return []
+      return (await fetchBreeamCredits(scheme)).map((c) => ({
+        reference: c.reference, issue: c.issue_code, issue_title: c.issue_title ?? '',
+        section: c.section ?? '', requirement: c.title,
+        type: c.is_prerequisite ? 'Prerequisite' : 'Credit',
+        available: c.available, targeted: c.targeted, achieved: c.achieved,
+        status: c.status, state: c.state, due: c.due ?? '',
+        programme_task_uid: c.programme_task_uid ?? '', offset_days: c.offset_days,
+      }))
+    },
   },
   {
     key: 'issues', label: 'Tasks and RFIs', module: null,

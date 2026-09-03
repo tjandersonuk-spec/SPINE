@@ -61,7 +61,7 @@ export const PROJECT_NAV: NavGroup[] = [
       { key: 'planning', label: 'Planning conditions', to: 'planning' },
       { key: 'bc', label: 'Building control', to: 'bc' },
       { key: 'bsa', label: 'Building safety', to: 'bsa' },
-      { key: 'breeam', label: 'BREEAM', to: null },
+      { key: 'breeam', label: 'BREEAM', to: 'breeam' },
       { key: 'highways', label: 'Highways', to: 'highways' },
       { key: 'utilities', label: 'Utilities', to: 'utilities' },
     ],

@@ -177,6 +177,24 @@ except the derived views.
 - **An occurrence is not a risk.** Mandatory occurrence reporting is a statutory duty with its own
   audience and its own clock, so it is its own table — folding it into `risks` would put a
   regulator's report behind the risk register's `named` default.
+- **BREEAM is derived from the credit rows and never from a stated total.** A section's credits
+  available is summed in `v_breeam_sections`; `sections[].stated` is a cross-check reported as
+  `stated_gap`, never used in a score. A prerequisite that is not `Verified` zeroes its issue in
+  `v_breeam_issues` and names itself in `blocked_by` — built into the view so it cannot be
+  bypassed. `breeam_totals()` returns the rating on score **and** the rating after minimum
+  standards, side by side, with `capped_*` saying whether they differ. A zero-credit minimum
+  standard is a criterion: it caps only when a prerequisite under that issue is outstanding, and
+  is otherwise advisory — the prototype's unconditional fail made the achieved rating unreachable.
+- **A BREEAM credit is a `tracked_items` row, linked by `breeam_issue_id`** — a real foreign key,
+  present exactly when `kind = 'breeam'`. The credit numbers live in `ext`, typed by value, and
+  `ext` is **outside the `tracked_items` update grant**: `set_breeam_credit()` is the only way they
+  move. A later kind that needs to write `ext` (the utilities dates) gets its own definer function,
+  never a re-grant. `sections`, `weightings`, `ratings` and `min_standards` are outside the grant
+  for the same reason: they are the scoring basis, loaded by `breeam_import_apply()` alone.
+- **A scheme is a version, and a project holds several.** `projects.breeam_scheme_id` names the
+  live one; switching it switches the whole framework. The reference on a credit is
+  `<issue>.<ordinal>` counted across the **project**, because two schemes may both carry `Man 01`
+  and `tracked_items` is unique on `(project, kind, reference)`.
 - **RLS decides rows; GRANTs decide columns.** A policy that lets someone edit a row lets them
   edit *every column of it*, because Supabase grants `authenticated` update on all columns by
   default. Any column that a role may see but must not write — `organisations.modules`,

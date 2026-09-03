@@ -69,10 +69,27 @@ except the derived views.
   that already loaded a copy of it.
 - Warranties resolve their owner live through the DRM lead discipline. **Never add a `company_id`
   column to warranties** — same gap the matrix shows, same fix.
+- **A pack holds references, and never a date.** `drawing_pack_programme` links a pack to a
+  programme line as a *resource only*, so whoever is doing that work can find the drawings for
+  it. A drawing's due date comes from its own anchor columns on `drawing_register` and nowhere
+  else. This is now enforced rather than reviewed: a table carrying `programme_task_uid` without
+  `offset_days` beside it is a link, not an anchor, and `supabase/tests/phase4.test.ts` fails the
+  build if one appears in `programme_dependents()`.
+- **Import and reconcile are separate transactions, and a transmittal is frozen.** Importing a CDE
+  export writes `document_rows` only; the register changes when a person accepts a row and never
+  before, because a register nobody accepted is a register nobody trusts. Only PDFs become
+  register rows — a DWG of the same number sets `has_dwg` — and this is the one place two source
+  rows collapse to one. `transmittal_items.revision_at_issue` is written once: a trigger refuses
+  to change it and no role holds update or delete on any transmittal table, so a correction is a
+  new transmittal.
 - **No drawings are ever stored in Supabase Storage.** The drawing register stores a CDE URL
   only. The one storage bucket (`project-files`, private) holds appointment documents and
-  evidence/comment attachments only, path-scoped so a consultant can read only their own company
-  tree.
+  evidence/comment attachments only, path-scoped `project/company/slot/filename` so a consultant
+  reads and writes only their own company tree and cannot see a rival's fee scope on the same
+  project. Links are signed and expire; a replacement supersedes rather than overwrites, so there
+  is no update policy on `storage.objects` at all. The policies resolve the caller's own company
+  through the definer `my_company_on_project()` — read inline they would always fail, because
+  member visibility is admin-only and a consultant cannot see their own membership row.
 - One `visibility` jsonb primitive on any record that has an audience, read by one `can_see()`
   function: `project` (everyone on the project — the default for tasks), `named` (raiser + owner +
   listed people only — the default for risks), `parties` (company trees + named people — change
@@ -91,13 +108,29 @@ except the derived views.
   policy, ask which columns that role has any business writing. A table created by a later migration
   inherits nothing from an earlier `grant on all tables`, so every migration that adds a table
   states its own grants — and grants only what that table's policies are meant to allow.
+- **Every date resolves through `due_date(project, uid, offset, anchor, override)` — and it takes
+  the project.** `programme_tasks.task_uid` is the planner's own ID and is unique *per project*
+  only, so any lookup by uid alone resolves against whichever other project shares the numbering.
+  The prototype computes a due date in four separate copies; there is exactly one here, and a
+  module that wants a date calls it rather than reimplementing it. A table that gains the four
+  anchor columns (`programme_task_uid`, `offset_days`, `anchor`, `due_date_override`) adds its
+  branch to `programme_dependents()` in the same migration, or it disappears from the line
+  inspector — `supabase/tests/phase4.test.ts` fails the build if it doesn't.
+- **Rescheduling writes to `programme_tasks` and nothing else.** No role holds insert or update on
+  it: a revision is applied only by `import_programme()`, which validates the whole file, builds
+  the diff and writes atomically. A line missing from a revision is marked `removed`, never
+  deleted, so anything anchored to it keeps its last date and gains a flag instead of silently
+  losing a deadline.
 - **Name the foreign key in any PostgREST embed whose table has more than one to the same
-  parent.** `profiles(name)` is ambiguous the moment a table gains a second reference to
-  `profiles` — an `added_by` beside a `profile_id`, a `reviewed_by` beside a `requested_by` — and
-  fails at run time with "more than one relationship was found", which no type checking catches
-  because the query is a string. Write `profiles!project_members_profile_id_fkey(name)`.
-  `supabase/tests/embeds.test.ts` compares every embed in `queries.ts` against the real constraint
-  catalogue and fails the build, so adding an audit column cannot silently break a page.
+  parent** — and if you name one, name it correctly. A constraint that does not exist fails at run
+  time exactly like an ambiguous embed, on a query that looks more careful than the one it
+  replaced. `supabase/tests/embeds.test.ts` checks both: that ambiguous embeds are disambiguated,
+  and that every name given resolves to a real foreign key — so neither an added audit column nor
+  a mistyped constraint can silently break a page. `profiles(name)` is ambiguous the moment a
+  table gains a second reference to `profiles` — an `added_by` beside a `profile_id`, a
+  `reviewed_by` beside a `requested_by` — and fails with "more than one relationship was found",
+  which no type checking catches because the query is a string. Write
+  `profiles!project_members_profile_id_fkey(name)`.
 - **Only an account `admin` may create a project.** Enforced by the insert policy on `projects`,
   never by hiding the button — a direct insert from `internal`, a project admin or a consultant
   must be refused by the database. A project admin staffs their own project from the account's

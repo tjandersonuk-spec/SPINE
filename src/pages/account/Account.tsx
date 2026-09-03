@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 
 import { Catalogue } from '@/components/Catalogue'
 import { Disciplines } from '@/components/Disciplines'
+import { DrmLibrary } from '@/components/DrmLibrary'
 import { Empty, ErrorNote, Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,6 +82,7 @@ export default function Account() {
           <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
           <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
           <TabsTrigger value="disciplines">Disciplines</TabsTrigger>
+          <TabsTrigger value="library">DRM library</TabsTrigger>
           {isAdmin && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
@@ -90,6 +92,10 @@ export default function Account() {
 
         <TabsContent value="disciplines" className="pt-4">
           <Disciplines organisationId={id} canEdit={isAdmin} />
+        </TabsContent>
+
+        <TabsContent value="library" className="pt-4">
+          <DrmLibrary organisationId={id} canEdit={isAdmin} />
         </TabsContent>
 
         <TabsContent value="people" className="flex flex-col gap-4 pt-4">

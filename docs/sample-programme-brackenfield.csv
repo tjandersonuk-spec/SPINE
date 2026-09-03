@@ -1,0 +1,45 @@
+ID,Task Name,Start,Finish,% Complete,Outline Level,Parent ID,Type
+1000,BRACKENFIELD ACADEMY — NEW TEACHING BLOCK,05/01/2026,30/06/2028,30,1,,Summary
+1100,Pre-construction,05/01/2026,21/08/2026,100,2,1000,Summary
+1110,Stage 2 concept design,05/01/2026,27/03/2026,100,3,1100,Task
+1111,Concept design sign-off,27/03/2026,27/03/2026,100,3,1100,Milestone
+1120,Planning application and determination,30/03/2026,21/08/2026,100,3,1100,Task
+1121,Planning permission granted,21/08/2026,21/08/2026,100,3,1100,Milestone
+1130,Stage 3 spatial coordination,06/04/2026,31/07/2026,100,3,1100,Task
+1131,Stage 3 design freeze,31/07/2026,31/07/2026,100,3,1100,Milestone
+1200,Stage 4 technical design,01/06/2026,29/01/2027,41,2,1000,Summary
+1210,Architectural technical package,01/06/2026,27/11/2026,62,3,1200,Task
+1220,Structural technical package,01/06/2026,30/10/2026,74,3,1200,Task
+1230,Mechanical services package,15/06/2026,18/12/2026,45,3,1200,Task
+1240,Electrical services package,15/06/2026,18/12/2026,41,3,1200,Task
+1250,Public health services package,01/07/2026,27/11/2026,38,3,1200,Task
+1260,Facade and cladding package,06/07/2026,15/01/2027,25,3,1200,Task
+1270,Landscape and external works package,07/09/2026,29/01/2027,0,3,1200,Task
+1280,Stage 4 design freeze,29/01/2027,29/01/2027,0,3,1200,Milestone
+1300,Statutory and compliance,01/09/2026,30/04/2027,0,2,1000,Summary
+1310,Building control full plans submission,01/09/2026,16/10/2026,0,3,1300,Task
+1311,Building control approval,11/12/2026,11/12/2026,0,3,1300,Milestone
+1320,Building Safety Act Gateway 2 submission,19/10/2026,04/12/2026,0,3,1300,Task
+1321,Gateway 2 approval,05/03/2027,05/03/2027,0,3,1300,Milestone
+1330,Discharge of planning conditions,07/09/2026,30/04/2027,0,3,1300,Task
+1400,Procurement,03/08/2026,26/03/2027,15,2,1000,Summary
+1410,Subcontract procurement — groundworks,03/08/2026,09/10/2026,55,3,1400,Task
+1420,Subcontract procurement — frame,07/09/2026,13/11/2026,10,3,1400,Task
+1430,Subcontract procurement — envelope,02/11/2026,22/01/2027,0,3,1400,Task
+1440,Subcontract procurement — MEP,04/01/2027,26/03/2027,0,3,1400,Task
+1500,Construction,15/03/2027,28/04/2028,0,2,1000,Summary
+1510,Site set-up and enabling works,15/03/2027,23/04/2027,0,3,1500,Task
+1520,Substructure,26/04/2027,16/07/2027,0,3,1500,Task
+1530,Frame and upper floors,19/07/2027,08/10/2027,0,3,1500,Task
+1540,Roof,11/10/2027,19/11/2027,0,3,1500,Task
+1550,Envelope and glazing,01/11/2027,28/01/2028,0,3,1500,Task
+1560,Internal fit-out,10/01/2028,07/04/2028,0,3,1500,Task
+1570,MEP first fix,15/11/2027,28/01/2028,0,3,1500,Task
+1580,MEP second fix,07/02/2028,14/04/2028,0,3,1500,Task
+1590,External works and landscape,14/02/2028,28/04/2028,0,3,1500,Task
+1600,Commissioning and handover,06/03/2028,30/06/2028,0,2,1000,Summary
+1610,Commissioning and witnessing,06/03/2028,19/05/2028,0,3,1600,Task
+1620,O&M manuals and as-built information,03/04/2028,02/06/2028,0,3,1600,Task
+1630,Building Safety Act Gateway 3 submission,01/05/2028,26/05/2028,0,3,1600,Task
+1631,Gateway 3 approval,23/06/2028,23/06/2028,0,3,1600,Milestone
+1640,Practical Completion,30/06/2028,30/06/2028,0,3,1600,Milestone

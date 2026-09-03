@@ -679,3 +679,71 @@ describe('sample data', () => {
     })
   })
 })
+
+describe('the one storage bucket', () => {
+  test('is private — a public bucket would put drawings a URL away from anyone', async () => {
+    const b = await asUser(w.admin, (c) =>
+      c.query(`select public from storage.buckets where id = 'project-files'`))
+    expect(b.rows[0].public).toBe(false)
+  })
+
+  test('a consultant may upload into their own company tree', async () => {
+    const co = (await asUser(w.admin, (c) => c.query(
+      `select id from companies where project_id = $1 and catalogue_company_id = $2`,
+      [w.project, w.bellhouse]))).rows[0].id
+    // Cara's membership is against Bellhouse, so this is her own tree.
+    await asSuperuser((c: Client) => c.query(
+      `update organisation_members set company_id = $1
+       where organisation_id = $2 and profile_id = $3`, [w.bellhouse, w.org, w.consultant]))
+
+    await asUser(w.consultant, (c) => c.query(
+      `insert into storage.objects (bucket_id, name)
+       values ('project-files', $1)`, [`${w.project}/${co}/appointment/signed.pdf`]))
+
+    const seen = await asUser(w.consultant, (c) =>
+      c.query(`select name from storage.objects where bucket_id = 'project-files'`))
+    expect(seen.rows).toHaveLength(1)
+  })
+
+  test('and cannot read or write another firm’s, on the same project', async () => {
+    const rivalCo = (await asUser(w.admin, (c) => c.query(
+      `select id from companies where project_id = $1 and catalogue_company_id = $2`,
+      [w.project, w.mercia]))).rows[0].id
+
+    // The contractor puts a document in Mercia's tree.
+    await asUser(w.admin, (c) => c.query(
+      `insert into storage.objects (bucket_id, name) values ('project-files', $1)`,
+      [`${w.project}/${rivalCo}/appointment/mercia-fee.pdf`]))
+
+    // Cara sees only her own, not Mercia's fee scope.
+    const seen = await asUser(w.consultant, (c) =>
+      c.query(`select name from storage.objects where bucket_id = 'project-files' order by name`))
+    expect(seen.rows.every((r) => !r.name.includes(rivalCo))).toBe(true)
+
+    // And an insert into that tree is refused by the policy.
+    expect(await refused(() => asUser(w.consultant, (c) => c.query(
+      `insert into storage.objects (bucket_id, name) values ('project-files', $1)`,
+      [`${w.project}/${rivalCo}/appointment/sneaky.pdf`]))))
+      .toMatch(/row-level security/)
+  })
+
+  test('the contractor’s team sees the whole project tree', async () => {
+    const seen = await asUser(w.admin, (c) =>
+      c.query(`select count(*)::int as n from storage.objects where bucket_id = 'project-files'`))
+    expect(seen.rows[0].n).toBe(2)
+  })
+
+  test('someone off the project sees nothing at all', async () => {
+    const seen = await asUser(w.stranger, (c) =>
+      c.query(`select count(*)::int as n from storage.objects where bucket_id = 'project-files'`))
+    expect(seen.rows[0].n).toBe(0)
+  })
+
+  test('nobody may update an object — a replacement is a new upload', async () => {
+    // There is no update policy at all, so the old document is superseded rather
+    // than overwritten and the trail of what was approved survives.
+    const pols = await asUser(w.admin, (c) =>
+      c.query(`select cmd from pg_policies where schemaname='storage' and tablename='objects'`))
+    expect(pols.rows.map((r) => r.cmd).sort()).toEqual(['DELETE', 'INSERT', 'SELECT'])
+  })
+})

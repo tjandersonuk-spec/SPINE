@@ -24,11 +24,17 @@ function selectsInSource(src: string): { table: string; select: string }[] {
   return out
 }
 
-/** Embedded resources inside a select string: `profiles(name)` → `profiles`. */
-function embedsIn(select: string): { resource: string; disambiguated: boolean }[] {
-  const out: { resource: string; disambiguated: boolean }[] = []
-  for (const m of select.matchAll(/([A-Za-z_][\w]*)(![\w]+)?\s*\(/g)) {
-    out.push({ resource: m[1], disambiguated: Boolean(m[2]) })
+/** `!inner` and `!left` after a resource are PostgREST's join modifiers, not
+ *  foreign key names, and mean nothing about which relationship is intended. */
+const JOIN_MODIFIERS = new Set(['inner', 'left'])
+
+/** Embedded resources inside a select string: `profiles(name)` → `profiles`,
+ *  `profiles!some_fkey(name)` → `profiles` named by `some_fkey`. */
+function embedsIn(select: string): { resource: string; constraint: string | null }[] {
+  const out: { resource: string; constraint: string | null }[] = []
+  for (const m of select.matchAll(/([A-Za-z_][\w]*)(?:!([\w]+))?\s*\(/g)) {
+    const named = m[2] && !JOIN_MODIFIERS.has(m[2]) ? m[2] : null
+    out.push({ resource: m[1], constraint: named })
   }
   return out
 }
@@ -48,13 +54,39 @@ describe('every ambiguous embed names its foreign key', () => {
       return new Map(rows.map((r) => [`${r.child}->${r.parent}`, r.constraints as string[]]))
     })
 
+    // Every foreign key that exists, by name. A named embed that does not
+    // appear here fails at run time exactly like an ambiguous one.
+    const known = await asSuperuser(async (c) => {
+      const { rows } = await c.query(`
+        select conname::text as name from pg_constraint
+        where contype = 'f' and connamespace = 'public'::regnamespace
+      `)
+      return new Set(rows.map((r) => r.name as string))
+    })
+
     const src = readFileSync(SOURCE, 'utf8')
     const problems: string[] = []
 
     for (const { table, select } of selectsInSource(src)) {
-      for (const { resource, disambiguated } of embedsIn(select)) {
+      for (const { resource, constraint } of embedsIn(select)) {
         const key = `${table}->${resource}`
-        if (!ambiguous.has(key) || disambiguated) continue
+
+        // A constraint spelled out must be a constraint that exists. Naming the
+        // key is the fix for ambiguity, so a typo in the name silently
+        // reintroduces the very failure the name was added to prevent -- and
+        // does it on a query that looks more careful than the one it replaced.
+        if (constraint && !known.has(constraint)) {
+          problems.push(
+            `${SOURCE}: .from('${table}') embeds ${resource}!${constraint}(...), but no ` +
+              `foreign key called ${constraint} exists. ` +
+              (ambiguous.has(key)
+                ? `Did you mean ${ambiguous.get(key)![0]}?`
+                : `Check the constraint name against the migration that created ${table}.`)
+          )
+          continue
+        }
+
+        if (!ambiguous.has(key) || constraint) continue
         problems.push(
           `${SOURCE}: .from('${table}') embeds ${resource}(...) but ${table} has ` +
             `${ambiguous.get(key)!.length} foreign keys to ${resource}. ` +

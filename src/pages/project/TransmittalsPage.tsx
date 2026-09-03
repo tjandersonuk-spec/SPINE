@@ -203,9 +203,9 @@ function NewPack({
   const [name, setName] = useState('')
   const [purpose, setPurpose] = useState('')
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
       <form
-        className="bg-card border-rule w-full max-w-[440px] rounded-lg border p-5 shadow-2xl"
+        className="glass-popover w-full max-w-[440px] rounded-lg p-5"
         onSubmit={(e) => {
           e.preventDefault()
           // An Add control refuses empty input rather than creating a blank row.

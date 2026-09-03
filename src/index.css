@@ -4,85 +4,114 @@
    on a locked-down site network. */
 @import "@fontsource-variable/inter";
 
-@custom-variant dark (&:is(.dark *));
+/* Dark is the default presentation. Light is the override, so `dark:` means
+   "unless the account has asked for light". Keyed on the attribute applyTheme()
+   writes, and on nothing else. */
+@custom-variant dark (&:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *));
 
 /* ===========================================================================
-   Design tokens, taken from docs/dmp-prototype.html.
-   Design direction: "drawing office" structure, contemporary SaaS surface.
+   Design tokens.
+   Design direction: "drawing office" structure on a luminous glass surface.
    Structure = drafting ink. Signal = hi-vis. Codes = monospace.
 
    Three groups, and the boundary between them is a rule, not a preference:
 
-   1. BRAND — the only thing a tenant may change. Drives nav, primary buttons
-      and links, and nothing else.
-   2. STRUCTURAL — paper, ink, rules, elevation. Flips for dark mode.
-      Not customisable, because legibility is not a matter of taste.
+   1. BRAND — the only thing a tenant may change. Drives nav accents, primary
+      buttons, links and focus, and nothing else. The default brand is the
+      platform's own cyan; a tenant's colour replaces it through applyBrand().
+   2. STRUCTURAL — paper, glass, ink, rules, elevation, chrome. Flips for the
+      light theme. Not customisable, because legibility is not a matter of
+      taste.
    3. SEMANTIC — hi-vis, ok, warn, stop, and the kind tints. NEVER
-      customisable and never themed: hi-vis means an unallocated gap, and a
-      tenant who could recolour it could destroy the one signal the
-      application exists to give.
+      customisable: hi-vis means an unallocated gap, and a tenant who could
+      recolour it could destroy the one signal the application exists to give.
+      The HUE of each is fixed in both themes; the shade follows the ground,
+      because a green legible on white is invisible on obsidian and one hex
+      cannot serve both. Only the grounds and the shade move, never the meaning.
    =========================================================================== */
 
 :root {
-  /* ---- 1. brand: tenant-customisable ---- */
-  --brand: #1E3A5F;
-  --brand-2: #2F6F8F;
-  --brand-ink: #FFFFFF;
-  --brand-soft: #E7EDF4;
-  --brand-deep: #16304F;
+  color-scheme: dark;
+
+  /* ---- 1. brand: tenant-customisable, written by applyBrand() ---- */
+  --brand: #0BB4E8;
+  --brand-2: #61CCF0;
+  --brand-ink: #000000;
+  --brand-soft: rgba(11, 180, 232, 0.14);
+  --brand-deep: #0775A6;
   --grad-brand: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  /* Everything below is derived from --brand in CSS, so a tenant's colour
+     reaches the glow and the highlight edge without being asked for twice. */
+  --brand-glow: 0 0 16px color-mix(in srgb, var(--brand) 35%, transparent);
+  --brand-glow-strong: 0 0 0 1px color-mix(in srgb, var(--brand) 60%, transparent),
+                       0 0 18px color-mix(in srgb, var(--brand) 30%, transparent);
+  --rule-highlight: color-mix(in srgb, var(--brand) 35%, transparent);
 
-  /* ---- 2. structural ---- */
-  --paper: #EEF1F5;
-  --surface: #FFFFFF;
-  --surface-2: #F6F8FA;
-  --ink: #14181B;
-  --graphite: #5C646B;
-  --graphite-light: #8B939A;
-  --rule: #DFE3E8;
-  --rule-strong: #C1C8D1;
+  /* ---- 2. structural: obsidian and glass ---- */
+  --paper: hsl(224 45% 6%);
+  --surface: hsl(222 35% 10%);
+  --surface-glass: hsl(222 35% 10% / 0.65);
+  --surface-2: hsl(220 30% 14%);
+  --ink: hsl(214 32% 94%);
+  --graphite: hsl(215 18% 68%);
+  --graphite-light: hsl(215 14% 52%);
+  --rule: hsl(217 33% 28% / 0.45);
+  --rule-strong: hsl(217 30% 38% / 0.6);
+  --glass-line: rgba(255, 255, 255, 0.08);
+  /* The chrome — header and sidebar — is obsidian in both themes. It frames
+     the page rather than being part of it. */
+  --chrome: hsl(222 45% 6% / 0.82);
+  --chrome-side: hsl(222 40% 8% / 0.80);
+  --chrome-ink: hsl(214 32% 94%);
   --mesh:
-    radial-gradient(1100px 560px at 10% -12%, rgba(47,111,143,.10), transparent 60%),
-    radial-gradient(900px 480px at 102% 0%, rgba(30,58,95,.07), transparent 55%),
-    radial-gradient(700px 420px at 40% 110%, rgba(47,111,143,.06), transparent 60%);
+    radial-gradient(1100px 560px at 8% -10%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%),
+    radial-gradient(900px 480px at 104% 4%, hsl(268 75% 67% / 0.10), transparent 55%),
+    radial-gradient(760px 440px at 42% 112%, color-mix(in srgb, var(--brand) 9%, transparent), transparent 60%);
 
-  /* ---- 3. semantic: never customisable, never themed ---- */
-  --hivis: #F2C230;
-  --hivis-bg: #FDF6DC;
-  --hivis-ink: #6B5210;
-  --hivis-glow: 0 0 0 1px rgba(242,194,48,.45), 0 4px 14px rgba(242,194,48,.20);
-  --ok: #2E6F4E;        --ok-bg: #E6F0EA;
-  --warn: #9A5B12;      --warn-bg: #FBF0E2;
-  --stop: #9B2C2C;      --stop-bg: #F8E9E9;
+  /* ---- 3. semantic: never customisable ---- */
+  --hivis: #F9C51A;
+  --hivis-bg: hsl(46 95% 54% / 0.08);
+  --hivis-ink: hsl(46 95% 72%);
+  --hivis-glow: 0 0 0 1px hsl(46 95% 54% / 0.45), 0 0 14px hsl(46 95% 54% / 0.30);
+  --hivis-halo: inset 0 0 12px hsl(46 95% 54% / 0.08);
+  --ok:   hsl(154 75% 42%);  --ok-bg:   hsl(154 75% 42% / 0.10);  --ok-ink:   hsl(154 70% 66%);
+  --warn: hsl(28 92% 58%);   --warn-bg: hsl(28 92% 58% / 0.10);   --warn-ink: hsl(28 95% 72%);
+  --stop: hsl(350 84% 60%);  --stop-bg: hsl(350 84% 60% / 0.10);  --stop-ink: hsl(350 90% 76%);
+  --ok-glow:   0 0 10px hsl(154 75% 42% / 0.20);
+  --warn-halo: 0 0 0 1px hsl(28 92% 58% / 0.35), 0 0 14px hsl(28 92% 58% / 0.18);
+  --stop-halo: 0 0 0 1px hsl(350 84% 60% / 0.35), 0 0 14px hsl(350 84% 60% / 0.18);
 
   /* kind tints: colour tells you what sort of thing you are looking at */
-  --kind-evidence: #2F6F8F;  --kind-evidence-bg: #EAF2F7;
-  --kind-discuss:  #6B4E9B;  --kind-discuss-bg:  #F0EBF7;
-  --kind-money:    #3B6E3B;  --kind-money-bg:    #EAF3EA;
-  --kind-comply:   #8A5A1E;  --kind-comply-bg:   #F7F0E6;
+  --kind-evidence: hsl(200 70% 64%);  --kind-evidence-bg: hsl(200 70% 55% / 0.10);
+  --kind-discuss:  hsl(268 75% 74%);  --kind-discuss-bg:  hsl(268 75% 67% / 0.10);
+  --kind-money:    hsl(150 55% 60%);  --kind-money-bg:    hsl(150 55% 45% / 0.10);
+  --kind-comply:   hsl(36 75% 64%);   --kind-comply-bg:   hsl(36 75% 55% / 0.10);
 
   --font-sans-stack: "Inter Variable", "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --font-mono-stack: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
 
-  --radius: 12px;
+  --radius: 0.75rem;
 
-  /* elevation: soft and layered, never a single flat grey shadow */
-  --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
-  --shadow-sm: 0 1px 3px rgba(15,23,42,.05), 0 6px 16px -6px rgba(15,23,42,.10);
-  --shadow-md: 0 4px 12px -2px rgba(15,23,42,.10), 0 16px 32px -10px rgba(15,23,42,.14);
-  --shadow-lg: 0 10px 24px -6px rgba(15,23,42,.16), 0 28px 56px -16px rgba(15,23,42,.20);
+  /* elevation: ambient and layered, never a single flat grey shadow */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.28), 0 6px 18px -6px rgba(0,0,0,.42);
+  --shadow-md: 0 4px 14px -2px rgba(0,0,0,.36), 0 18px 36px -10px rgba(0,0,0,.48);
+  --shadow-lg: 0 10px 24px -6px rgba(0,0,0,.44), 0 28px 60px -16px rgba(0,0,0,.55);
+  --shadow-glass: 0 8px 32px 0 rgba(0,0,0,.37);
+  /* the specular rim: a polished top edge, so glass reads as glass */
+  --shadow-specular: inset 0 1px 1px 0 rgba(255,255,255,.12);
 
   /* The colour at the edge of the logo, measured by `npm run brand:sample`. */
   --brand-canvas: #0b1a2b;
   --brand-canvas-ink: #F4F7FA;
 
   /* ---- shadcn's names, pointed at the tokens above so the primitives
-          inherit the drawing-office palette rather than their own greys ---- */
+          inherit the palette rather than their own greys ---- */
   --background: var(--paper);
   --foreground: var(--ink);
-  --card: var(--surface);
+  --card: var(--surface-glass);
   --card-foreground: var(--ink);
-  --popover: var(--surface);
+  --popover: hsl(222 35% 10% / 0.92);
   --popover-foreground: var(--ink);
   --primary: var(--brand);
   --primary-foreground: var(--brand-ink);
@@ -91,56 +120,65 @@
   --muted: var(--surface-2);
   --muted-foreground: var(--graphite);
   --accent: var(--brand-soft);
-  --accent-foreground: var(--brand-deep);
+  --accent-foreground: var(--ink);
   --destructive: var(--stop);
   --border: var(--rule);
   --input: var(--rule-strong);
-  --ring: var(--brand-2);
-  --sidebar: var(--brand);
-  --sidebar-foreground: var(--brand-ink);
-  --sidebar-primary: var(--brand-2);
+  --ring: var(--brand);
+  --sidebar: var(--chrome-side);
+  --sidebar-foreground: var(--chrome-ink);
+  --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-ink);
-  --sidebar-accent: var(--brand-deep);
-  --sidebar-accent-foreground: var(--brand-ink);
-  --sidebar-border: rgba(255,255,255,.12);
-  --sidebar-ring: var(--hivis);
+  --sidebar-accent: var(--brand-soft);
+  --sidebar-accent-foreground: var(--chrome-ink);
+  --sidebar-border: var(--glass-line);
+  --sidebar-ring: var(--brand);
 }
 
-/* Dark mode. Structural tokens flip; brand and semantic tokens do not. */
-.dark {
-  --paper: #0E1114;
-  --surface: #1A1E22;
-  --surface-2: #20252A;
-  --ink: #E8EBEE;
-  --graphite: #A7AFB6;
-  --graphite-light: #7B848C;
-  --rule: #2A3138;
-  --rule-strong: #3C444D;
-  --brand-soft: #20344A;
+/* The light theme. Structural tokens flip and the semantic shades follow the
+   ground; brand tokens and the chrome do not move. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --paper: #EEF1F5;
+  --surface: #FFFFFF;
+  --surface-glass: rgba(255,255,255,.72);
+  --surface-2: #F6F8FA;
+  --ink: #14181B;
+  --graphite: #5C646B;
+  --graphite-light: #8B939A;
+  --rule: #DFE3E8;
+  --rule-strong: #C1C8D1;
+  --glass-line: rgba(20,24,27,.06);
   --mesh:
-    radial-gradient(1100px 560px at 10% -12%, rgba(47,111,143,.22), transparent 60%),
-    radial-gradient(900px 480px at 102% 0%, rgba(90,140,180,.15), transparent 55%),
-    radial-gradient(700px 420px at 40% 110%, rgba(47,111,143,.12), transparent 60%);
+    radial-gradient(1100px 560px at 8% -10%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 60%),
+    radial-gradient(900px 480px at 104% 4%, hsl(268 75% 67% / 0.07), transparent 55%),
+    radial-gradient(760px 440px at 42% 112%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 60%);
 
-  /* Only the grounds move, and only far enough to stay legible. The signal
-     colours themselves are the same hex in both themes. */
-  --hivis-bg: #3A3117;
-  --hivis-ink: #F6E6B4;
-  --ok-bg: #1C2E24;
-  --warn-bg: #33271A;
-  --stop-bg: #331E1E;
-  --kind-evidence-bg: #1B2A33;
-  --kind-discuss-bg: #2A2236;
-  --kind-money-bg: #1D2B1D;
-  --kind-comply-bg: #302619;
+  --hivis-bg: #FDF6DC;
+  --hivis-ink: #6B5210;
+  --hivis-glow: 0 0 0 1px rgba(242,194,48,.45), 0 4px 14px rgba(242,194,48,.20);
+  --hivis-halo: inset 0 0 12px rgba(242,194,48,.10);
+  --ok:   #2E6F4E;  --ok-bg:   #E6F0EA;  --ok-ink:   #2E6F4E;
+  --warn: #9A5B12;  --warn-bg: #FBF0E2;  --warn-ink: #9A5B12;
+  --stop: #9B2C2C;  --stop-bg: #F8E9E9;  --stop-ink: #9B2C2C;
+  --ok-glow: none;
+  --warn-halo: 0 0 0 1px rgba(154,91,18,.30);
+  --stop-halo: 0 0 0 1px rgba(155,44,44,.30);
 
-  --shadow-xs: 0 1px 2px rgba(0,0,0,.30);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.28), 0 6px 18px -6px rgba(0,0,0,.42);
-  --shadow-md: 0 4px 14px -2px rgba(0,0,0,.36), 0 18px 36px -10px rgba(0,0,0,.48);
-  --shadow-lg: 0 10px 24px -6px rgba(0,0,0,.44), 0 28px 60px -16px rgba(0,0,0,.55);
+  --kind-evidence: #2F6F8F;  --kind-evidence-bg: #EAF2F7;
+  --kind-discuss:  #6B4E9B;  --kind-discuss-bg:  #F0EBF7;
+  --kind-money:    #3B6E3B;  --kind-money-bg:    #EAF3EA;
+  --kind-comply:   #8A5A1E;  --kind-comply-bg:   #F7F0E6;
 
-  --accent-foreground: var(--ink);
-  --sidebar-border: rgba(255,255,255,.08);
+  --shadow-xs: 0 1px 2px rgba(15,23,42,.05);
+  --shadow-sm: 0 1px 3px rgba(15,23,42,.05), 0 6px 16px -6px rgba(15,23,42,.10);
+  --shadow-md: 0 4px 12px -2px rgba(15,23,42,.10), 0 16px 32px -10px rgba(15,23,42,.14);
+  --shadow-lg: 0 10px 24px -6px rgba(15,23,42,.16), 0 28px 56px -16px rgba(15,23,42,.20);
+  --shadow-glass: 0 1px 3px rgba(15,23,42,.05), 0 8px 24px -8px rgba(15,23,42,.14);
+  --shadow-specular: inset 0 1px 0 0 rgba(255,255,255,.85);
+
+  --popover: rgba(255,255,255,.94);
 }
 
 @theme inline {
@@ -183,15 +221,21 @@
   --color-graphite-light: var(--graphite-light);
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
+  --color-rule-highlight: var(--rule-highlight);
+  --color-glass-line: var(--glass-line);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-glass: var(--surface-glass);
+  --color-chrome: var(--chrome);
+  --color-chrome-side: var(--chrome-side);
+  --color-chrome-ink: var(--chrome-ink);
 
   --color-hivis: var(--hivis);
   --color-hivis-bg: var(--hivis-bg);
   --color-hivis-ink: var(--hivis-ink);
-  --color-ok: var(--ok);            --color-ok-bg: var(--ok-bg);
-  --color-warn: var(--warn);        --color-warn-bg: var(--warn-bg);
-  --color-stop: var(--stop);        --color-stop-bg: var(--stop-bg);
+  --color-ok: var(--ok);      --color-ok-bg: var(--ok-bg);      --color-ok-ink: var(--ok-ink);
+  --color-warn: var(--warn);  --color-warn-bg: var(--warn-bg);  --color-warn-ink: var(--warn-ink);
+  --color-stop: var(--stop);  --color-stop-bg: var(--stop-bg);  --color-stop-ink: var(--stop-ink);
   --color-kind-evidence: var(--kind-evidence);
   --color-kind-evidence-bg: var(--kind-evidence-bg);
   --color-kind-discuss: var(--kind-discuss);
@@ -204,6 +248,7 @@
   /* The brand layer applyBrand() writes. Exposed so a class can name it: an
      unexposed token produces no CSS at all and the element renders invisible. */
   --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
   --color-brand-ink: var(--brand-ink);
   --color-brand-soft: var(--brand-soft);
   --color-brand-deep: var(--brand-deep);
@@ -214,20 +259,61 @@
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-glass: var(--shadow-glass);
+  --shadow-specular: var(--shadow-specular);
+  --shadow-brand: var(--brand-glow);
+  --shadow-brand-strong: var(--brand-glow-strong);
   --shadow-hivis: var(--hivis-glow);
+  --shadow-hivis-halo: var(--hivis-halo);
+  --shadow-ok: var(--ok-glow);
+  --shadow-warn-halo: var(--warn-halo);
+  --shadow-stop-halo: var(--stop-halo);
+}
+
+/* ---------------------------------------------------------------- glass
+   One surface treatment for every container, so a panel, a table, a card and
+   a menu are the same material. Frosted backing, a hairline, ambient depth and
+   a specular top rim. `glass-hi` is the same surface lit: the selected or
+   focused one, edged in the brand. */
+@utility glass {
+  background: var(--surface-glass);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow-specular), var(--shadow-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+@utility glass-hi {
+  border-color: var(--rule-highlight);
+  box-shadow: var(--shadow-specular), var(--brand-glow);
+}
+/* A menu or a dialog: same material, less see-through, so text behind it never
+   reads through the text in front. */
+@utility glass-popover {
+  background: var(--popover);
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow-specular), var(--shadow-lg);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scrollbar-color: var(--rule-strong) transparent;
+  }
   body {
     @apply text-foreground;
     /* the mesh sits under everything and never scrolls away */
     background: var(--mesh), var(--paper);
     background-attachment: fixed;
-    font-size: 15px;
-    line-height: 1.5;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 35%, transparent);
   }
 
   /* Codes are monospace, everywhere and without exception: a reference, an
@@ -237,6 +323,15 @@
     font-family: var(--font-mono-stack);
     font-size: 0.92em;
     letter-spacing: -0.01em;
+  }
+
+  /* Motion is a courtesy, not a requirement. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -253,6 +348,24 @@
     margin: 14mm 12mm;
   }
 
+  /* Paper is white whatever the screen was: the glass tokens are replaced by
+     opaque light ones so nothing is rendered as a translucent grey over toner. */
+  :root, :root[data-theme="light"] {
+    color-scheme: light;
+    --paper: #fff;  --surface: #fff;  --surface-glass: #fff;  --surface-2: #f4f4f4;
+    --ink: #111;  --graphite: #444;  --graphite-light: #666;
+    --rule: #cfcfcf;  --rule-strong: #9a9a9a;  --glass-line: #ddd;
+    --popover: #fff;
+    --hivis-bg: #FDF6DC;  --hivis-ink: #6B5210;
+    --ok: #2E6F4E;  --ok-bg: #E6F0EA;  --ok-ink: #2E6F4E;
+    --warn: #9A5B12;  --warn-bg: #FBF0E2;  --warn-ink: #9A5B12;
+    --stop: #9B2C2C;  --stop-bg: #F8E9E9;  --stop-ink: #9B2C2C;
+    --kind-evidence: #2F6F8F;  --kind-evidence-bg: #EAF2F7;
+    --kind-discuss:  #6B4E9B;  --kind-discuss-bg:  #F0EBF7;
+    --kind-money:    #3B6E3B;  --kind-money-bg:    #EAF3EA;
+    --kind-comply:   #8A5A1E;  --kind-comply-bg:   #F7F0E6;
+  }
+
   .noprint,
   nav,
   aside,
@@ -265,11 +378,13 @@
     font-size: 10.5pt;
   }
 
-  /* The mesh and every elevation are screen affordances; on paper they are
-     just toner. */
+  /* The mesh, the blur and every elevation are screen affordances; on paper
+     they are just toner. */
   * {
     box-shadow: none !important;
     background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   main, .print-root {

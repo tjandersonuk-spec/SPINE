@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
-import { ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
+import { ErrorNote } from '@/components/ui/notes'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ModuleSettings } from '@/components/shell/ModuleSettings'
 import { Panel, PageHead } from '@/components/ui/panel'
-import { updateProject } from '@/lib/queries'
+import { seedSampleProject, updateProject } from '@/lib/queries'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
 
 export default function SettingsPage() {
@@ -71,6 +71,57 @@ export default function SettingsPage() {
       {ctx.isAccountAdmin && ctx.shell && (
         <ModuleSettings projectId={id} shell={ctx.shell} onChanged={ctx.reload} />
       )}
+
+      {ctx.isAccountAdmin && <SampleData projectId={id} />}
     </>
+  )
+}
+
+/**
+ * Sample data, where somebody can find it.
+ *
+ * It used to live only on an empty directory page, which meant it vanished the
+ * moment it had done half its job -- a project seeded before the rest of the
+ * sample data existed had a directory and no way to ask for the other eleven
+ * modules. It is idempotent end to end now, so it fills what is missing and
+ * leaves everything else alone, and it belongs somewhere you can go back to.
+ */
+function SampleData({ projectId }: { projectId: string }) {
+  const [busy, setBusy] = useState(false)
+  const [said, setSaid] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  return (
+    <Panel title="Sample data">
+      <p className="text-graphite mb-3 max-w-prose text-sm">
+        Fills this project with one worked example across every module — sixteen firms and
+        their people, a programme, the responsibility matrix, a drawing register, the
+        checklists, the fees and invoices, the risk register, material samples and the change
+        requests. Everything is anchored to the programme, so re-importing a revision moves it
+        all, and the deliberate gaps are there on purpose: unallocated duties, overdue
+        drawings, a rejected sample, a change the regulator objected to.
+      </p>
+      <p className="text-graphite mb-3 max-w-prose text-xs">
+        Safe to run more than once: it adds what is missing and leaves everything already
+        there exactly as it is. For trying the application out — not for a live job.
+      </p>
+
+      {said && <p className="text-ok-ink mb-3 max-w-prose text-sm">{said}</p>}
+      <ErrorNote message={error} />
+
+      <Button
+        variant="outline"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true); setError(null); setSaid(null)
+          seedSampleProject(projectId)
+            .then(setSaid)
+            .catch((e: Error) => setError(e.message))
+            .finally(() => setBusy(false))
+        }}
+      >
+        {busy ? 'Filling…' : 'Fill with sample data'}
+      </Button>
+    </Panel>
   )
 }

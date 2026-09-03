@@ -3,7 +3,8 @@ import { useOutletContext, useParams } from 'react-router'
 
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
-import { Panel, PageHead } from '@/components/ui/panel'
+import { Eyebrow, Panel, PageHead } from '@/components/ui/panel'
+import { Stat } from '@/components/ui/stat'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { fmtDate } from '@/lib/format'
 import {
@@ -199,21 +200,32 @@ function SheetHeader({
   header, page, subtitle,
 }: { header: ReportHeader; page: number; subtitle: string }) {
   return (
-    <div className="border-rule mb-3 flex items-start justify-between border-b pb-2">
-      <div>
-        <p className="text-sm font-bold">
-          <Code className="text-sm">{header.project_code}</Code> — {header.project_name}
-        </p>
-        <p className="text-graphite text-xs">{header.title} · {subtitle}</p>
+    // The title block, as a drawing office draws one: a strip of readouts with
+    // hairline dividers, each under its own eyebrow. Same content as before;
+    // the rules are 1px and the readouts are the brand and the ink, not black
+    // boxes.
+    <div className="border-glass-line mb-3 grid grid-cols-[auto_1fr_auto] divide-x divide-glass-line border-y">
+      <div className="py-2 pr-4">
+        <Eyebrow>Project</Eyebrow>
+        <Code className="text-primary text-base font-semibold">{header.project_code}</Code>
       </div>
-      <div className="text-graphite text-right text-xs">
+      <div className="px-4 py-2">
+        <Eyebrow>{header.title}</Eyebrow>
+        <p className="text-sm font-semibold">{header.project_name}</p>
+        <p className="text-graphite text-xs">{subtitle}</p>
+      </div>
+      <div className="py-2 pl-4 text-right">
         {page === 1 ? (
           <>
-            Generated {fmtDate(header.generated_on)}
-            {header.generated_by && <><br />by {header.generated_by}</>}
+            <Eyebrow>Generated</Eyebrow>
+            <p className="font-mono text-sm">{fmtDate(header.generated_on)}</p>
+            {header.generated_by && <p className="text-graphite text-xs">by {header.generated_by}</p>}
           </>
         ) : (
-          <>Page {page} of 3</>
+          <>
+            <Eyebrow>Sheet</Eyebrow>
+            <p className="font-mono text-sm">{page} of 3</p>
+          </>
         )}
       </div>
     </div>
@@ -223,23 +235,19 @@ function SheetHeader({
 function SheetOne({ report }: { report: Report }) {
   const { header, metrics, compliance } = report
   return (
-    <section className="report-sheet bg-card border-rule mb-4 rounded-lg border p-5">
+    <section className="report-sheet glass mb-4 rounded-lg p-5">
       <SheetHeader header={header} page={1} subtitle={report.period.label} />
       <h2 className="mb-3 text-base font-bold">State of play</h2>
 
       <div className="report-block mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {metrics.map((m) => (
-          <div
+          <Stat
             key={m.sort_order}
-            className={'border-rule rounded border px-3 py-2' +
-              (m.alert ? ' border-l-warn border-l-[3px]' : '')}
-          >
-            <div className="font-mono text-2xl font-bold tracking-tight">{m.value}</div>
-            <div className="text-graphite text-xs">
-              {m.label}
-              {m.tail && <> — <strong className="text-warn">{m.tail}</strong></>}
-            </div>
-          </div>
+            label={m.label}
+            value={m.value}
+            tone={m.alert ? 'warn' : 'plain'}
+            hint={m.tail && <strong className="text-warn-ink">{m.tail}</strong>}
+          />
         ))}
       </div>
 
@@ -294,7 +302,7 @@ function SheetTwo({ report }: { report: Report }) {
       : 'Awaiting our decision'
 
   return (
-    <section className="report-sheet bg-card border-rule mb-4 rounded-lg border p-5">
+    <section className="report-sheet glass mb-4 rounded-lg p-5">
       <SheetHeader header={header} page={2} subtitle="Needs attention" />
 
       <div className="report-block mb-4">
@@ -443,7 +451,7 @@ function SheetTwo({ report }: { report: Report }) {
 function SheetThree({ report }: { report: Report }) {
   const { header, activity } = report
   return (
-    <section className="report-sheet bg-card border-rule mb-4 rounded-lg border p-5">
+    <section className="report-sheet glass mb-4 rounded-lg p-5">
       <SheetHeader header={header} page={3} subtitle={`The period — ${report.period.label}`} />
       <h2 className="mb-3 text-base font-bold">What happened</h2>
 
@@ -452,7 +460,7 @@ function SheetThree({ report }: { report: Report }) {
       ) : (
         <div className="grid gap-3">
           {activity.map((a) => (
-            <div key={a.sort_order} className="report-block border-rule border-l-[3px] pl-3">
+            <div key={a.sort_order} className="report-block border-l-primary/40 border-l-2 pl-3">
               <h3 className="text-sm font-semibold">{a.section}</h3>
               <p className="text-sm">{a.headline}</p>
               {a.detail.length > 0 && (

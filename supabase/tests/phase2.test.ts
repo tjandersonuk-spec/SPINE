@@ -657,11 +657,20 @@ describe('sample data', () => {
     })
   })
 
-  test('it refuses to run twice', async () => {
-    await asUser(admin, async (c) => {
-      const msg = await refused(() => c.query('select seed_sample_project($1)', [project]))
-      expect(msg).toMatch(/already has a directory/)
-    })
+  test('running it twice adds nothing and breaks nothing', async () => {
+    // It used to raise here, which was right when the directory was all the
+    // sample data there was. It is wrong now that eleven more sections run
+    // after it: a project seeded before those existed would have had the one
+    // call that could fill the rest fail on its first step. The guard is
+    // unchanged in substance -- the directory is still never doubled.
+    const before = await asUser(admin, (c) =>
+      c.query('select count(*)::int as n from companies where project_id = $1', [project]))
+    const said = await asUser(admin, (c) =>
+      c.query('select seed_sample_project($1) as msg', [project]))
+    expect(said.rows[0].msg).toMatch(/already populated/i)
+    const after = await asUser(admin, (c) =>
+      c.query('select count(*)::int as n from companies where project_id = $1', [project]))
+    expect(after.rows[0].n).toBe(before.rows[0].n)
   })
 
   test('a non-admin cannot seed', async () => {

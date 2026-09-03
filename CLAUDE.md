@@ -88,6 +88,19 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   module back shows exactly what was there. **To add a bolt-on:** one row in
   `module_catalogue()`, a `RequireModule` around its page, a nav entry with the same key. The
   owner's editor and project settings render from the catalogue and need no change.
+- **A nav entry with no page behind it is a broken product, not a roadmap.** The sidebar shows
+  the whole lifecycle, but every entry now resolves: `src/theme.test.ts` fails the build for a
+  `to: null` entry and for any target with no route in `App.tsx`. Monday summary, Gateways and
+  Audit sat dimmed for several phases and read as modules somebody had switched off, which is the
+  one thing a dimmed entry must never look like. **Audit is every silent check on one page** — the
+  findings that announce themselves nowhere else, each one a derivation another page already
+  makes, with the clear checks shown rather than hidden because "nothing found" and "not checked"
+  are different claims. **Gateways is the three statutory hold points** read off the records that
+  already carry them, and it names the specific things standing in the way rather than counting
+  them: a count is not an answer to "can we start". For a building that is not higher-risk it says
+  so, because an empty gateway reads as an outstanding one. **The Monday summary is the personal
+  one** — `decision_queue()` keyed on `auth.uid()`, seven days back and fourteen forward — and
+  gone-quiet appears on it only for the contractor's own staff.
 - **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
   is the lifecycle nav, outside it is the workspace (`WORKSPACE_NAV`, all `core`). The project
   switcher top-left is grouped by account and carries Portfolio and New project; the person
@@ -136,25 +149,59 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   `report_attention()`, because a dashboard is read by the person looking at it.
 - Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
   token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
-- **The design tokens are the prototype's, and they come in three groups with a hard boundary
-  between them.** *Brand* (`--brand` and its derivations) is the only thing a tenant may change,
-  and it drives nav, primary buttons and links — nothing else. *Structural* (paper, ink, rules,
-  elevation) flips for dark mode and is not customisable, because legibility is not a matter of
-  taste. *Semantic* (`--hivis`, `--ok`, `--warn`, `--stop`, and the four kind tints) is never
-  customisable and never themed — only its ground moves in dark mode, far enough to stay legible
-  and no further. Design direction, from the prototype's own first comment: *structure is drafting
-  ink, signal is hi-vis, codes are monospace*.
+- **The design tokens come in three groups with a hard boundary between them.** *Brand*
+  (`--brand` and its derivations, including the glow and the highlight edge, which are
+  `color-mix`ed from it in CSS) is the only thing a tenant may change, and it drives nav accents,
+  primary buttons, links and focus — nothing else. The platform default is cyan `#0BB4E8`; there
+  is no second fixed accent colour, because a violet beside a tenant's brand is a second brand.
+  *Structural* (paper, glass, ink, rules, elevation, chrome) flips for the light theme and is not
+  customisable, because legibility is not a matter of taste. *Semantic* (`--hivis`, `--ok`,
+  `--warn`, `--stop`, and the four kind tints) is never customisable: its **hue** is fixed in both
+  themes and only its shade and ground follow the paper, because a green legible on white is
+  invisible on obsidian and one hex cannot serve both. Design direction: *structure is drafting
+  ink on luminous glass, signal is hi-vis, codes are monospace*.
+- **Dark is the default and light is the override.** `:root` holds the obsidian set;
+  `[data-theme="light"]` holds paper. `applyTheme()` writes the attribute and nothing else, the
+  `dark:` variant keys on its absence, and `organisations.theme` defaults to `'dark'`. The chrome —
+  header and sidebar — is obsidian in both themes: it frames the page rather than being part of it.
+- **One surface: `glass`.** Every container — `Panel`, `TableScroll`, `Card`, `Stat`, the report
+  sheets — is the `glass` utility (frosted backing, hairline, ambient depth, specular top rim);
+  `glass-hi` is the same surface lit in the brand for the selected one, and `glass-popover` is the
+  less see-through version for menus, dialogs and drawers. Do not compose a container from
+  `bg-card border shadow` by hand; a second recipe is a second material. The print stylesheet
+  replaces the glass tokens with opaque white and switches every `backdrop-filter` off.
+- **Hi-vis in the chrome is the matrix gap count and nothing else.** The active nav item is lit in
+  the brand, and the invitations-waiting badge is the brand: an invitation is not a gap. `Stat`'s
+  `gap` tone and `Pill`'s `gap` tone are hi-vis because they count unallocated things; an alert
+  tile is `warn`, which is orange, never amber.
 - **Every code is monospace and every table is the dense one.** A reference, an originator code, a
   discipline letter, a drawing number and a programme UID are read down a column, not across a
-  sentence: use `<Code>` and the `Table` primitives in `src/components/ui/table.tsx` rather than a
-  bare `<table>`. A gap row gets `gap` on `<TR>` and nothing else does.
+  sentence: use `<Code>` (`tag` boxes it as a chip where a code stands alone) and the `Table`
+  primitives in `src/components/ui/table.tsx` rather than a bare `<table>`. No zebra striping,
+  ever: the only row decoration is `gap` on `<TR>`, and nothing else gets it. Headers are
+  `Eyebrow`-style — 10px monospace, tracked, uppercase — and a figure is a `Stat`.
 - **The discipline list is the prototype's twenty-six, and each carries its ISO 19650 letter.**
   Mechanical, electrical and public health are three appointments, not one. The letter is what
   Phase 5's naming convention is built from, so it is set when the discipline is, never after.
 - Every reference to another record is a working link, never printed text.
 - Templates (DRM library, checklist templates, scope templates, risk/warranty libraries) are
   **host assets forked from a published default**. Editing a template never rewrites a project
-  that already loaded a copy of it.
+  that already loaded a copy of it. **All five published defaults ship** — only the DRM library
+  did for a long time, so four of the five "load from library" paths returned nothing and read as
+  broken rather than empty, and a library with no published default cannot be forked at all. The
+  shipped content is written for this product and is deliberately not BG6, not the CIC schedules
+  and not BREEAM: those are licensed, are never shipped, and are loaded per-project by whoever
+  holds the licence. **An account edits the fork, never the published set**: every write policy
+  reads `organisation_id is not null and is_account_admin(...)`, and `organisation_id` is outside
+  the update grant so a row cannot be moved into another account — the row policy would accept
+  that write, because it checks the row being written rather than the one it started from. The
+  fork is not automatic: reading the published set is the right answer for an account that agrees
+  with it, and forking on first read would hand every account a frozen copy of whatever shipped
+  the day they signed up. Forking again brings in what is new and leaves every edit alone.
+  **A test must scope its template fixtures to its own account** rather than inserting published
+  rows or deleting the shipped ones: the libraries read "the account's fork, or the published
+  default if it has none", so account-scoped fixtures isolate themselves, while deleting the
+  published rows reaches across every other suite sharing the database.
 - Warranties resolve their owner live through the DRM lead discipline. **Never add a `company_id`
   column to warranties** — same gap the matrix shows, same fix.
 - **A pack holds references, and never a date.** `drawing_pack_programme` links a pack to a
@@ -195,9 +242,13 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   that performs the act. The revision at add and at review is stamped by trigger from the
   register: the reviewer states that they reviewed it, but which revision that was is a fact
   rather than their opinion.
-- **A generated reference sequence is keyed on the prefix, not the kind.** Three issue kinds share
-  the `TSK` prefix, so keying `next_reference()` on the kind gives each its own counter and they
-  collide at `TSK-001`.
+- **A generated reference sequence is keyed on the prefix, not the kind** — and this is now what
+  the function does rather than what its callers were trusted to arrange. `raise_issue()` asked
+  for kind `issue_TSK` and `realise_risk()` for kind `TSK`, both with prefix `TSK`: two counters,
+  so a project that had reached `TSK-012` was handed `TSK-001` the first time a risk was realised,
+  which is a unique-violation and a failed button rather than a confusing number. `next_reference()`
+  keys on `p_prefix` and ignores `p_kind`, so a caller cannot get this wrong again. A test asserts
+  that two different kinds sharing a prefix share a counter.
 - Invitations are consent-based. Adding someone to a directory creates an invite; typing an email
   address grants nothing. Membership is only created when the invited person accepts from their
   own login.
@@ -235,6 +286,13 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   move. A later kind that needs to write `ext` (the utilities dates) gets its own definer function,
   never a re-grant. `sections`, `weightings`, `ratings` and `min_standards` are outside the grant
   for the same reason: they are the scoring basis, loaded by `breeam_import_apply()` alone.
+- **The BREEAM score is a percentage, and every reader must agree.** A section's score is
+  (credits achieved / credits available) × weighting, and `breeam_totals()` compares the sum
+  straight against the scheme's own rating thresholds — so a scheme whose ratings read 30/45/55/
+  70/85 must carry weightings summing to 100. Nothing rescales the score on the way to a page:
+  `report_metrics()` multiplied it by 100 and printed a project on course for 74 per cent as
+  "7430%". A scheme loaded with fractional weightings now scores near zero and reaches no rating,
+  which is visible immediately, rather than looking plausible in one place and absurd in another.
 - **A scheme is a version, and a project holds several.** `projects.breeam_scheme_id` names the
   live one; switching it switches the whole framework. The reference on a credit is
   `<issue>.<ordinal>` counted across the **project**, because two schemes may both carry `Man 01`
@@ -318,6 +376,25 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   must not be collapsed: suspended is expected back and blocks sign-in mid-session; archived is
   finished and stays readable by its members. An account may only be deleted from `archived`, and
   its `platform_audit` row is written before the cascade so the trail survives its subject.
+
+- **The sample project is one story across every module, and it is the widest test there is.**
+  `seed_sample_data()` is the one entry point, account-admin only; the per-area functions under it
+  hold no grant at all, because a caller who could invoke them directly would be seeding a project
+  they may not be an admin of. It builds Kingsmead Wharf Block C at one moment in its life and
+  every module's view of that moment, so the pages have something to disagree about. Three rules
+  hold it honest: **no date is typed** — every dated row anchors to a programme UID, so
+  re-importing the programme moves the sample data too, and a test asserts no seeded row has
+  neither an anchor nor an override; **no licensed content is shipped** — the scoring scheme is
+  fictional, says so in its own name, and a test fails the build if that stops being true; and
+  **it fills the pages, not the tables** — the assertions are that the derivations read something
+  off it, because a seed that loads cleanly and leaves every page empty is worse than no seed.
+  The deliberate wrongness (seven unallocated duties, seven overdue drawings, one drawing never
+  issued, a rejected sample, a change the regulator objected to, a rating capped by an outstanding
+  prerequisite) is the point and is commented where it is written. It found the two bugs above.
+  **It tops up rather than refusing**, and every section returns early when its own data is
+  present: run it on an empty project and it fills everything, run it again and it fills only what
+  is missing. It reaches from project settings, not only from an empty directory page — a control
+  that disappears once it has done half its job is one nobody can finish.
 
 ## Structural decisions the product makes that the prototype doesn't
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router'
 
-import { BrandMark } from '@/components/BrandMark'
+import { BrandMark, CrystalMark } from '@/components/BrandMark'
 import { AccountMenu } from '@/components/shell/AccountMenu'
 import { PROJECT_NAV, WORKSPACE_NAV } from '@/components/shell/nav'
 import { ProjectSwitcher } from '@/components/shell/ProjectSwitcher'
@@ -10,6 +10,7 @@ import {
   fetchMyProjects, isPlatformOwner,
   type Account, type ProjectRow,
 } from '@/lib/queries'
+import { applyTheme, currentTheme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
 /**
@@ -21,11 +22,11 @@ import { cn } from '@/lib/utils'
  * accounts, their own details. Same chrome either way, so there is no second
  * landing page to find your way back from.
  *
- * Two details carry meaning rather than decoration. The active item is marked
- * with a hi-vis left rule -- the one place that colour appears outside a gap,
- * and defensible because it is the same idea: this is the thing to look at.
- * And the matrix carries its gap count as a hi-vis badge, so the number is
- * visible from every page without opening it.
+ * Two details carry meaning rather than decoration. The active item is lit in
+ * the brand -- a left pip and a wash that fades to nothing -- so the tenant's
+ * colour is where the eye is. And the matrix carries its gap count as a hi-vis
+ * badge, so the number is visible from every page without opening it; that
+ * badge is the only hi-vis in the chrome, because it is the only gap.
  */
 function GroupTitle({
   title, open, pinned, onClick,
@@ -37,7 +38,7 @@ function GroupTitle({
       className={cn(
         'flex w-full items-center gap-2 px-4 pt-3.5 pb-1.5 text-left',
         'text-[10px] font-bold tracking-[0.13em] uppercase',
-        'text-brand-canvas-ink transition-opacity',
+        'text-chrome-ink font-mono transition-opacity',
         pinned ? 'cursor-default opacity-50' : 'cursor-pointer opacity-60 hover:opacity-90'
       )}
     >
@@ -67,8 +68,7 @@ export function AppShell({
   const [owner, setOwner] = useState(false)
   const [gaps, setGaps] = useState<number | null>(null)
   const [closed, setClosed] = useState<Record<string, boolean>>({})
-  const [dark, setDark] = useState(() =>
-    document.documentElement.getAttribute('data-theme') === 'dark')
+  const [dark, setDark] = useState(() => currentTheme() === 'dark')
 
   // Everything the chrome needs about the person, loaded once. None of it is
   // project data: who they are, what they belong to, what awaits their answer.
@@ -101,22 +101,22 @@ export function AppShell({
 
   const toggleDark = () => {
     const next = !dark
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light')
-    document.documentElement.classList.toggle('dark', next)
+    applyTheme(next ? 'dark' : 'light')
     setDark(next)
   }
 
   return (
     <div className="min-h-svh">
-      <header
-        className="sticky top-0 z-40 flex h-12 items-center gap-4 border-b border-white/10 px-4 text-white backdrop-blur-lg"
-        style={{ background: 'rgba(20,24,27,.82)' }}
-      >
-        <Link to="/" className="flex items-center gap-2 text-[13px] font-bold tracking-[0.16em]">
-          SPINE<span className="text-hivis">·</span>DMP
+      <header className="app-header bg-chrome text-chrome-ink sticky top-0 z-40 flex h-12 items-center gap-4 border-b border-white/10 px-4 backdrop-blur-md">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 text-[13px] font-extrabold tracking-[0.25em] text-white"
+        >
+          <CrystalMark className="size-5" />
+          SPINE
         </Link>
 
-        <span className="h-5 w-px bg-white/15" />
+        <span className="h-5 w-px bg-white/10" />
 
         <ProjectSwitcher
           projects={projects}
@@ -138,17 +138,11 @@ export function AppShell({
       </header>
 
       <div className="flex min-h-[calc(100svh-3rem)]">
-        <nav
-          className="sticky top-12 hidden h-[calc(100svh-3rem)] w-[214px] shrink-0 overflow-y-auto pt-2.5 pb-5 text-white md:block"
-          style={{
-            background: 'var(--grad-brand)',
-            boxShadow: '2px 0 24px -8px rgba(15,23,42,.18)',
-          }}
-        >
+        <nav className="bg-chrome-side text-chrome-ink sticky top-12 hidden h-[calc(100svh-3rem)] w-[214px] shrink-0 overflow-y-auto border-r border-white/5 pt-2.5 pb-5 backdrop-blur-lg md:block">
           <div className="flex items-center gap-2 px-4 pt-1 pb-2.5">
             <BrandMark className="max-h-7 w-auto" />
           </div>
-          <div className="mx-4 h-px bg-white/12" />
+          <div className="mx-4 h-px bg-white/8" />
 
           {groups.map((group) => {
             const open = !closed[group.title]
@@ -174,18 +168,18 @@ export function AppShell({
                       to={item.to.startsWith('/') ? item.to : `/project/${id}/${item.to}`}
                       className={({ isActive }) =>
                         cn(
-                          'mx-2 my-px flex items-center gap-2.5 rounded-md border-l-[3px] px-2 py-1.5 text-[13px]',
-                          'transition-colors',
+                          'mx-2 my-px flex items-center gap-2.5 rounded-md border-l-2 px-2 py-1.5 text-[13px]',
+                          'transition-[background-color,color,border-color] duration-150',
                           isActive
-                            ? 'border-l-hivis bg-white/16 font-semibold opacity-100'
-                            : 'border-l-transparent opacity-[0.88] hover:bg-white/10 hover:opacity-100'
+                            ? 'border-l-primary from-primary/15 bg-linear-to-r to-transparent font-medium text-white'
+                            : 'text-chrome-ink/80 border-l-transparent hover:bg-white/[0.05] hover:text-white'
                         )
                       }
                     >
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       {inProject && item.key === 'drm' && gaps !== null && gaps > 0 && (
                         <span
-                          className="bg-hivis rounded-full border border-[var(--hivis)] px-1.5 font-mono text-[10px] font-bold text-[#3d3006]"
+                          className="bg-hivis shadow-hivis rounded-full px-1.5 font-mono text-[10px] font-bold text-black"
                           title={`${gaps} unallocated`}
                         >
                           {gaps}
@@ -196,7 +190,7 @@ export function AppShell({
                     <span
                       key={item.key}
                       title="Built in a later phase"
-                      className="mx-2 my-px flex cursor-default items-center gap-2.5 rounded-md border-l-[3px] border-l-transparent px-2 py-1.5 text-[13px] opacity-35"
+                      className="mx-2 my-px flex cursor-default items-center gap-2.5 rounded-md border-l-2 border-l-transparent px-2 py-1.5 text-[13px] opacity-35"
                     >
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     </span>
@@ -208,7 +202,7 @@ export function AppShell({
 
         <main className="min-w-0 max-w-[1500px] flex-1 px-5 pt-5 pb-16">
           {project && (
-            <p className="text-graphite-light mb-1 text-[10px] font-bold tracking-[0.13em] uppercase">
+            <p className="text-graphite-light mb-1 font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
               {project.account_name}
             </p>
           )}

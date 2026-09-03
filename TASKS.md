@@ -918,6 +918,82 @@ knowingly, not a drift.
   `logo_path` and the slot is there.
 - **Playwright** for the switcher, the menu and the `/` decision is still outstanding.
 
+## Interlude — luminous glass ✅
+
+The restyle, and only the restyle: no business logic, model, schema relationship or state flow
+moved. Dark obsidian is the default presentation with light as the override; every container is
+the one `glass` utility; tables lose their zebra and gain a monospace eyebrow header; badges are
+luminous capsules; the shell is a frosted header and sidebar with the brand as the active accent;
+the report title block is an engineering HUD strip; figures are `Stat` tiles. The tenant brand
+still flows through `applyBrand()` — cyan is the new default, not a fixed accent — and the
+semantic hues are unchanged, with shades that follow the ground. One migration
+(`20260902260000_theme_default_dark`) moves `organisations.theme` to `'dark'`, which no screen had
+ever written.
+
+## Interlude — the sample project, and two bugs it found ✅
+
+`seed_sample_data()` used to stop after the directory and the programme, so everything from phase 5
+onward could only be looked at. It now fills every module of Kingsmead Wharf Block C: the
+responsibility matrix and the scope of service, a 53-row drawing register with packs and
+transmittals, material samples and their submission rounds, tasks, RFIs and meetings, the planning,
+building control, client, handover, highways and utilities checklists, an occurrence, a fictional
+scoring scheme, the pre-construction budget, fees, cashflow, invoices, risks, warranties and eight
+change requests covering seven of the twelve work-status states. Every dated row anchors to the
+programme; nothing is typed.
+
+Writing it against the real schema found two product bugs, each fixed in its own migration with a
+test:
+
+- `20260902260100_reference_counter_per_prefix` — `raise_issue()` keyed its counter on `issue_TSK`
+  and `realise_risk()` on `TSK`. Two counters, one prefix: realising a risk on a project that had
+  reached TSK-012 was a unique-violation, not a confusing number.
+- `20260902260200_breeam_score_is_a_percentage` — `report_metrics()` multiplied the score by 100
+  while `breeam_totals()` compared the same value straight against the rating thresholds. A project
+  on course for 74 per cent reported "7430%".
+
+## Interlude — the last three greyed-out pages ✅
+
+Monday summary, Gateways and Audit were the only nav entries with no page behind them. They
+rendered permanently dimmed, which reads as a module somebody has switched off rather than one
+nobody has built — the exact confusion a dimmed entry must never cause. All three are now built,
+and none of them adds a derivation: every figure on them is one another page already computes.
+
+- **Monday summary** (`/summary`, core) — what is waiting on you, what is late, what falls due in
+  the next fortnight, what changed in the last week. Gone-quiet appears only for the contractor's
+  own staff.
+- **Gateways** (`/gateways`) — gateway 1, 2 and 3 read off the planning conditions, the building
+  control checklist, the golden thread derivations and the change-control classification. It lists
+  what is standing in the way rather than counting it, and says plainly when a building is not
+  higher-risk.
+- **Audit** (`/audit`) — every silent check in one place: unallocated duties and disciplines,
+  incomplete appointments, warranties with no owner, numbers that break the convention, drawings
+  never issued, golden thread findings, changes approved with work outstanding, unowned risks,
+  instalments due with nothing claimed, and fee schedules that do not total.
+
+`src/theme.test.ts` now fails the build for a nav entry with `to: null` or a target with no route,
+so this cannot recur silently.
+
+## Interlude — template editing, and the seed where you can find it ✅
+
+Two gaps that both read as "the feature is missing" from the outside.
+
+**An account had nowhere to change its templates.** The DRM library had an editor; the other four
+did not, and two of them (risk, warranty) had no fork function at all, so they could only ever be
+read from the published set. None of the five carried an UPDATE grant either, so even a forked row
+could be inserted and deleted but never corrected. Now: `fork_risk_templates()` and
+`fork_warranty_templates()`, `account_risk_templates()` and `account_warranty_templates()` stating
+the fork-or-published rule once each, column-level UPDATE grants that deliberately exclude
+`organisation_id`, and a Templates tab on the account page covering all four libraries.
+
+**The sample data was reachable from one place that disappeared.** The button lived only on an
+empty directory page, so a project seeded before the rest of the sample data existed had a
+directory and no way to ask for the other eleven modules — `seed_sample_project()` raised rather
+than returning, which made `seed_sample_data()` fail on its first step. It now returns, the whole
+seed is idempotent end to end, and it reaches from project settings.
+
+`supabase/tests/templates.test.ts` holds the boundary: a tenant edits its fork, cannot touch a
+published row or another account's, and cannot move a template between accounts.
+
 ## Phase 15 — Marketing site and sign-up
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*

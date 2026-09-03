@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 
 import { Catalogue } from '@/components/Catalogue'
 import { Disciplines } from '@/components/Disciplines'
+import { TemplateLibraries } from '@/components/account/TemplateLibraries'
 import { DrmLibrary } from '@/components/DrmLibrary'
 import { Empty, ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
@@ -85,6 +86,7 @@ export default function Account() {
           <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
           <TabsTrigger value="disciplines">Disciplines</TabsTrigger>
           <TabsTrigger value="library">DRM library</TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
           {isAdmin && <TabsTrigger value="settings">Settings</TabsTrigger>}
         </TabsList>
 
@@ -94,6 +96,10 @@ export default function Account() {
 
         <TabsContent value="disciplines" className="pt-4">
           <Disciplines organisationId={id} canEdit={isAdmin} />
+        </TabsContent>
+
+        <TabsContent value="templates" className="pt-4">
+          <TemplateLibraries organisationId={id} canEdit={isAdmin} />
         </TabsContent>
 
         <TabsContent value="library" className="pt-4">

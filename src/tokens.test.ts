@@ -45,6 +45,11 @@ describe('every design token a class names is exposed to Tailwind', () => {
         .filter((n) => !n.startsWith('color-')))
     const exposed = new Set(
       [...css.matchAll(/--color-([a-z0-9-]+)\s*:/g)].map((m) => m[1]))
+    // A shadow utility is made by --shadow-*, not --color-*: `shadow-hivis`
+    // exists because of `--shadow-hivis: var(--hivis-glow)`, and a halo token
+    // that is only ever a box-shadow has no business being a colour.
+    const exposedShadow = new Set(
+      [...css.matchAll(/--shadow-([a-z0-9-]+)\s*:/g)].map((m) => m[1]))
 
     // Longest first, so `brand-canvas-ink` is not read as `brand`.
     const candidates = [...declared].sort((a, b) => b.length - a.length)
@@ -57,11 +62,12 @@ describe('every design token a class names is exposed to Tailwind', () => {
           // A word boundary either side: `bg-ok` must not match `bg-ok-bg`.
           const re = new RegExp(`(?<![\\w-])${prefix}-${token}(?![\\w-])`, 'g')
           if (!re.test(src)) continue
-          if (exposed.has(token)) continue
+          const ns = prefix === 'shadow' ? 'shadow' : 'color'
+          if ((ns === 'shadow' ? exposedShadow : exposed).has(token)) continue
           problems.push(
             `${file}: "${prefix}-${token}" names --${token}, which is defined in ` +
-            `${CSS} but never exposed as --color-${token}, so the class produces ` +
-            `no CSS at all. Either add --color-${token} to the @theme block, or ` +
+            `${CSS} but never exposed as --${ns}-${token}, so the class produces ` +
+            `no CSS at all. Either add --${ns}-${token} to the @theme block, or ` +
             `use a token that is exposed.`)
         }
       }

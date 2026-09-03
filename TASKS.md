@@ -1003,8 +1003,12 @@ published row or another account's, and cannot move a template between accounts.
 - [x] Sign-up creates a pending host for platform-owner approval (phase 1)
 - [x] Company name is a placeholder ("Spine") to be replaced
 
-**One address, two answers.** `/` is the marketing home to a signed-out visitor and the
-application's landing decision to a signed-in one. Both had to be at the top of the domain: a
+**One address, two answers — and a third for the site itself.** `/` is the marketing home to a
+signed-out visitor and the application's landing decision to a signed-in one. The public home
+page also answers at `/welcome`, which every session can reach: without it a signed-in person
+could not open the public site at all, and the wordmark in the shell had nowhere to send them.
+The wordmark points at `/welcome` because it is the company rather than the workspace, and the
+public header offers "Back to your projects" to anybody carrying a session. Both had to be at the top of the domain: a
 marketing page at `/welcome` is one nobody links to, and a signed-in person must never be shown a
 sales page for a product they have already bought. `/product`, `/pricing`, `/about` and `/contact`
 are public and sit outside `RequireAuth` — a test reads the route block and fails if a guard ever

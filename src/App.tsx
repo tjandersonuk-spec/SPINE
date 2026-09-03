@@ -115,6 +115,12 @@ export default function App() {
             nobody links to and a customer never sees again. */}
         <Route path="/" element={<Root />} />
         <Route element={<MarketingLayout />}>
+          {/* The public home page needs an address of its own as well as `/`.
+              `/` answers differently depending on who is asking, so a signed-in
+              person had no way to reach the public site at all -- you could not
+              look at your own marketing without signing out, and the logo in
+              the application had nowhere to send you. */}
+          <Route path="/welcome" element={<MarketingHome />} />
           <Route path="/product" element={<MarketingProduct />} />
           <Route path="/pricing" element={<MarketingPricing />} />
           <Route path="/about" element={<MarketingAbout />} />

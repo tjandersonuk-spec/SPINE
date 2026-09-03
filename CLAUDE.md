@@ -106,7 +106,14 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   because a marketing page at `/welcome` is one nobody links to, and a signed-in person must never
   be shown a sales page for a product they have already bought. `/product`, `/pricing`, `/about`
   and `/contact` are public and sit outside `RequireAuth`; `src/marketing.test.ts` reads the route
-  block and fails if a guard appears around them. The site is built on the application's own
+  block and fails if a guard appears around them. **The public home page also has an address of
+  its own, `/welcome`**, because `/` answers differently depending on who is asking and a
+  signed-in person could otherwise not reach the public site at all — you could not look at your
+  own marketing without signing out. The wordmark in `AppShell` points there: it is the company,
+  not the workspace, and the project switcher beside it is the way back to a project. The public
+  header shows "Back to your projects" rather than Sign in and Start a trial to anybody who
+  already has a session — following the wordmark out must not strand them, and somebody who has
+  bought the product should not then be sold it. The site is built on the application's own
   tokens — `docs/landing-page-reference.html` is the old light palette and is a reference for tone
   and layout only. **What the site claims is checked**: every module named on the product page
   must be a real `module_catalogue()` key, and no currency figure may appear on the pricing page,

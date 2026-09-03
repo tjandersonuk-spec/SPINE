@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router'
 
 import { CrystalMark } from '@/components/BrandMark'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 /**
@@ -24,6 +25,7 @@ const NAV = [
 ]
 
 export default function MarketingLayout({ children }: { children?: React.ReactNode }) {
+  const { session } = useAuth()
   return (
     <div className="min-h-svh">
       <header className="bg-chrome text-chrome-ink sticky top-0 z-40 border-b border-white/10 backdrop-blur-md">
@@ -50,13 +52,23 @@ export default function MarketingLayout({ children }: { children?: React.ReactNo
             ))}
           </nav>
 
+          {/* Somebody signed in who followed the wordmark here is not a
+              prospect and should not be sold to; they need the way back. */}
           <div className="ml-auto flex items-center gap-2 sm:ml-0">
-            <Button asChild size="sm" variant="ghost">
-              <Link to="/sign-in">Sign in</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link to="/sign-up">Start a trial</Link>
-            </Button>
+            {session ? (
+              <Button asChild size="sm">
+                <Link to="/">Back to your projects</Link>
+              </Button>
+            ) : (
+              <>
+                <Button asChild size="sm" variant="ghost">
+                  <Link to="/sign-in">Sign in</Link>
+                </Button>
+                <Button asChild size="sm">
+                  <Link to="/sign-up">Start a trial</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -74,7 +86,9 @@ export default function MarketingLayout({ children }: { children?: React.ReactNo
                 {n.label}
               </Link>
             ))}
-            <Link to="/sign-in" className="hover:text-foreground">Sign in</Link>
+            {session
+              ? <Link to="/" className="hover:text-foreground">Your projects</Link>
+              : <Link to="/sign-in" className="hover:text-foreground">Sign in</Link>}
           </nav>
         </div>
         <div className="text-graphite-light mx-auto max-w-[1080px] px-6 pb-8 text-xs">

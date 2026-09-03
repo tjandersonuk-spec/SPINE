@@ -43,7 +43,11 @@ describe('the site cannot promise a module that does not exist', () => {
 })
 
 describe('the public site is reachable without a login', () => {
-  const PUBLIC = ['/product', '/pricing', '/about', '/contact']
+  // /welcome is the public home page's own address. `/` answers differently
+  // depending on who is asking, so without this a signed-in person could not
+  // reach the public site at all -- including from the wordmark, which points
+  // here precisely because it is the company rather than the workspace.
+  const PUBLIC = ['/welcome', '/product', '/pricing', '/about', '/contact']
 
   test('every marketing route exists', () => {
     const routes = new Set(
@@ -70,6 +74,18 @@ describe('the public site is reachable without a login', () => {
       .map((m) => m[1] ?? m[2])
     const missing = targets.filter((t) => !routes.has(t))
     expect(missing, `public nav points at nothing: ${missing.join(', ')}`).toEqual([])
+  })
+
+  test('the wordmark in the application reaches the public site', () => {
+    const shell = readFileSync('src/components/shell/AppShell.tsx', 'utf8')
+    expect(shell).toContain('to="/welcome"')
+  })
+
+  test('the public site is not a dead end for somebody signed in', () => {
+    // Following the wordmark out of the application must not strand you there,
+    // and somebody who has already bought the product should not be sold to.
+    expect(layout).toContain('Back to your projects')
+    expect(layout).toMatch(/session \?/)
   })
 
   test('`/` decides between the site and the application', () => {

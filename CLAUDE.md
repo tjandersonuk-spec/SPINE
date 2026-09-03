@@ -101,6 +101,27 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   so, because an empty gateway reads as an outstanding one. **The Monday summary is the personal
   one** — `decision_queue()` keyed on `auth.uid()`, seven days back and fourteen forward — and
   gone-quiet appears on it only for the contractor's own staff.
+- **The public site and the application share `/` and share their tokens.** Signed out, `/` is
+  the marketing home; signed in it is the landing decision. Both are at the top of the domain
+  because a marketing page at `/welcome` is one nobody links to, and a signed-in person must never
+  be shown a sales page for a product they have already bought. `/product`, `/pricing`, `/about`
+  and `/contact` are public and sit outside `RequireAuth`; `src/marketing.test.ts` reads the route
+  block and fails if a guard appears around them. **The public home page also has an address of
+  its own, `/welcome`**, because `/` answers differently depending on who is asking and a
+  signed-in person could otherwise not reach the public site at all — you could not look at your
+  own marketing without signing out. The wordmark in `AppShell` points there: it is the company,
+  not the workspace, and the project switcher beside it is the way back to a project. The public
+  header shows "Back to your projects" rather than Sign in and Start a trial to anybody who
+  already has a session — following the wordmark out must not strand them, and somebody who has
+  bought the product should not then be sold it. The site is built on the application's own
+  tokens — `docs/landing-page-reference.html` is the old light palette and is a reference for tone
+  and layout only. **What the site claims is checked**: every module named on the product page
+  must be a real `module_catalogue()` key, and no currency figure may appear on the pricing page,
+  because the brief calls those a placeholder structure with figures still to be set. **"Spine" is
+  a working name** and the footer says so; a test asserts it keeps saying so, since a placeholder
+  nobody labels becomes the name by default. The brief's §5 sign-up ("creates a pending host") is
+  superseded by the identity model: a login and an account are separate things, so "Start a trial"
+  goes to sign-up, confirmation, then `/request-account`.
 - **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
   is the lifecycle nav, outside it is the workspace (`WORKSPACE_NAV`, all `core`). The project
   switcher top-left is grouped by account and carries Portfolio and New project; the person

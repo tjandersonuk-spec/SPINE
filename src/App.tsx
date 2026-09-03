@@ -7,6 +7,12 @@ import AcceptInvitation from '@/pages/AcceptInvitation'
 import ConfirmEmail from '@/pages/ConfirmEmail'
 import AccountsPage from '@/pages/Accounts'
 import Home from '@/pages/Home'
+import MarketingAbout from '@/pages/marketing/About'
+import MarketingContact from '@/pages/marketing/Contact'
+import MarketingHome from '@/pages/marketing/Home'
+import MarketingLayout from '@/pages/marketing/Layout'
+import MarketingPricing from '@/pages/marketing/Pricing'
+import MarketingProduct from '@/pages/marketing/Product'
 import Portfolio from '@/pages/Portfolio'
 import PlatformAccounts from '@/pages/platform/Accounts'
 import Profile from '@/pages/Profile'
@@ -56,6 +62,34 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * What `/` is.
+ *
+ * Signed out it is the public site's home page; signed in it is the
+ * application's landing decision -- no projects lands on accounts, one goes
+ * straight into it, several go to the portfolio. Both live at the same
+ * address on purpose: the marketing site is what somebody is sent, and it has
+ * to be the thing at the top of the domain, while a signed-in person must
+ * never be shown a sales page for a product they have already bought.
+ */
+function Root() {
+  const { session, loading, confirmed } = useAuth()
+  if (loading) return null
+  if (!session) {
+    return (
+      <MarketingLayout>
+        <MarketingHome />
+      </MarketingLayout>
+    )
+  }
+  if (!confirmed) return <ConfirmEmail />
+  return (
+    <WorkspaceLayout>
+      <Home />
+    </WorkspaceLayout>
+  )
+}
+
+/**
  * The platform-owner routes are guarded here only so the nav is coherent. The
  * real guard is is_platform_owner() in every policy and definer function: a
  * person who reaches these pages another way sees nothing and can do nothing.
@@ -75,8 +109,24 @@ export default function App() {
         <Route path="/accept/:token" element={<AcceptInvitation />} />
         {/* Everything signed-in that is not inside a project shares the one
             shell with the workspace nav. There is no second landing page. */}
+        {/* The public site. Signed out, `/` is the marketing home; signed in it
+            is where you land in the application, unchanged. One address either
+            way, because a marketing page that lives at /welcome is a page
+            nobody links to and a customer never sees again. */}
+        <Route path="/" element={<Root />} />
+        <Route element={<MarketingLayout />}>
+          {/* The public home page needs an address of its own as well as `/`.
+              `/` answers differently depending on who is asking, so a signed-in
+              person had no way to reach the public site at all -- you could not
+              look at your own marketing without signing out, and the logo in
+              the application had nowhere to send you. */}
+          <Route path="/welcome" element={<MarketingHome />} />
+          <Route path="/product" element={<MarketingProduct />} />
+          <Route path="/pricing" element={<MarketingPricing />} />
+          <Route path="/about" element={<MarketingAbout />} />
+          <Route path="/contact" element={<MarketingContact />} />
+        </Route>
         <Route element={<RequireAuth><WorkspaceLayout /></RequireAuth>}>
-          <Route path="/" element={<Home />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/me" element={<Profile />} />

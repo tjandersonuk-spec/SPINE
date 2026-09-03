@@ -54,6 +54,12 @@ export default function SignIn() {
             <p className="text-muted-foreground text-sm">
               No login? <Link to="/sign-up" className="underline">Create one</Link>
             </p>
+            {/* A way out. Somebody who cannot get past this screen -- wrong
+                address, no account yet, waiting on an approval -- is otherwise
+                stuck on it, with the site they arrived from unreachable. */}
+            <p className="text-muted-foreground text-sm">
+              <Link to="/welcome" className="underline">Back to the site</Link>
+            </p>
           </CardFooter>
         </form>
       </Card>

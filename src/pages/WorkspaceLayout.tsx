@@ -15,7 +15,7 @@ import { applyBrand, applyTheme } from '@/lib/theme'
  * paints so it never flashes the default and then corrects itself. A person
  * with no account gets the default, which is fine: there is nothing to brand.
  */
-export default function WorkspaceLayout() {
+export default function WorkspaceLayout({ children }: { children?: React.ReactNode }) {
   useEffect(() => {
     let live = true
     fetchMyAccounts()
@@ -31,7 +31,10 @@ export default function WorkspaceLayout() {
 
   return (
     <AppShell>
-      <Outlet />
+      {/* `/` renders its page directly rather than through a nested route, so
+          that a signed-out visitor to the same path can be given the public
+          site instead. Everything else here is an <Outlet/> as before. */}
+      {children ?? <Outlet />}
     </AppShell>
   )
 }

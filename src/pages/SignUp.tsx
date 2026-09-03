@@ -49,6 +49,14 @@ export default function SignUp() {
               We have sent a confirmation link to {email}. Nothing else works until you follow it.
             </CardDescription>
           </CardHeader>
+          <CardFooter>
+            {/* This screen is otherwise a wall: it has no form and no controls,
+                so without this the only way off it is the browser's back
+                button. */}
+            <p className="text-muted-foreground text-sm">
+              <Link to="/welcome" className="underline">Back to the site</Link>
+            </p>
+          </CardFooter>
         </Card>
       </main>
     )
@@ -89,6 +97,9 @@ export default function SignUp() {
             </Button>
             <p className="text-muted-foreground text-sm">
               Already have one? <Link to="/sign-in" className="underline">Sign in</Link>
+            </p>
+            <p className="text-muted-foreground text-sm">
+              <Link to="/welcome" className="underline">Back to the site</Link>
             </p>
           </CardFooter>
         </form>

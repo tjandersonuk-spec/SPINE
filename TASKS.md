@@ -994,14 +994,61 @@ seed is idempotent end to end, and it reaches from project settings.
 `supabase/tests/templates.test.ts` holds the boundary: a tenant edits its fork, cannot touch a
 published row or another account's, and cannot move a template between accounts.
 
-## Phase 15 — Marketing site and sign-up
+## Phase 15 — Marketing site and sign-up ✅
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*
 
-- [ ] Public site, separate from the application, same design tokens: home, product, pricing,
+- [x] Public site, separate from the application, same design tokens: home, product, pricing,
       about, contact, sign up
-- [ ] Sign-up creates a pending host for platform-owner approval (phase 1)
-- [ ] Company name is a placeholder ("Spine") to be replaced
+- [x] Sign-up creates a pending host for platform-owner approval (phase 1)
+- [x] Company name is a placeholder ("Spine") to be replaced
+
+**One address, two answers — and a third for the site itself.** `/` is the marketing home to a
+signed-out visitor and the application's landing decision to a signed-in one. The public home
+page also answers at `/welcome`, which every session can reach: without it a signed-in person
+could not open the public site at all, and the wordmark in the shell had nowhere to send them.
+The wordmark points at `/welcome` because it is the company rather than the workspace, and the
+public header offers "Back to your projects" to anybody carrying a session. Both had to be at the top of the domain: a
+marketing page at `/welcome` is one nobody links to, and a signed-in person must never be shown a
+sales page for a product they have already bought. `/product`, `/pricing`, `/about` and `/contact`
+are public and sit outside `RequireAuth` — a test reads the route block and fails if a guard ever
+appears around them.
+
+**The tokens are the application's own, not the reference's.** `docs/landing-page-reference.html`
+is the old light palette; what was kept from it is the tone and the layout, and the colours are
+the current luminous-glass set, because the two are one product and a site that looks like a
+different company is a promise the first screen after sign-up breaks. The hero is a real slice of
+the matrix with a hi-vis gap row in it, which is the most recognisable thing the product does.
+
+**The brief's sign-up flow was superseded and this follows CLAUDE.md.** §5 says sign-up creates a
+pending host; the identity model says a login and an account are separate things, and that anyone
+may sign up while only a platform owner's approval creates an account. "Start a trial" therefore
+goes to sign-up, then confirmation, then `/request-account` — which is the flow phase 1 built.
+
+**Figures are absent on purpose.** The brief calls the pricing a placeholder structure with
+figures to be set, so the cards say POA and a test fails the build if a currency figure ever
+appears — a placeholder number on a public page is a number somebody quotes back at you.
+
+**No auth screen is a dead end.** Sign in, sign up and the confirmation wall all carry a way
+back to the public site — somebody who cannot get past sign-in, because they have no account yet
+or are waiting on an approval, was otherwise stuck on it with the site they arrived from
+unreachable. A test asserts each of those screens keeps a way off it.
+
+**The project URL absorbs the one setup mistake worth absorbing.** The Supabase dashboard shows
+the address twice — bare in Project Settings, and as the REST endpoint on the API pages, which is
+the one on screen while somebody is copying values into Netlify. Pasting it produced a deployed
+site that refused to start. The endpoint suffixes are now trimmed; anything else still fails the
+check, with the value actually typed quoted back.
+
+### Remaining in this phase
+
+- **A contact form with nowhere to post.** Sending mail is Phase 16, so the form composes a real
+  `mailto:` from what was typed rather than silently discarding it. Replace it when there is an
+  address to post to, and change `TO` off the `.example` domain.
+- **The name.** "Spine" is still a placeholder, and the footer says so out loud — a test asserts
+  it keeps saying so, because a working name nobody labels becomes the name by default.
+- **Playwright**: that `/` differs signed in and signed out is asserted structurally here, and
+  the click-through belongs with the rest of the outstanding Playwright work.
 
 ## Phase 16 — Email and notifications
 

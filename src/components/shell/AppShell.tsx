@@ -108,8 +108,11 @@ export function AppShell({
   return (
     <div className="min-h-svh">
       <header className="app-header bg-chrome text-chrome-ink sticky top-0 z-40 flex h-12 items-center gap-4 border-b border-white/10 px-4 backdrop-blur-md">
+        {/* The wordmark is the company, not the workspace, so it goes to the
+            public site. Getting back is the project switcher beside it, which
+            carries the portfolio and every project. */}
         <Link
-          to="/"
+          to="/welcome"
           className="flex items-center gap-2.5 text-[13px] font-extrabold tracking-[0.25em] text-white"
         >
           <CrystalMark className="size-5" />

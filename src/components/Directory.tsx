@@ -258,9 +258,11 @@ export function Directory({
                 Fill with sample data
               </Button>
               <p className="text-muted-foreground max-w-md text-center text-xs">
-                Puts the prototype's demo project in — sixteen firms, twenty-five people, their
-                disciplines and appointment documents, with the same deliberate gaps. For trying
-                the application out; it only works on an empty project.
+                Fills the whole project, not just this page — sixteen firms and their people, a
+                36-line programme, the responsibility matrix, a drawing register, the checklists,
+                the fees and the risk register, all anchored to the programme and all with the
+                same deliberate gaps. For trying the application out; it only works on an empty
+                project and it takes a few seconds.
               </p>
             </>
           )}

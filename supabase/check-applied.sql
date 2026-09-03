@@ -87,7 +87,10 @@ with expected(ord, migration, kind, marker) as (values
   (69,'20260902240100_phase14_portfolio',             'function', 'portfolio_projects'),
   (70,'20260902250000_entitlements_owner_only',       'function', 'module_catalogue'),
   (71,'20260902250100_strip_legacy_module_keys',      'function', 'modules_off_count'),
-  (72,'20260902260000_theme_default_dark',           'default',  'organisations.theme=dark')
+  (72,'20260902260000_theme_default_dark',           'default',  'organisations.theme=dark'),
+  (73,'20260902260100_reference_counter_per_prefix', 'source',   'next_reference:Keyed on the prefix'),
+  (74,'20260902260200_breeam_score_is_a_percentage', 'source',   'report_metrics:round(b.score_achieved)::text'),
+  (75,'20260902270000_sample_delivery_data',         'function', 'seed_sample_compliance')
 )
 select
   e.ord::numeric as "#",

@@ -930,6 +930,27 @@ semantic hues are unchanged, with shades that follow the ground. One migration
 (`20260902260000_theme_default_dark`) moves `organisations.theme` to `'dark'`, which no screen had
 ever written.
 
+## Interlude — the sample project, and two bugs it found ✅
+
+`seed_sample_data()` used to stop after the directory and the programme, so everything from phase 5
+onward could only be looked at. It now fills every module of Kingsmead Wharf Block C: the
+responsibility matrix and the scope of service, a 53-row drawing register with packs and
+transmittals, material samples and their submission rounds, tasks, RFIs and meetings, the planning,
+building control, client, handover, highways and utilities checklists, an occurrence, a fictional
+scoring scheme, the pre-construction budget, fees, cashflow, invoices, risks, warranties and eight
+change requests covering seven of the twelve work-status states. Every dated row anchors to the
+programme; nothing is typed.
+
+Writing it against the real schema found two product bugs, each fixed in its own migration with a
+test:
+
+- `20260902260100_reference_counter_per_prefix` — `raise_issue()` keyed its counter on `issue_TSK`
+  and `realise_risk()` on `TSK`. Two counters, one prefix: realising a risk on a project that had
+  reached TSK-012 was a unique-violation, not a confusing number.
+- `20260902260200_breeam_score_is_a_percentage` — `report_metrics()` multiplied the score by 100
+  while `breeam_totals()` compared the same value straight against the rating thresholds. A project
+  on course for 74 per cent reported "7430%".
+
 ## Phase 15 — Marketing site and sign-up
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*

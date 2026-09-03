@@ -214,9 +214,13 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   that performs the act. The revision at add and at review is stamped by trigger from the
   register: the reviewer states that they reviewed it, but which revision that was is a fact
   rather than their opinion.
-- **A generated reference sequence is keyed on the prefix, not the kind.** Three issue kinds share
-  the `TSK` prefix, so keying `next_reference()` on the kind gives each its own counter and they
-  collide at `TSK-001`.
+- **A generated reference sequence is keyed on the prefix, not the kind** — and this is now what
+  the function does rather than what its callers were trusted to arrange. `raise_issue()` asked
+  for kind `issue_TSK` and `realise_risk()` for kind `TSK`, both with prefix `TSK`: two counters,
+  so a project that had reached `TSK-012` was handed `TSK-001` the first time a risk was realised,
+  which is a unique-violation and a failed button rather than a confusing number. `next_reference()`
+  keys on `p_prefix` and ignores `p_kind`, so a caller cannot get this wrong again. A test asserts
+  that two different kinds sharing a prefix share a counter.
 - Invitations are consent-based. Adding someone to a directory creates an invite; typing an email
   address grants nothing. Membership is only created when the invited person accepts from their
   own login.
@@ -254,6 +258,13 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   move. A later kind that needs to write `ext` (the utilities dates) gets its own definer function,
   never a re-grant. `sections`, `weightings`, `ratings` and `min_standards` are outside the grant
   for the same reason: they are the scoring basis, loaded by `breeam_import_apply()` alone.
+- **The BREEAM score is a percentage, and every reader must agree.** A section's score is
+  (credits achieved / credits available) × weighting, and `breeam_totals()` compares the sum
+  straight against the scheme's own rating thresholds — so a scheme whose ratings read 30/45/55/
+  70/85 must carry weightings summing to 100. Nothing rescales the score on the way to a page:
+  `report_metrics()` multiplied it by 100 and printed a project on course for 74 per cent as
+  "7430%". A scheme loaded with fractional weightings now scores near zero and reaches no rating,
+  which is visible immediately, rather than looking plausible in one place and absurd in another.
 - **A scheme is a version, and a project holds several.** `projects.breeam_scheme_id` names the
   live one; switching it switches the whole framework. The reference on a credit is
   `<issue>.<ordinal>` counted across the **project**, because two schemes may both carry `Man 01`
@@ -337,6 +348,21 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   must not be collapsed: suspended is expected back and blocks sign-in mid-session; archived is
   finished and stays readable by its members. An account may only be deleted from `archived`, and
   its `platform_audit` row is written before the cascade so the trail survives its subject.
+
+- **The sample project is one story across every module, and it is the widest test there is.**
+  `seed_sample_data()` is the one entry point, account-admin only; the per-area functions under it
+  hold no grant at all, because a caller who could invoke them directly would be seeding a project
+  they may not be an admin of. It builds Kingsmead Wharf Block C at one moment in its life and
+  every module's view of that moment, so the pages have something to disagree about. Three rules
+  hold it honest: **no date is typed** — every dated row anchors to a programme UID, so
+  re-importing the programme moves the sample data too, and a test asserts no seeded row has
+  neither an anchor nor an override; **no licensed content is shipped** — the scoring scheme is
+  fictional, says so in its own name, and a test fails the build if that stops being true; and
+  **it fills the pages, not the tables** — the assertions are that the derivations read something
+  off it, because a seed that loads cleanly and leaves every page empty is worse than no seed.
+  The deliberate wrongness (seven unallocated duties, seven overdue drawings, one drawing never
+  issued, a rejected sample, a change the regulator objected to, a rating capped by an outstanding
+  prerequisite) is the point and is commented where it is written. It found the two bugs above.
 
 ## Structural decisions the product makes that the prototype doesn't
 

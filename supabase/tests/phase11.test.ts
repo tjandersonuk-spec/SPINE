@@ -11,6 +11,8 @@
  * The scheme below is invented for the test and carries no BREEAM content:
  * three sections, four issues, and codes chosen to be obviously not BRE's.
  */
+import { readdirSync, readFileSync } from 'node:fs'
+
 import { beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import type { Client } from 'pg'
 import { asSuperuser, asUser, makePerson, refused } from './db'
@@ -152,12 +154,25 @@ beforeAll(async () => {
 beforeEach(fullHouse)
 
 describe('the scheme framework', () => {
-  test('ships empty', async () => {
-    // Nothing in the repository may seed BREEAM content. If a migration ever
-    // does, this is where it shows up.
-    const scratch = await asSuperuser((c) => c.query(
-      `select count(*)::int as n from breeam_schemes where project_id <> $1`, [w.project]))
-    expect(scratch.rows[0].n).toBe(0)
+  test('ships empty: no migration seeds licensed content', () => {
+    // The claim is about the REPOSITORY, so it is checked statically. A count
+    // of rows on other projects was a proxy that broke the moment any other
+    // suite created a scheme as a fixture -- a fixture is not a seed.
+    const seeds: string[] = []
+    for (const f of readdirSync('supabase/migrations').filter((x) => x.endsWith('.sql'))) {
+      // A seed is a top-level statement with literal rows. An import function
+      // also says "insert into breeam_issues", but inside a $$ body and from
+      // the caller's own data -- so function bodies are stripped first, and
+      // what remains is what the migration itself would put in the table.
+      const sql = readFileSync(`supabase/migrations/${f}`, 'utf8')
+        .toLowerCase()
+        .replace(/\$\$[\s\S]*?\$\$/g, '')
+      if (/insert\s+into\s+breeam_(schemes|issues)/.test(sql)
+          || /insert\s+into\s+tracked_items[^;]*'breeam'/.test(sql)) {
+        seeds.push(f)
+      }
+    }
+    expect(seeds, `migrations that seed BREEAM content: ${seeds.join(', ')}`).toEqual([])
   })
 
   test('a project holds several schemes and names the live one', async () => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
-import { ErrorNote } from '@/components/Shell'
+import { ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
 import { Code, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {

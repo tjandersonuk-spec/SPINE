@@ -31,7 +31,7 @@ export default function RequestAccount() {
   }
 
   return (
-    <main className="mx-auto flex min-h-svh w-full max-w-lg items-center p-6">
+    <div className="mx-auto w-full max-w-lg">
       <Card className="w-full">
         <form onSubmit={onSubmit}>
           <CardHeader>
@@ -69,6 +69,6 @@ export default function RequestAccount() {
           </CardFooter>
         </form>
       </Card>
-    </main>
+    </div>
   )
 }

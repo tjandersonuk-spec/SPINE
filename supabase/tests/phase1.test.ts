@@ -168,7 +168,7 @@ describe('account requests', () => {
     const org = await asUser(w.owner, async (c) =>
       (
         await c.query(
-          `select approve_account_request($1,'Typo Construction','typo','complete','{"commercial":true}') as id`,
+          `select approve_account_request($1,'Typo Construction','typo','complete','{"breeam":true}') as id`,
           [req]
         )
       ).rows[0].id
@@ -180,7 +180,7 @@ describe('account requests', () => {
     )
     expect(row.name).toBe('Typo Construction')
     expect(row.subscription_tier).toBe('complete')
-    expect(row.modules).toEqual({ commercial: true })
+    expect(row.modules).toEqual({ breeam: true })
   })
 
   test('a rejected request keeps its row and its reason', async () => {
@@ -865,7 +865,7 @@ describe('column privileges — RLS decides rows, grants decide columns', () => 
   test('an account admin cannot switch on a module they have not been given', async () => {
     await asUser(w.admin, async (c) => {
       const msg = await refused(() =>
-        c.query(`update organisations set modules = '{"commercial":true}' where id = $1`, [w.ashgrove])
+        c.query(`update organisations set modules = '{"breeam":true}' where id = $1`, [w.ashgrove])
       )
       expect(msg).toMatch(/permission denied|column/i)
     })
@@ -908,7 +908,7 @@ describe('column privileges — RLS decides rows, grants decide columns', () => 
     })
     await asUser(pa, async (c) => {
       const msg = await refused(() =>
-        c.query(`update projects set modules_override = '{"commercial":true}' where id = $1`, [
+        c.query(`update projects set modules_override = '{"breeam":true}' where id = $1`, [
           w.project,
         ])
       )
@@ -931,7 +931,7 @@ describe('column privileges — RLS decides rows, grants decide columns', () => 
 
   test('the platform owner can amend an account, and it is audited', async () => {
     await asUser(w.owner, (c) =>
-      c.query(`select update_account_as_owner($1,'Ashgrove Group',null,'complete','{"commercial":true}')`, [
+      c.query(`select update_account_as_owner($1,'Ashgrove Group',null,'complete','{"breeam":true}')`, [
         w.ashgrove,
       ])
     )
@@ -943,7 +943,7 @@ describe('column privileges — RLS decides rows, grants decide columns', () => 
     )
     expect(row.name).toBe('Ashgrove Group')
     expect(row.subscription_tier).toBe('complete')
-    expect(row.modules).toEqual({ commercial: true })
+    expect(row.modules).toEqual({ breeam: true })
 
     await asUser(w.owner, async (c) => {
       const { rows } = await c.query(

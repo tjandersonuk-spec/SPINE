@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
-import { Empty, ErrorNote } from '@/components/Shell'
+import { Empty, ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

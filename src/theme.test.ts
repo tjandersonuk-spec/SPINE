@@ -95,12 +95,15 @@ describe('no semantic colour is reachable from theming', () => {
 
 describe('every gated nav entry is a module the database knows', () => {
   const nav = readFileSync('src/components/shell/nav.ts', 'utf8')
-  const sql = readFileSync('supabase/migrations/20260902170100_phase7_theming.sql', 'utf8')
+  // module_catalogue() is the one registry; module_keys() derives from it.
+  const sql = readFileSync(
+    'supabase/migrations/20260902250000_entitlements_owner_only.sql', 'utf8')
 
-  /** The keys module_keys() returns. */
+  /** The keys the catalogue declares: the first quoted value of each row. */
   const moduleKeys = new Set(
-    (sql.slice(sql.indexOf('returns text[]'), sql.indexOf('$$;', sql.indexOf('returns text[]')))
-      .match(/'([a-z]+)'/g) ?? []).map((s) => s.replace(/'/g, '')))
+    (sql.slice(sql.indexOf('function module_catalogue'),
+               sql.indexOf('$$;', sql.indexOf('function module_catalogue')))
+      .match(/\(\s*'([a-z]+)',/g) ?? []).map((s) => s.replace(/[(\s',]/g, '')))
 
   /** Nav keys, split by whether their group is core. */
   function navKeys() {

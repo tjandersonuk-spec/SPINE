@@ -857,6 +857,67 @@ mistake the product's own schema is shaped to prevent, made in a test.
 - **Playwright**: the worst-first ordering and the membership scoping are asserted at the database
   level only.
 
+## Interlude — one shell, and entitlements as bolt-ons ✅
+
+*Not a numbered phase. Done between 14 and 15 because the sign-in and request work of Phase 1
+had left a second landing page outside the product, and because the upsell model needed the
+entitlement lever to be the platform owner's rather than the customer's.*
+
+- [x] One `AppShell` for every signed-in screen; the plain `Shell` is deleted
+- [x] Project switcher top-left, grouped by account, with Portfolio and New project (admin
+      accounts only; the insert policy is the guard, the menu is a courtesy)
+- [x] Person top-right: accounts, invitations and requests awaiting consent (badged), light or
+      dark, sign out; platform pages offered to an owner
+- [x] `/` decides: no projects → accounts page; one → straight in; several → portfolio
+- [x] `module_catalogue()` is the one registry; `module_keys()` derives from it; the nav guard
+      reads it
+- [x] `set_modules()` platform owner only, audited; `set_project_modules()` narrows only
+- [x] Owner's module editor on the platform Accounts page (at approval and afterwards); project
+      settings shows "not on this account" rather than a checkbox that always fails
+- [x] Tests: `entitlements.test.ts` — admin cannot widen at either level, owner can, off ≠
+      deleted, one registry, non-module keys refused everywhere
+
+**The gap this closed.** Phase 7's `set_modules()` accepted an account admin. In an upsell model
+that is the customer holding the price list. The account map is now the owner's alone, and the
+project override — which could previously carry a `true` and so widen past the account — only
+narrows. Both are refused by the database; `ModuleSettings` and the owner's editor merely stop
+offering what would fail.
+
+**`compliance` and `commercial` were never modules.** The approval form mapped a tier onto two
+keys that were nav group titles, and `{"commercial": true}` sat in live rows for six phases
+meaning nothing — the same class of bug CLAUDE.md already records from the Phase 1 test. The
+validator is now shared (`assert_module_keys()`) and every writer calls it, so an account cannot
+be created with an entitlement nothing reads. The approval form names modules explicitly,
+defaulting to everything on.
+
+**And the stale keys had to be cleared, not just refused.** Reported from the live owner's page:
+an account said "2 switched off" with every checkbox on the editor ticked. The editor renders the
+catalogue, so the legacy keys had no checkbox — but the count was reading raw `false` values from
+the stored map, and those two were `false`. Worse, the editor's draft was seeded from that map, so
+pressing Save sent `compliance` to `assert_module_keys()` and failed with "No module called
+compliance" — a confusing error about a key the owner never chose.
+`20260902250100_strip_legacy_module_keys.sql` clears any key outside `module_keys()` from
+`organisations.modules` and `projects.modules_override` (nothing has ever read one, and
+`module_on()` returns false for one regardless), and `modules_off_count()` counts against the
+catalogue so a key that is not a module is not a module that is off. A `true` on a project
+override is deliberately left alone: it may have been set by the platform owner, and silently
+removing a working entitlement would be a worse surprise than the one being fixed.
+
+**Entitlements stay packaging, deliberately.** Turning a module off hides its nav entry and its
+page refuses; the data is untouched because RLS never asked. Enforcing entitlements at the row
+level would break exports and reports that read across modules, and would leave gaps when a
+module was bought back. If API-level refusal is ever wanted, it is a separate decision to take
+knowingly, not a drift.
+
+### Remaining
+
+- **Tier is a label.** `subscription_tier` is recorded on the contract but nothing derives from
+  it; the modules are what is sold. Billing (Phase 16 territory) will decide whether a tier
+  should imply a default map.
+- **The logo** is not yet drawn in the sidebar outside a project; `account_branding()` carries
+  `logo_path` and the slot is there.
+- **Playwright** for the switcher, the menu and the `/` decision is still outstanding.
+
 ## Phase 15 — Marketing site and sign-up
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*

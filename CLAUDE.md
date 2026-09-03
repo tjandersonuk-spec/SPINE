@@ -74,9 +74,27 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   a value up rather than reimplementing the rule and eventually disagreeing.
 - **A module that is off is absent, not dimmed**, and its page refuses rather than rendering
   empty. Showing a locked door tells a consultant what their client has and has not paid for.
-  `src/theme.test.ts` fails the build if a gated nav key is missing from `module_keys()`.
+  `src/theme.test.ts` fails the build if a gated nav key is missing from the catalogue.
   **My work and Admin are `core` groups, never gated:** a project with no settings page and no
   change log is not a cheaper product, it is a broken one.
+- **Modules are bolt-ons, and the platform owner is the only one who sells them.**
+  `module_catalogue()` is the one registry — key, label, group — and `module_keys()` derives
+  from it. `set_modules()` is **platform owner only**: an account admin setting their own
+  account's entitlements is a customer switching on a bolt-on nobody sold them, and it is
+  refused by the function, not by a hidden checkbox. A project override (`set_project_modules()`)
+  may only **narrow**: an account admin can switch a module off for one job and clear the
+  override to put it back, but a `true` in the override is refused because it was a back door
+  round the first rule. Off deletes nothing — RLS never asked about entitlements, so buying a
+  module back shows exactly what was there. **To add a bolt-on:** one row in
+  `module_catalogue()`, a `RequireModule` around its page, a nav entry with the same key. The
+  owner's editor and project settings render from the catalogue and need no change.
+- **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
+  is the lifecycle nav, outside it is the workspace (`WORKSPACE_NAV`, all `core`). The project
+  switcher top-left is grouped by account and carries Portfolio and New project; the person
+  top-right carries their accounts, anything awaiting their consent, and sign out. `/` lands on
+  the accounts page with no projects, straight into the project with one, and on the portfolio
+  with several — a portfolio of one is a longer route to the same page. There is no second
+  landing page to find your way back from.
 - **An export contains exactly what the person exporting can already see.** Every export goes
   through the same query layer the pages use, so RLS does the filtering — a wide query narrowed
   afterwards in the browser is the easiest way in the product to leak a restricted RFI. A section

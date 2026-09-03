@@ -16,6 +16,34 @@ export type NavItem = { key: string; label: string; to: string | null }
  *  is not a cheaper product, it is a broken one. */
 export type NavGroup = { title: string; pinned?: boolean; core?: boolean; items: NavItem[] }
 
+/**
+ * The sidebar outside a project: the person's own workspace. Core, always --
+ * these are not modules a tenant buys, and a shell with no way back to your
+ * projects is not a cheaper product, it is a broken one. The platform group
+ * is offered by the shell only to a platform owner; is_platform_owner() in
+ * every policy is the real guard.
+ */
+export const WORKSPACE_NAV: NavGroup[] = [
+  {
+    title: 'Workspace',
+    pinned: true,
+    core: true,
+    items: [
+      { key: 'portfolio', label: 'Portfolio', to: '/portfolio' },
+      { key: 'accounts', label: 'My accounts', to: '/accounts' },
+      { key: 'me', label: 'Your details', to: '/me' },
+    ],
+  },
+  {
+    title: 'Platform',
+    core: true,
+    items: [
+      { key: 'platformaccounts', label: 'Accounts', to: '/platform/accounts' },
+      { key: 'platformpeople', label: 'People', to: '/platform/people' },
+    ],
+  },
+]
+
 export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'My work',

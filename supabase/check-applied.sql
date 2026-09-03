@@ -84,7 +84,9 @@ with expected(ord, migration, kind, marker) as (values
   (66,'20260902230200_phase13_report_page2',          'function', 'report_attention'),
   (67,'20260902230300_phase13_report_page3',          'function', 'report_activity'),
   (68,'20260902240000_phase14_snapshots',             'table',    'snapshots'),
-  (69,'20260902240100_phase14_portfolio',             'function', 'portfolio_projects')
+  (69,'20260902240100_phase14_portfolio',             'function', 'portfolio_projects'),
+  (70,'20260902250000_entitlements_owner_only',       'function', 'module_catalogue'),
+  (71,'20260902250100_strip_legacy_module_keys',      'function', 'modules_off_count')
 )
 select
   e.ord::numeric as "#",

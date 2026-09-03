@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 
-import { ErrorNote, Shell } from '@/components/Shell'
+import { ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { changeMyEmail, fetchMyProfile, updateMyProfile, type MyProfile } from '@/lib/queries'
+import { PageHead } from '@/components/ui/panel'
 
 export default function Profile() {
   const [me, setMe] = useState<MyProfile | null>(null)
@@ -36,7 +37,8 @@ export default function Profile() {
   }
 
   return (
-    <Shell title="Your details" back={{ to: '/', label: 'Home' }}>
+    <>
+      <PageHead title="Your details" />
       <ErrorNote message={error} />
       {saved && <p className="text-sm text-green-700 dark:text-green-500">{saved}</p>}
 
@@ -87,6 +89,6 @@ export default function Profile() {
           </Button>
         </form>
       </section>
-    </Shell>
+    </>
   )
 }

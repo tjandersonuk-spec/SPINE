@@ -3,14 +3,13 @@ import { Link } from 'react-router'
 
 import { MembershipRequests } from '@/components/MembershipRequests'
 import { PendingInvitations } from '@/components/PendingInvitations'
-import { Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
+import { PageHead } from '@/components/ui/panel'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   fetchMyAccountRequests, fetchMyAccounts, fetchMyInvitations, fetchMyMembershipRequests,
-  fetchMyProjects, isPlatformOwner,
-  type Account, type AccountRequest, type MembershipRequest, type PendingInvitation,
+  fetchMyProjects,   type Account, type AccountRequest, type MembershipRequest, type PendingInvitation,
   type ProjectRow,
 } from '@/lib/queries'
 
@@ -22,13 +21,12 @@ import {
  * This is the only screen that spans accounts, and it spans only this person's
  * own memberships.
  */
-export default function Landing() {
+export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [requests, setRequests] = useState<AccountRequest[]>([])
   const [invitations, setInvitations] = useState<PendingInvitation[]>([])
   const [memberRequests, setMemberRequests] = useState<MembershipRequest[]>([])
-  const [owner, setOwner] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -37,15 +35,13 @@ export default function Landing() {
       fetchMyAccounts(),
       fetchMyProjects(),
       fetchMyAccountRequests(),
-      isPlatformOwner(),
       fetchMyInvitations(),
       fetchMyMembershipRequests(),
     ])
-      .then(([a, p, r, o, i, m]) => {
+      .then(([a, p, r, i, m]) => {
         setAccounts(a)
         setProjects(p)
         setRequests(r)
-        setOwner(o)
         setInvitations(i)
         setMemberRequests(m)
       })
@@ -58,38 +54,18 @@ export default function Landing() {
   const pending = requests.find((r) => r.status === 'pending')
 
   return (
-    <Shell title="Spine">
+    <>
+      <PageHead
+        eyebrow="Workspace"
+        title="My accounts"
+        meta="What you belong to, and anything waiting for your answer."
+      />
       {error && <p className="text-destructive text-sm">{error}</p>}
-
-      {/* Shown only to a platform owner. is_platform_owner() is the real guard;
-          this just keeps the nav honest for everyone else. */}
-      {owner && (
-        <div className="flex gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link to="/platform/accounts">Accounts</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/platform/people">People</Link>
-          </Button>
-        </div>
-      )}
 
       <PendingInvitations invitations={invitations} onChange={load} />
       <MembershipRequests requests={memberRequests} onChange={load} />
 
-      {/* The view above a single project. Offered once there is more than one
-          to be above — on a single job the project's own dashboard says
-          everything this would, and a portfolio of one is a longer route to
-          the same page. */}
-      {projects.length > 1 && (
-        <div>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/portfolio">Portfolio — all {projects.length} projects</Link>
-          </Button>
-        </div>
-      )}
-
-      <Tabs defaultValue="projects">
+      <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="accounts">My accounts</TabsTrigger>
@@ -194,6 +170,6 @@ export default function Landing() {
           ))}
         </TabsContent>
       </Tabs>
-    </Shell>
+    </>
   )
 }

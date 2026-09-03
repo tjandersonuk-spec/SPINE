@@ -890,6 +890,19 @@ validator is now shared (`assert_module_keys()`) and every writer calls it, so a
 be created with an entitlement nothing reads. The approval form names modules explicitly,
 defaulting to everything on.
 
+**And the stale keys had to be cleared, not just refused.** Reported from the live owner's page:
+an account said "2 switched off" with every checkbox on the editor ticked. The editor renders the
+catalogue, so the legacy keys had no checkbox — but the count was reading raw `false` values from
+the stored map, and those two were `false`. Worse, the editor's draft was seeded from that map, so
+pressing Save sent `compliance` to `assert_module_keys()` and failed with "No module called
+compliance" — a confusing error about a key the owner never chose.
+`20260902250100_strip_legacy_module_keys.sql` clears any key outside `module_keys()` from
+`organisations.modules` and `projects.modules_override` (nothing has ever read one, and
+`module_on()` returns false for one regardless), and `modules_off_count()` counts against the
+catalogue so a key that is not a module is not a module that is off. A `true` on a project
+override is deliberately left alone: it may have been set by the platform owner, and silently
+removing a working entitlement would be a worse surprise than the one being fixed.
+
 **Entitlements stay packaging, deliberately.** Turning a module off hides its nav entry and its
 page refuses; the data is untouched because RLS never asked. Enforcing entitlements at the row
 level would break exports and reports that read across modules, and would leave gaps when a

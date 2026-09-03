@@ -75,6 +75,76 @@ describe('one registry', () => {
   })
 })
 
+describe('a key that is not a module is not a module that is off', () => {
+  test('the legacy tier keys are stripped from live rows', async () => {
+    // The approval form used to write {compliance, commercial} -- nav group
+    // titles, never modules. Nothing ever read them, but the owner's account
+    // card counted their `false` values, so a core-tier account reported
+    // "2 switched off" with every checkbox on the editor ticked.
+    const legacy = await asSuperuser(async (c: Client) => {
+      const org = (await c.query(
+        `insert into organisations (name, slug, status, modules)
+         values ('Legacy','ent-legacy','active','{"compliance":false,"commercial":false}'::jsonb)
+         returning id`)).rows[0].id
+      const proj = (await c.query(
+        `insert into projects (organisation_id, name, code, modules_override)
+         values ($1,'Old','OLD1','{"compliance":false,"breeam":false}'::jsonb)
+         returning id`, [org])).rows[0].id
+      // Re-run the cleanup exactly as the migration does.
+      await c.query(`
+        update organisations o
+           set modules = coalesce((
+                 select jsonb_object_agg(k.key, o.modules -> k.key)
+                 from jsonb_object_keys(o.modules) as k(key)
+                 where k.key = any(module_keys())), '{}'::jsonb)
+         where o.id = $1
+           and exists (select 1 from jsonb_object_keys(o.modules) as k(key)
+                       where not (k.key = any(module_keys())))`, [org])
+      await c.query(`
+        update projects p
+           set modules_override = (
+                 select case when count(*) = 0 then null
+                             else jsonb_object_agg(k.key, p.modules_override -> k.key) end
+                 from jsonb_object_keys(p.modules_override) as k(key)
+                 where k.key = any(module_keys()))
+         where p.id = $1
+           and exists (select 1 from jsonb_object_keys(p.modules_override) as k(key)
+                       where not (k.key = any(module_keys())))`, [proj])
+      return { org, proj }
+    })
+
+    const o = await one<{ modules: Record<string, boolean> }>(w.owner,
+      'select modules from organisations where id = $1', [legacy.org])
+    // Nothing meaningful was lost: an empty map is the complete product, which
+    // is what a tier map of meaningless keys always described.
+    expect(o.modules).toEqual({})
+
+    // Read as superuser: the platform owner deliberately cannot see project
+    // rows, and this is an assertion about the data's shape rather than about
+    // who may look at it.
+    const p = await asSuperuser((c: Client) => c.query(
+      'select modules_override from projects where id = $1', [legacy.proj])
+      .then((r) => r.rows[0] as { modules_override: Record<string, boolean> }))
+    // The real key survives; the junk beside it does not.
+    expect(p.modules_override).toEqual({ breeam: false })
+  })
+
+  test('the off count is against the catalogue, not the stored values', async () => {
+    // What the owner's account card reads. A legacy key counts for nothing
+    // because it is not a module.
+    const r = await one<{ legacy: number; real: number; mixed: number; empty: number }>(w.owner, `
+      select modules_off_count('{"compliance":false,"commercial":false}'::jsonb) as legacy,
+             modules_off_count('{"breeam":false,"fees":false}'::jsonb) as real,
+             modules_off_count('{"compliance":false,"breeam":false}'::jsonb) as mixed,
+             modules_off_count('{}'::jsonb) as empty`)
+    expect([Number(r.legacy), Number(r.real), Number(r.mixed), Number(r.empty)])
+      .toEqual([0, 2, 1, 0])
+    // A module explicitly ON is not off either.
+    expect(Number((await one<{ n: number }>(w.owner,
+      `select modules_off_count('{"breeam":true}'::jsonb) as n`)).n)).toBe(0)
+  })
+})
+
 describe('the account map is the platform owner’s to sell', () => {
   test('an account admin cannot widen their own entitlements', async () => {
     // Not by the function, which is the path that would look legitimate...

@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
-
 import { Code } from '@/components/ui/table'
-import { fetchModuleCatalogue, type ModuleEntry } from '@/lib/queries'
+import type { ModuleEntry } from '@/lib/queries'
 
 /**
  * The platform owner's entitlement editor: which modules an account has been
@@ -14,14 +12,16 @@ import { fetchModuleCatalogue, type ModuleEntry } from '@/lib/queries'
  * say about it.
  */
 export function ModuleEditor({
-  value, onChange, disabled,
+  catalogue, value, onChange, disabled,
 }: {
+  /** The registry, fetched once by the page. Every module the product sells is
+   *  here and nothing else is: a key outside it is not a module that is off,
+   *  it is not a module. */
+  catalogue: ModuleEntry[]
   value: Record<string, boolean>
   onChange: (next: Record<string, boolean>) => void
   disabled?: boolean
 }) {
-  const [catalogue, setCatalogue] = useState<ModuleEntry[]>([])
-  useEffect(() => { fetchModuleCatalogue().then(setCatalogue).catch(() => setCatalogue([])) }, [])
   const groups = [...new Set(catalogue.map((m) => m.group))]
   const isOn = (k: string) => value[k] !== false
 

@@ -204,7 +204,29 @@ except the derived views.
 (Full detail: handover notes §1a.)
 
 - One `tracked_items` table with a `kind` column, not five separate tables, for planning
-  conditions, building control, scope-of-service lines, and the six checklists.
+  conditions, building control, scope-of-service lines, BREEAM credits and the checklists.
+  `tracked_kinds()` names every kind once, so a typo is an error rather than a row nothing reads.
+  **`required = false` is the strike-out**: it drops the row from every denominator and renders it
+  struck through, but the row survives — deleting it loses the decision that it was not needed,
+  which is precisely what gets asked about later. A template row can only be struck out; a row
+  added on the project (`custom = true`) may be deleted, because nothing was decided by removing
+  something typed by mistake.
+- **`ext` is typed by constraint, not by convention.** A check constraint names the permitted keys
+  per kind — the utilities sequence, BREEAM's credits — so the escape hatch cannot become a junk
+  drawer. If a kind's `ext` grows past six or seven keys it has earned a side table.
+- **Pre-assignment refuses to guess.** `sole_holder()` sets the owner from a template's discipline
+  only where exactly one company holds it. Two holders means blank: a wrong default gets accepted
+  silently where a blank gets asked about.
+- **A scope template is a named row, never one flat list.** This shipped broken once — a
+  discipline-tagged row added to the single template, with the apply flow not filtering, so
+  applying "standard scope" gave a mechanical engineer architectural production-information
+  duties. Dedup on `(company, template, reference)` and never on reference alone: two templates
+  are free to reuse numbering internally. An applied row stores the template's name **as it was**,
+  so renaming later does not rewrite history on an appointment that already has its items.
+- **A response carries its provenance.** `response_source` distinguishes a machine suggestion from
+  a person's answer, and accepting one is a deliberate act recorded as theirs. The columns are
+  outside the update grant and written only by `set_response()` and `accept_response()` — a
+  suggestion silently promoted to an answer would stop the checklist meaning anything.
 - One `visibility` primitive and one `can_see()` function, not four different visibility rules.
 - `organisations` (accounts) sit above `projects`; `organisation_members` links person × account
   × role × company and `project_members` links person × project × project role; a person can hold

@@ -31,9 +31,9 @@ export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'Pre-construction',
     items: [
-      { key: 'preassessment', label: 'Pre-assessment', to: null },
+      { key: 'preassessment', label: 'Pre-assessment', to: 'preassessment' },
       { key: 'precon', label: 'Fee budget', to: null },
-      { key: 'client', label: 'Client requirements', to: null },
+      { key: 'client', label: 'Client requirements', to: 'client' },
     ],
   },
   {
@@ -41,7 +41,7 @@ export const PROJECT_NAV: NavGroup[] = [
     items: [
       { key: 'directory', label: 'Directory', to: 'directory' },
       { key: 'drm', label: 'Responsibility matrix', to: 'matrix' },
-      { key: 'scope', label: 'Scope of service', to: null },
+      { key: 'scope', label: 'Scope of service', to: 'scope' },
       { key: 'bep', label: 'BEP', to: 'bep' },
       { key: 'programme', label: 'Programme', to: 'programme' },
     ],
@@ -58,12 +58,12 @@ export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'Compliance',
     items: [
-      { key: 'planning', label: 'Planning conditions', to: null },
-      { key: 'bc', label: 'Building control', to: null },
+      { key: 'planning', label: 'Planning conditions', to: 'planning' },
+      { key: 'bc', label: 'Building control', to: 'bc' },
       { key: 'bsa', label: 'Building safety', to: null },
       { key: 'breeam', label: 'BREEAM', to: null },
-      { key: 'highways', label: 'Highways', to: null },
-      { key: 'utilities', label: 'Utilities', to: null },
+      { key: 'highways', label: 'Highways', to: 'highways' },
+      { key: 'utilities', label: 'Utilities', to: 'utilities' },
     ],
   },
   {
@@ -76,7 +76,7 @@ export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'Handover',
     items: [
-      { key: 'handover', label: 'Handover checklist', to: null },
+      { key: 'handover', label: 'Handover checklist', to: 'handover' },
       { key: 'gateways', label: 'Gateways', to: null },
       { key: 'warranties', label: 'Warranties', to: null },
     ],

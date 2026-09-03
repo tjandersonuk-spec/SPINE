@@ -56,7 +56,11 @@ with expected(ord, migration, kind, marker) as (values
   -- is checked by looking inside one of them. A marker naming an object an
   -- EARLIER migration created would read true whether or not this one ran.
   (40,'20260902170200_phase7_modules_default_on',     'source',   'module_on:module_keys'),
-  (41,'20260902180000_phase8_dashboard',              'function', 'my_company_tree')
+  (41,'20260902180000_phase8_dashboard',              'function', 'my_company_tree'),
+  (42,'20260902190000_phase9_tracked_items',          'table',    'tracked_items'),
+  (43,'20260902190100_phase9_templates',              'table',    'checklist_templates'),
+  (44,'20260902190200_phase9_functions',              'function', 'load_checklist'),
+  (45,'20260902190300_phase9_rls',                    'policy',   'tracked_items_select')
 )
 select
   e.ord::numeric as "#",

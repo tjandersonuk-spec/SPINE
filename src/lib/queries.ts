@@ -1918,3 +1918,160 @@ export async function fetchGoneQuiet(projectId: string, weeks = 3) {
   if (error) throw error
   return (data ?? []) as QuietRow[]
 }
+
+/* ------------------------------------------------------ tracked items */
+
+export type TrackedItem = {
+  id: string
+  kind: string
+  reference: string
+  heading: string | null
+  title: string
+  prompt: string | null
+  discipline: string | null
+  required: boolean
+  status: string
+  response: string | null
+  response_source: 'person' | 'suggested'
+  response_by: string | null
+  response_at: string | null
+  company_id: string | null
+  company_name: string | null
+  person_id: string | null
+  programme_task_uid: string | null
+  offset_days: number
+  anchor: 'start' | 'finish'
+  due_date_override: string | null
+  custom: boolean
+  template_name: string | null
+  ext: Record<string, unknown>
+  due: string | null
+  anchor_state: string
+  holders: number
+  is_done: boolean
+  overdue: boolean
+  awaiting_acceptance: boolean
+}
+
+export type TrackedProgress = {
+  kind: string; total: number; done: number; overdue: number; struck_out: number
+}
+
+/** The statuses each kind uses. One engine, but a planning condition is not
+ *  discharged the way a checklist item is complete. */
+export const TRACKED_STATUSES: Record<string, string[]> = {
+  planning: ['Not started', 'In progress', 'Submitted', 'Discharged', 'Not required'],
+  bc: ['Not started', 'In progress', 'Submitted', 'Approved',
+       'Approved with conditions', 'Not required'],
+  scope: ['Not started', 'In progress', 'Complete', 'Not required'],
+  breeam: ['Not started', 'Targeted', 'Evidence submitted', 'Complete', 'Not required'],
+  default: ['Not started', 'In progress', 'Complete', 'Not required'],
+}
+
+export const TRACKED_LABELS: Record<string, string> = {
+  planning: 'Planning conditions',
+  bc: 'Building control',
+  scope: 'Scope of service',
+  breeam: 'BREEAM',
+  'checklist:precon': 'Pre-construction pre-assessment',
+  'checklist:client': 'Client requirements',
+  'checklist:handover': 'Handover',
+  'checklist:highways': 'Highways',
+  'checklist:utilities': 'Utilities',
+}
+
+export const CHECKLIST_TYPES = [
+  'precon', 'client', 'handover', 'highways', 'utilities',
+] as const
+
+export async function fetchTrackedItems(projectId: string, kind: string) {
+  const { data, error } = await supabase
+    .from('v_tracked_items')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('kind', kind)
+    .order('reference')
+  if (error) throw error
+  return (data ?? []) as unknown as TrackedItem[]
+}
+
+export async function fetchTrackedProgress(projectId: string) {
+  const { data, error } = await supabase.rpc('tracked_progress', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as TrackedProgress[]
+}
+
+export async function loadChecklist(projectId: string, type: string) {
+  const { data, error } = await supabase.rpc('load_checklist', {
+    p_project: projectId, p_type: type,
+  })
+  if (error) throw error
+  return data as { ok: boolean; added: number; pre_assigned: number }
+}
+
+/** Write an answer. A machine suggestion passes 'suggested' so it stays visibly
+ *  distinguishable from something a person wrote. */
+export async function setResponse(
+  itemId: string, response: string, source: 'person' | 'suggested' = 'person',
+) {
+  const { error } = await supabase.rpc('set_response', {
+    p_item: itemId, p_response: response, p_source: source,
+  })
+  if (error) throw error
+}
+
+export async function acceptResponse(itemId: string) {
+  const { error } = await supabase.rpc('accept_response', { p_item: itemId })
+  if (error) throw error
+}
+
+export async function updateTrackedItem(id: string, patch: {
+  status?: string; required?: boolean; company_id?: string | null
+  person_id?: string | null; discipline?: string | null
+  programme_task_uid?: string | null; offset_days?: number
+  anchor?: 'start' | 'finish'; due_date_override?: string | null
+  ext?: Record<string, unknown>; title?: string; heading?: string | null
+}) {
+  const { error } = await supabase.from('tracked_items').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function addTrackedItem(projectId: string, row: {
+  kind: string; reference: string; heading: string | null; title: string
+  discipline: string | null
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('tracked_items').insert({
+    project_id: projectId, ...row, custom: true, created_by: me.user?.id,
+  })
+  if (error) throw error
+}
+
+/** Only a row added on the project. A template row is struck out instead, so
+ *  the decision that it was not needed survives. */
+export async function deleteTrackedItem(id: string) {
+  const { error } = await supabase.from('tracked_items').delete().eq('id', id)
+  if (error) throw error
+}
+
+export type ScopeTemplate = {
+  id: string; name: string; discipline: string | null; is_core: boolean
+}
+
+export async function fetchSuggestedScopeTemplates(projectId: string, companyId: string) {
+  const { data, error } = await supabase.rpc('suggested_scope_templates', {
+    p_project: projectId, p_company: companyId,
+  })
+  if (error) throw error
+  return (data ?? []) as ScopeTemplate[]
+}
+
+export async function applyScopeTemplates(
+  projectId: string, companyId: string, templateIds: string[],
+) {
+  const { data, error } = await supabase.rpc('apply_scope_templates', {
+    p_project: projectId, p_company: companyId, p_template_ids: templateIds,
+  })
+  if (error) throw error
+  return data as { ok: boolean; added: number }
+}

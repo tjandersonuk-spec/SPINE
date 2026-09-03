@@ -195,6 +195,46 @@ except the derived views.
   live one; switching it switches the whole framework. The reference on a credit is
   `<issue>.<ordinal>` counted across the **project**, because two schemes may both carry `Man 01`
   and `tracked_items` is unique on `(project, kind, reference)`.
+- **The admin override is the ADMIN override.** `can_see()` grants past the mode for an account
+  **admin** or that project's own admin, and for nobody else. It once granted for all account
+  staff, which handed every `internal` member every `named` record on the project — a costed risk
+  is a commercial position long before it is a shared one. `internal` mode keeps its own branch,
+  because host-staff-only *is* that mode's definition. A mode no branch understands is **closed**,
+  not everyone: `visibility_is_valid()` refuses one at write time and `can_see()` refuses it again.
+- **There are exactly two deliberate exceptions to the discipline rule.** A **fee** belongs to a
+  company, because an appointment is a contract with a firm and the money under it is owed to that
+  firm whatever disciplines it holds. A **risk owner is a person** (`profiles`, so `can_see()` can
+  compare them against `auth.uid()`), because a live risk is somebody personally chasing something
+  down and a risk owned by "structures" is a risk nobody is holding. Both are commented at the
+  column. Do not "fix" either for consistency, and do not add a third.
+- **Proposed and approved are never one figure.** `fee_position()` carries them in separate
+  columns and the only total that calls itself a total is the approved one — a fee report that
+  mixes them looks overspent and stops being believed. Two silent checks are views because
+  neither announces itself: an instalment past due with nothing claimed against it, and a schedule
+  total that differs from the approved fee. **A proposed instalment still counts in the planned
+  cashflow** (it is the consultant's stated expectation, and omitting it makes the curve
+  optimistic), with the agreed subtotal carried separately.
+- **Nothing about risk exposure is stored.** Likelihood maps to a fixed percentage; the impact band
+  is **derived from the cost, never chosen** — which removes the commonest argument in a risk
+  workshop; expected value is cost × likelihood and is zero once an item is finished. Every summary
+  shows expected value. `gross` is returned only so a page can label it as what everything would
+  cost if it all happened, and never as exposure. **A realised risk becomes one task** through
+  `realise_risk()`, which is idempotent and is the only way `status = 'Realised'` is reachable.
+- **Approval is not implementation, and no trigger anywhere acts on approval** — a test reads
+  `pg_trigger` and fails if one appears, because an automatic edit is a second source of truth
+  arriving with nobody reading it. `set_change_status()` refuses `Implemented` while an amendment
+  is outstanding and refuses it outright when nothing was listed; un-ticking knocks the status
+  back. A decision date after the effective date is **reported, never blocked**. `variation_id`
+  must reference a variation, not a base fee, and the register never gains a value column.
+- **A decided material submission round is frozen and undeletable.** A correction is a new round,
+  which is what keeps "was this rejected before?" answerable after a later approval. Deciding is
+  `can_decide_material()` — the design manager, refused by the database rather than by a hidden
+  button, and `internal` is not it.
+- **The pre-construction budget is account staff only, and that excludes a project admin** — who
+  may be the firm that quoted — and the `client` role. `can_see_precon()` is deliberately not
+  `can_write_project_setup()`. **An export whose module filters rows rather than refusing the
+  query needs its own visibility question**: `[]` would read as "there is none of that".
+  `ModuleExport.visible` is that question.
 - **RLS decides rows; GRANTs decide columns.** A policy that lets someone edit a row lets them
   edit *every column of it*, because Supabase grants `authenticated` update on all columns by
   default. Any column that a role may see but must not write — `organisations.modules`,

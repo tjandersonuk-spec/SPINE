@@ -590,28 +590,117 @@ rather than a missing choice.
 - **Playwright**: the tab no-op, the empty-input refusals and the consultant's read-only view are
   asserted at the database and unit level; the click-through waits on the shared harness.
 
-## Phase 12 — Commercial tier
+## Phase 12 — Commercial tier ✅
 
 *Reference: handover fees, pre-construction, risk, change requests, warranties, materials sections. Open prototype at each.*
 
-- [ ] Fees and cashflow: fees + variations per company; negotiated payment schedule
+- [x] Fees and cashflow: fees + variations per company; negotiated payment schedule
       (proposed/agreed, who/when), instalments programme-anchored; invoices mapped to instalments;
       cashflow curve derived; evidence + discussion on every fee/instalment/invoice
-- [ ] Pre-construction budget: host-only (including from the quoting consultant); budget lines by
+- [x] Pre-construction budget: host-only (including from the quoting consultant); budget lines by
       discipline/survey; quotes with named adjustments; preferred quote; one outward link (fee
       names its source budget lines)
-- [ ] Risk and opportunity: owned by a person (the one deliberate discipline exception); visibility
+- [x] Risk and opportunity: owned by a person (the one deliberate discipline exception); visibility
       closed by default (raiser, owner, named people, admin override); impact band derived from
       cost; expected value (never gross total) in summaries; realised risk becomes a task; template
       library loads with no owner/date
-- [ ] Change requests: party-to-party, any direction; hold no money (link to a variation instead);
+- [x] Change requests: party-to-party, any direction; hold no money (link to a variation instead);
       approval ≠ implementation — approved request lists amendments, stays open until each ticked
       off by name; approved-with-nothing-listed is flagged
-- [ ] Warranties: linked to DRM reference, never a company; owner resolved live through DRM lead —
+- [x] Warranties: linked to DRM reference, never a company; owner resolved live through DRM lead —
       no `company_id` column
-- [ ] Material samples: every submission round is a row; a rejection stays on record after a later
+- [x] Material samples: every submission round is a row; a rejection stays on record after a later
       approval; decisions restricted to design manager
-- [ ] Tests: port `changereq.js`, `newmodules.js`, and the risk sections of `bsa.js`
+- [x] Tests: port `changereq.js`, `newmodules.js`, and the risk sections of `bsa.js`
+
+**A bug in the Phase 6 visibility primitive, found by the risk register's own test.** `can_see()`
+returned true for all account **staff** — admin and internal together — before it looked at the
+mode at all. For `internal` mode that is the mode's definition and is right; for `named` mode it
+handed every internal member of the contractor every restricted record on the project. The notes
+say the risk override "names `admin` only, not `internal`", and CLAUDE.md says the same. The
+override is now an account admin or that project's own admin, `internal` mode keeps its own
+branch, and an unknown mode is **closed** rather than falling through to everyone. Six phases of
+tests passed either way, which is why it survived: nothing had asserted it. Six tests now do.
+
+**Two deliberate exceptions to the discipline rule, and they are the only two.** A **fee** belongs
+to a company, because an appointment is a contract with a firm. A **risk owner is a person**,
+because a live risk is somebody personally chasing something down and a risk owned by "structures"
+is a risk nobody is holding. Both are commented at the column. Everything else still assigns to a
+discipline.
+
+**Proposed and approved are never one figure.** `fee_position()` returns them in separate columns
+and the only total called a total is the approved one. `schedule_gap` is the second silent check —
+a schedule that does not add up to the approved fee, almost always an approved variation nobody
+added to the schedule — and `due_uninvoiced` is the first.
+
+**A proposed instalment still counts in the planned cashflow.** It is the consultant's stated
+expectation, and leaving it out makes the curve optimistic; the agreed subtotal is carried
+separately so the optimism is visible rather than assumed. No instalment date is stored anywhere,
+so re-importing a programme revision redraws the whole curve with no writes — there is a test that
+moves a programme line and reads the new date back.
+
+**Nothing about risk exposure is stored.** The likelihood percentage, the impact band (derived from
+the cost, never chosen), the score and the expected value are all computed; a finished item's
+expected value is zero because it is no longer exposure. `risk_totals()` returns `gross` as well,
+but only so a page can label it as what it is — what everything would cost if it all happened —
+and never as exposure.
+
+**A realised risk becomes one task.** `realise_risk()` writes one `issues` row with the risk's
+audience copied across and a priority derived from the score, then points the risk at it. It is
+idempotent, because two people pressing the button must not produce two tasks for one risk, and the
+constraint refuses `status = 'Realised'` with no task behind it.
+
+**Warranties have no `company_id` and there is a test that says so.** It reads
+`information_schema` and fails if the column ever appears. Ownership resolves live through
+`drm_items.lead_discipline`; reassigning the matrix reassigns every warranty under it with no write
+here, and two holders of the lead discipline surface as two rather than being resolved by picking
+one. Nobody holding it is the same hi-vis gap the matrix shows.
+
+**A decided submission round is frozen by trigger and undeletable by grant.** A correction is a new
+round. That is what makes "was this rejected before?" answerable after a later approval — the trail
+is just what the table already is. Deciding is `can_decide_material()`, the same shape as the BSA
+classification guard: refused by the database, not by a hidden button, and `internal` is not the
+design manager either.
+
+**Approval is not implementation, and there is no trigger anywhere that acts on approval.** A test
+reads `pg_trigger` and fails if one appears. `set_change_status()` refuses `Implemented` while any
+amendment is outstanding and refuses it outright when nothing was ever listed; un-ticking an item
+knocks the status back from `Implemented` to `Approved`. A decision due after the effective date is
+**reported, never blocked** — sometimes that is genuinely the situation, and refusing the save would
+only mean the dates get fudged into something that reads as fine.
+
+**`change_requests.variation_id` finally exists**, and a check constraint refuses a base fee:
+pointing at one would put a whole appointment on a single change request. The register still holds
+no value column and never will.
+
+**The pre-construction budget is host staff only, and that deliberately excludes a project admin** —
+who may be the very firm that quoted. It also excludes the `client` role: what the contractor
+forecast for its own consultants is not the client's business.
+
+**One export needed its own visibility question.** RLS *filters rows* rather than refusing a query,
+so a consultant exporting the pre-construction budget would have got `[]` — which reads as "there
+is no budget", the exact false claim CLAUDE.md forbids. `ModuleExport.visible` asks
+`can_see_precon()` first and marks the section withheld instead.
+
+**Four tables gained anchor columns, so `programme_dependents()` gained four branches** — each
+filtered by its own module's audience, so a consultant clicking a programme line cannot learn that
+a rival has an instalment against it. One replacement of the function rather than four; the Phase 4
+guard is what actually enforces completeness.
+
+### Remaining in this phase
+
+- **`ext` on `tracked_items` left the update grant in Phase 11**, so when the utilities dates get a
+  UI they need a `set_utilities_dates()` definer function, not a re-grant.
+- **Evidence and comment threads** on fees, instalments and invoices attach through the Phase 6
+  polymorphic tables and the `has_document` flag reads them, but the pages do not yet let you add
+  one. Same gap as `TrackedList` and the BREEAM tracker; fix all three together.
+- **The published risk and warranty libraries ship empty.** The loaders, the fork-on-creation
+  pattern and the skip-on-title-match are all tested; the default rows are content, and the
+  prototype's twenty-odd risks and sixteen warranties should be entered by whoever owns them.
+- **`payment-schedule-template.csv`** is the third route into a schedule (type, upload, agree). Type
+  and agree are built; the CSV upload reuses the Phase 11 import shape and follows.
+- **Playwright** for the click-through: the tab no-op, the empty-input refusals and every
+  permission boundary are asserted at the database level, but not yet through a browser.
 
 ## Phase 13 — Reports
 

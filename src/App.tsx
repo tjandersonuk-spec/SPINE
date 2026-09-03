@@ -12,7 +12,13 @@ import PlatformPeople from '@/pages/platform/People'
 import AccessPage from '@/pages/project/AccessPage'
 import BepPage from '@/pages/project/BepPage'
 import BreeamPage from '@/pages/project/BreeamPage'
+import ChangeRequestsPage from '@/pages/project/ChangeRequestsPage'
 import BuildingSafetyPage from '@/pages/project/BuildingSafetyPage'
+import FeesPage from '@/pages/project/FeesPage'
+import MaterialsPage from '@/pages/project/MaterialsPage'
+import PreconPage from '@/pages/project/PreconPage'
+import RiskPage from '@/pages/project/RiskPage'
+import WarrantiesPage from '@/pages/project/WarrantiesPage'
 import ChangeLogPage from '@/pages/project/ChangeLogPage'
 import ExportsPage from '@/pages/project/ExportsPage'
 import HomePage from '@/pages/project/HomePage'
@@ -83,6 +89,12 @@ export default function App() {
           <Route path="bc" element={<TrackedPage kind="bc" />} />
           <Route path="bsa" element={<BuildingSafetyPage />} />
           <Route path="breeam" element={<BreeamPage />} />
+          <Route path="fees" element={<FeesPage />} />
+          <Route path="precon" element={<PreconPage />} />
+          <Route path="risk" element={<RiskPage />} />
+          <Route path="changes-requests" element={<ChangeRequestsPage />} />
+          <Route path="warranties" element={<WarrantiesPage />} />
+          <Route path="materials" element={<MaterialsPage />} />
           <Route path="scope" element={<TrackedPage kind="scope" />} />
           <Route path="preassessment" element={<TrackedPage kind="checklist:precon" />} />
           <Route path="client" element={<TrackedPage kind="checklist:client" />} />

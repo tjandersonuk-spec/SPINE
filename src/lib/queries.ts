@@ -2113,6 +2113,14 @@ export type ChangeRequest = {
   amendments: number
   amendments_outstanding: number
   raised_at: string
+  /** Phase 12: the money lives on the variation, never here. */
+  variation_id: string | null
+  variation_reference: string | null
+  variation_value: number | null
+  variation_status: string | null
+  approved_without_a_variation: boolean
+  /** Reported, never blocked: sometimes that is genuinely the situation. */
+  decision_after_effective: boolean
 }
 
 export type Occurrence = {
@@ -2133,7 +2141,10 @@ export async function fetchChangeRequests(projectId: string) {
     .eq('project_id', projectId)
     .order('raised_at', { ascending: false })
   if (error) throw error
-  return (data ?? []) as unknown as ChangeRequest[]
+  return ((data ?? []) as unknown as ChangeRequest[]).map((r) => ({
+    ...r,
+    variation_value: r.variation_value === null ? null : Number(r.variation_value),
+  }))
 }
 
 /** Whether the caller holds the statutory duty. The database refuses the act
@@ -2431,4 +2442,655 @@ export async function breeamImportApply(
   })
   if (error) throw error
   return (data as BreeamImportResult[])[0]
+}
+
+/* --------------------------------------------------- the commercial tier */
+
+/**
+ * Fees, the payment schedule, invoices, the pre-construction budget and the
+ * risk register.
+ *
+ * Every one of these goes through RLS, which on these tables is the sharpest
+ * in the product: a consultant reaches their own company tree and nothing
+ * else. There is no privileged path here and there must never be one — a wide
+ * query narrowed afterwards in the browser is how a consultant learns what a
+ * competitor is charging.
+ */
+
+export type Fee = {
+  id: string; company_id: string; reference: string; kind: 'fee' | 'variation'
+  description: string | null; value: number
+  date_submitted: string | null; date_approved: string | null
+  status: 'Proposed' | 'Approved' | 'Rejected'
+  budget_line_ids: string[]; created_at: string
+}
+
+export type FeePosition = {
+  company_id: string; company_name: string
+  fee_proposed: number; fee_approved: number
+  variations_proposed: number; variations_approved: number
+  approved_total: number
+  scheduled: number; scheduled_agreed: number; scheduled_proposed: number
+  invoiced: number; certified: number; paid: number
+  schedule_gap: number
+  instalments: number; instalments_unagreed: number; due_uninvoiced: number
+}
+
+export type Instalment = {
+  id: string; company_id: string; company_name: string | null
+  reference: string; description: string | null; value: number
+  programme_task_uid: string | null; offset_days: number
+  anchor: 'start' | 'finish'; due_date_override: string | null
+  status: 'Proposed' | 'Agreed'; agreed_by: string | null; agreed_at: string | null
+  due: string | null; anchor_state: string
+  invoiced: number; has_invoice: boolean; due_uninvoiced: boolean
+}
+
+export type Invoice = {
+  id: string; company_id: string; company_name: string | null
+  schedule_id: string | null; schedule_reference: string | null
+  reference: string; value: number
+  date_submitted: string; date_paid: string | null
+  status: 'Submitted' | 'Certified' | 'Paid' | 'Disputed'
+  certified_by: string | null; certified_at: string | null; note: string | null
+  has_document: boolean; outstanding_30d: boolean; days_submitted: number
+}
+
+export type CashflowPoint = {
+  month: string
+  planned: number; planned_agreed: number; invoiced: number; paid: number
+  planned_cumulative: number; planned_agreed_cumulative: number
+  invoiced_cumulative: number; paid_cumulative: number
+}
+
+/** PostgREST hands numeric back as text; every figure on these pages is money. */
+const money = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]): T => {
+  const out = { ...row }
+  for (const k of keys) out[k] = Number(row[k] ?? 0) as T[keyof T]
+  return out
+}
+
+export async function fetchFees(projectId: string) {
+  const { data, error } = await supabase
+    .from('fees')
+    .select('id, company_id, reference, kind, description, value, date_submitted, date_approved, status, budget_line_ids, created_at')
+    .eq('project_id', projectId)
+    .order('reference')
+  if (error) throw error
+  return ((data ?? []) as unknown as Fee[]).map((r) => money(r, ['value']))
+}
+
+export async function fetchFeePosition(projectId: string) {
+  const { data, error } = await supabase.rpc('fee_position', { p_project: projectId })
+  if (error) throw error
+  return ((data ?? []) as FeePosition[]).map((r) => money(r, [
+    'fee_proposed', 'fee_approved', 'variations_proposed', 'variations_approved',
+    'approved_total', 'scheduled', 'scheduled_agreed', 'scheduled_proposed',
+    'invoiced', 'certified', 'paid', 'schedule_gap',
+  ]))
+}
+
+export async function fetchInstalments(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_payment_schedule').select('*').eq('project_id', projectId).order('reference')
+  if (error) throw error
+  return ((data ?? []) as unknown as Instalment[]).map((r) => money(r, ['value', 'invoiced']))
+}
+
+export async function fetchInvoices(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_invoices').select('*').eq('project_id', projectId)
+    .order('date_submitted', { ascending: false })
+  if (error) throw error
+  return ((data ?? []) as unknown as Invoice[]).map((r) => money(r, ['value']))
+}
+
+export async function fetchCashflow(projectId: string, companyId: string | null = null) {
+  const { data, error } = await supabase.rpc('cashflow_curve', {
+    p_project: projectId, p_company: companyId,
+  })
+  if (error) throw error
+  return ((data ?? []) as CashflowPoint[]).map((r) => money(r, [
+    'planned', 'planned_agreed', 'invoiced', 'paid',
+    'planned_cumulative', 'planned_agreed_cumulative',
+    'invoiced_cumulative', 'paid_cumulative',
+  ]))
+}
+
+export async function addFee(projectId: string, row: {
+  company_id: string; reference: string; kind: 'fee' | 'variation'
+  description: string | null; value: number; date_submitted: string | null
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('fees')
+    .insert({ project_id: projectId, ...row, raised_by: me.user?.id })
+  if (error) throw error
+}
+
+/** Approving somebody's money is the host's decision, and the status column is
+ *  outside the update grant so this is the only way to it. */
+export async function approveFee(feeId: string, approved: boolean) {
+  const { error } = await supabase.rpc('approve_fee', { p_fee: feeId, p_approved: approved })
+  if (error) throw error
+}
+
+export async function addInstalment(projectId: string, row: {
+  company_id: string; reference: string; description: string | null; value: number
+  programme_task_uid: string | null; offset_days: number; anchor: 'start' | 'finish'
+}) {
+  const { error } = await supabase.from('payment_schedule')
+    .insert({ project_id: projectId, ...row })
+  if (error) throw error
+}
+
+export async function agreePaymentSchedule(
+  projectId: string, companyId: string, ids: string[] | null = null,
+) {
+  const { data, error } = await supabase.rpc('agree_payment_schedule', {
+    p_project: projectId, p_company: companyId, p_ids: ids,
+  })
+  if (error) throw error
+  return data as number
+}
+
+export async function addInvoice(projectId: string, row: {
+  company_id: string; schedule_id: string | null; reference: string
+  value: number; date_submitted: string
+}) {
+  const { error } = await supabase.from('invoices')
+    .insert({ project_id: projectId, ...row })
+  if (error) throw error
+}
+
+export async function certifyInvoice(
+  invoiceId: string, status: Invoice['status'], note?: string,
+) {
+  const { error } = await supabase.rpc('certify_invoice', {
+    p_invoice: invoiceId, p_status: status, p_note: note ?? null,
+  })
+  if (error) throw error
+}
+
+/* --------------------------------------------- pre-construction budget */
+
+export type PreconLine = {
+  id: string; reference: string; category: 'consultant' | 'survey' | 'statutory'
+  discipline: string | null; title: string; required: boolean
+  budget: number; notes: string | null; preferred_quote_id: string | null
+  quotes: number; preferred_value: number | null; preferred_source: string | null
+  lowest_levelled: number | null; forecast: number; variance: number
+  appointed_fees: number; appointed_approved: number
+}
+
+export type PreconQuote = {
+  id: string; budget_line_id: string; company_id: string | null; supplier: string | null
+  source_name: string | null; reference: string | null; date_received: string | null
+  base_value: number; adjustments: number; levelled_value: number
+  adjustment_count: number; preferred: boolean
+  status: 'Received' | 'Shortlisted' | 'Rejected' | 'Withdrawn'; notes: string | null
+}
+
+export type QuoteAdjustment = {
+  id: string; quote_id: string; label: string; value: number
+}
+
+export type PreconTotals = {
+  lines: number; struck_out: number; budget: number; forecast: number
+  variance: number; quoted_lines: number; awaiting_quotes: number; undecided: number
+}
+
+/** Whether this person may see the pre-construction budget at all.
+ *
+ *  Needed as its own question because RLS FILTERS ROWS rather than erroring: a
+ *  consultant's query succeeds and returns nothing, and an empty array in an
+ *  export reads as "there is no budget", which is a false claim. The export
+ *  asks this first and marks the section withheld instead. */
+export async function canSeePrecon(projectId: string) {
+  const { data, error } = await supabase.rpc('can_see_precon', { p_project: projectId })
+  if (error) throw error
+  return data === true
+}
+
+export async function fetchPreconBudget(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_precon_budget').select('*').eq('project_id', projectId).order('reference')
+  if (error) throw error
+  return ((data ?? []) as unknown as PreconLine[]).map((r) => ({
+    ...money(r, ['budget', 'forecast', 'variance', 'appointed_approved']),
+    preferred_value: r.preferred_value === null ? null : Number(r.preferred_value),
+    lowest_levelled: r.lowest_levelled === null ? null : Number(r.lowest_levelled),
+  }))
+}
+
+export async function fetchPreconQuotes(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_precon_quotes').select('*').eq('project_id', projectId).order('source_name')
+  if (error) throw error
+  return ((data ?? []) as unknown as PreconQuote[]).map((r) =>
+    money(r, ['base_value', 'adjustments', 'levelled_value']))
+}
+
+export async function fetchQuoteAdjustments(quoteIds: string[]) {
+  if (quoteIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('precon_quote_adjustments').select('id, quote_id, label, value')
+    .in('quote_id', quoteIds).order('created_at')
+  if (error) throw error
+  return ((data ?? []) as unknown as QuoteAdjustment[]).map((r) => money(r, ['value']))
+}
+
+export async function fetchPreconTotals(projectId: string) {
+  const { data, error } = await supabase.rpc('precon_totals', { p_project: projectId })
+  if (error) throw error
+  const row = (data as PreconTotals[] | null)?.[0]
+  return row ? money(row, ['budget', 'forecast', 'variance']) : null
+}
+
+export async function addPreconLine(projectId: string, row: {
+  reference: string; category: string; discipline: string | null
+  title: string; budget: number
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('precon_budget')
+    .insert({ project_id: projectId, ...row, created_by: me.user?.id })
+  if (error) throw error
+}
+
+export async function updatePreconLine(id: string, patch: {
+  title?: string; budget?: number; required?: boolean; notes?: string | null
+  discipline?: string | null; category?: string
+}) {
+  const { error } = await supabase.from('precon_budget').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function addPreconQuote(projectId: string, row: {
+  budget_line_id: string; company_id: string | null; supplier: string | null
+  reference: string | null; date_received: string | null; base_value: number
+}) {
+  const { error } = await supabase.from('precon_quotes')
+    .insert({ project_id: projectId, ...row })
+  if (error) throw error
+}
+
+/** The adjustment is the point of the module, and the label is required: a
+ *  plugged number with no explanation is worse than no adjustment. */
+export async function addQuoteAdjustment(quoteId: string, label: string, value: number) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('precon_quote_adjustments')
+    .insert({ quote_id: quoteId, label, value, created_by: me.user?.id })
+  if (error) throw error
+}
+
+export async function deleteQuoteAdjustment(id: string) {
+  const { error } = await supabase.from('precon_quote_adjustments').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function setPreferredQuote(lineId: string, quoteId: string | null) {
+  const { error } = await supabase.rpc('set_preferred_quote', {
+    p_line: lineId, p_quote: quoteId,
+  })
+  if (error) throw error
+}
+
+/* ------------------------------------------------------------- risk */
+
+export type Risk = {
+  id: string; reference: string; kind: 'risk' | 'opportunity'
+  title: string; description: string | null; mitigation: string | null
+  category: string | null; person_id: string | null; owner_name: string | null
+  likelihood: number; likelihood_pct: number; likelihood_name: string
+  impact_cost: number; impact_weeks: number
+  band: number; band_name: string; score: number; expected_value: number
+  status: string; done: boolean
+  programme_task_uid: string | null; offset_days: number
+  anchor: 'start' | 'finish'; due_date_override: string | null
+  review_due: string | null; anchor_state: string
+  issue_id: string | null; issue_reference: string | null
+  visibility: { mode: string; people?: string[]; companies?: string[] }
+  raised_by: string | null; raised_at: string; closed_at: string | null
+  state: string; state_kind: 'neutral' | 'ok' | 'warn' | 'stop' | 'gap'
+}
+
+export type RiskTotals = {
+  live: number; finished: number; gross: number; expected: number
+  unowned: number; review_overdue: number; realised: number
+}
+
+export type RiskMatrixCell = {
+  likelihood: number; band: number; items: number; unowned: number; expected: number
+}
+
+export const RISK_STATUSES: Record<string, string[]> = {
+  risk: ['Open', 'Mitigating', 'Realised', 'Avoided', 'Closed'],
+  opportunity: ['Identified', 'Under review', 'Accepted', 'Implemented', 'Rejected'],
+}
+
+export const RISK_CATEGORIES = [
+  'Design', 'Interface', 'Statutory', 'Ground', 'Procurement',
+  'Programme', 'Buildability', 'Cost', 'Information',
+]
+
+/** Stated bands, so two people in a workshop mean the same thing by "likely". */
+export const LIKELIHOODS = [
+  { value: 1, label: 'Rare', pct: 0.1 },
+  { value: 2, label: 'Unlikely', pct: 0.25 },
+  { value: 3, label: 'Possible', pct: 0.5 },
+  { value: 4, label: 'Likely', pct: 0.75 },
+  { value: 5, label: 'Almost certain', pct: 0.9 },
+]
+
+export async function fetchRisks(projectId: string, kind: 'risk' | 'opportunity') {
+  const { data, error } = await supabase
+    .from('v_risks').select('*')
+    .eq('project_id', projectId).eq('kind', kind).order('reference')
+  if (error) throw error
+  return ((data ?? []) as unknown as Risk[]).map((r) => money(r, [
+    'likelihood_pct', 'impact_cost', 'band', 'score', 'expected_value',
+  ]))
+}
+
+export async function fetchRiskTotals(projectId: string, kind: 'risk' | 'opportunity') {
+  const { data, error } = await supabase.rpc('risk_totals', {
+    p_project: projectId, p_kind: kind,
+  })
+  if (error) throw error
+  const row = (data as RiskTotals[] | null)?.[0]
+  return row ? money(row, ['gross', 'expected']) : null
+}
+
+export async function fetchRiskMatrix(projectId: string, kind: 'risk' | 'opportunity') {
+  const { data, error } = await supabase.rpc('risk_matrix', {
+    p_project: projectId, p_kind: kind,
+  })
+  if (error) throw error
+  return ((data ?? []) as RiskMatrixCell[]).map((r) => money(r, ['expected']))
+}
+
+export async function addRisk(projectId: string, row: {
+  kind: 'risk' | 'opportunity'; reference: string; title: string
+  description: string | null; category: string | null; likelihood: number
+  impact_cost: number; status: string
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('risks').insert({
+    project_id: projectId, ...row, raised_by: me.user?.id,
+    // Closed by default, which is the inverse of the task list: an empty
+    // audience on a risk means nobody but the raiser and the owner.
+    visibility: { mode: 'named', people: [] },
+  })
+  if (error) throw error
+}
+
+export async function updateRisk(id: string, patch: {
+  title?: string; description?: string | null; mitigation?: string | null
+  category?: string | null; person_id?: string | null; likelihood?: number
+  impact_cost?: number; impact_weeks?: number; status?: string
+  programme_task_uid?: string | null; offset_days?: number
+  anchor?: 'start' | 'finish'; due_date_override?: string | null
+  visibility?: { mode: string; people?: string[]; companies?: string[] }
+}) {
+  const { error } = await supabase.from('risks').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/** A realised risk becomes one task and points at it. Idempotent, because two
+ *  people pressing the button must not produce two tasks for one risk. */
+export async function realiseRisk(riskId: string) {
+  const { data, error } = await supabase.rpc('realise_risk', { p_risk: riskId })
+  if (error) throw error
+  return data as string
+}
+
+export async function loadRiskLibrary(projectId: string, kind?: 'risk' | 'opportunity') {
+  const { data, error } = await supabase.rpc('load_risk_library', {
+    p_project: projectId, p_kind: kind ?? null,
+  })
+  if (error) throw error
+  return (data as { added: number; skipped: number }[])[0]
+}
+
+/* ------------------------------------------------------- warranties */
+
+export type Warranty = {
+  id: string; reference: string; drm_ref: string | null; title: string
+  description: string | null; period_years: number | null
+  beneficiary: string | null; form: string | null; provided_by: string | null
+  status: string; required: boolean; custom: boolean
+  programme_task_uid: string | null; offset_days: number
+  anchor: 'start' | 'finish'; due_date_override: string | null
+  due: string | null; anchor_state: string
+  drm_item: string | null; lead_discipline: string | null; drm_applicable: boolean | null
+  /** Resolved LIVE through the DRM lead discipline. There is no company_id. */
+  owners: string[]; holders: number
+  is_done: boolean; overdue: boolean; unallocated: boolean
+}
+
+export const WARRANTY_STATUSES = [
+  'Not started', 'Requested', 'Draft received', 'Under review',
+  'Approved', 'Executed', 'Not required',
+]
+
+export async function fetchWarranties(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_warranties').select('*').eq('project_id', projectId).order('reference')
+  if (error) throw error
+  return (data ?? []) as unknown as Warranty[]
+}
+
+export async function fetchWarrantyTotals(projectId: string) {
+  const { data, error } = await supabase.rpc('warranty_totals', { p_project: projectId })
+  if (error) throw error
+  return (data as { total: number; done: number; overdue: number
+    unallocated: number; struck_out: number }[])[0]
+}
+
+export async function addWarranty(projectId: string, row: {
+  reference: string; drm_ref: string | null; title: string
+  period_years: number | null; beneficiary: string | null
+}) {
+  const { error } = await supabase.from('warranties')
+    .insert({ project_id: projectId, ...row, custom: true })
+  if (error) throw error
+}
+
+export async function updateWarranty(id: string, patch: {
+  title?: string; drm_ref?: string | null; status?: string; required?: boolean
+  provided_by?: string | null; period_years?: number | null
+  beneficiary?: string | null; form?: string | null
+  programme_task_uid?: string | null; offset_days?: number
+  anchor?: 'start' | 'finish'; due_date_override?: string | null
+}) {
+  const { error } = await supabase.from('warranties').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function loadWarrantyLibrary(projectId: string) {
+  const { data, error } = await supabase.rpc('load_warranty_library', {
+    p_project: projectId,
+  })
+  if (error) throw error
+  return (data as { added: number; skipped: number }[])[0]
+}
+
+/* -------------------------------------------------- material samples */
+
+export type Material = {
+  id: string; reference: string; title: string; spec: string | null
+  location: string | null; company_id: string | null; company_name: string | null
+  person_id: string | null; required: boolean; custom: boolean
+  programme_task_uid: string | null; offset_days: number
+  anchor: 'start' | 'finish'; due_date_override: string | null
+  due: string | null; anchor_state: string
+  rounds: number; decision: string | null; latest_round: number | null
+  latest_submitted_at: string | null; awaiting_decision: boolean
+  /** A rejection stays on the record after a later approval. */
+  was_rejected: boolean; rejections: number
+  is_done: boolean; overdue: boolean
+}
+
+export type MaterialSubmission = {
+  id: string; material_id: string; round: number; submitted_at: string
+  sample_reference: string | null; decision: string
+  decided_by: string | null; decided_at: string | null; comments: string | null
+}
+
+export const MATERIAL_DECISIONS = ['Approved', 'Approved as noted', 'Rejected', 'Withdrawn']
+
+export async function fetchMaterials(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_materials').select('*').eq('project_id', projectId).order('reference')
+  if (error) throw error
+  return (data ?? []) as unknown as Material[]
+}
+
+export async function fetchMaterialSubmissions(materialIds: string[]) {
+  if (materialIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('material_submissions')
+    .select('id, material_id, round, submitted_at, sample_reference, decision, decided_by, decided_at, comments')
+    .in('material_id', materialIds)
+    .order('round', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as MaterialSubmission[]
+}
+
+export async function fetchMaterialTotals(projectId: string) {
+  const { data, error } = await supabase.rpc('material_totals', { p_project: projectId })
+  if (error) throw error
+  return (data as { total: number; approved: number; awaiting: number
+    overdue: number; ever_rejected: number; struck_out: number }[])[0]
+}
+
+export async function canDecideMaterial(projectId: string) {
+  const { data, error } = await supabase.rpc('can_decide_material', { p_project: projectId })
+  if (error) throw error
+  return data === true
+}
+
+export async function addMaterial(projectId: string, row: {
+  reference: string; title: string; spec: string | null
+  location: string | null; company_id: string | null
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('materials')
+    .insert({ project_id: projectId, ...row, custom: true, created_by: me.user?.id })
+  if (error) throw error
+}
+
+export async function updateMaterial(id: string, patch: {
+  title?: string; spec?: string | null; location?: string | null
+  company_id?: string | null; required?: boolean
+  programme_task_uid?: string | null; offset_days?: number
+  anchor?: 'start' | 'finish'; due_date_override?: string | null
+}) {
+  const { error } = await supabase.from('materials').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+/** A new round is a new row; the database allocates the number, so two people
+ *  submitting at once cannot both become round 3. */
+export async function submitMaterialRound(
+  materialId: string, sampleReference?: string, comments?: string,
+) {
+  const { data, error } = await supabase.rpc('submit_material_round', {
+    p_material: materialId,
+    p_sample_reference: sampleReference ?? null,
+    p_comments: comments ?? null,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Only the design manager, and the database says so — not a hidden button. */
+export async function decideMaterialRound(
+  submissionId: string, decision: string, comments?: string,
+) {
+  const { error } = await supabase.rpc('decide_material_round', {
+    p_submission: submissionId, p_decision: decision, p_comments: comments ?? null,
+  })
+  if (error) throw error
+}
+
+/* ---------------------------------------------- change request writing */
+
+export type ChangeRequestItem = {
+  id: string; change_request_id: string; entity_type: string
+  entity_id: string | null; description: string | null
+  done_by: string | null; done_at: string | null; created_at: string
+}
+
+export const CHANGE_STATUSES = [
+  'Draft', 'Submitted', 'Under review', 'Approved', 'Rejected',
+  'Withdrawn', 'Implemented', 'Closed',
+]
+
+export const CHANGE_IMPACT_COSTS = ['None', 'Increase', 'Decrease', 'To be established']
+
+export const CHANGE_ITEM_ENTITIES = [
+  'drawing', 'drm', 'scope', 'checklist', 'breeam', 'planning', 'bc', 'bep', 'other',
+]
+
+export async function addChangeRequest(projectId: string, row: {
+  reference: string; title: string; description: string | null; reason: string | null
+  category: string | null; from_company_id: string | null; to_company_id: string | null
+  impact_scope: string | null; impact_weeks: number; impact_cost: string | null
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('change_requests')
+    .insert({ project_id: projectId, ...row, raised_by: me.user?.id })
+  if (error) throw error
+}
+
+export async function updateChangeRequest(id: string, patch: Record<string, unknown>) {
+  const { error } = await supabase.from('change_requests').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchChangeRequestItems(changeIds: string[]) {
+  if (changeIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('change_request_items')
+    .select('id, change_request_id, entity_type, entity_id, description, done_by, done_at, created_at')
+    .in('change_request_id', changeIds)
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []) as unknown as ChangeRequestItem[]
+}
+
+export async function addChangeRequestItem(
+  changeId: string, entityType: string, description: string,
+) {
+  const { error } = await supabase.from('change_request_items')
+    .insert({ change_request_id: changeId, entity_type: entityType, description })
+  if (error) throw error
+}
+
+/** Ticking is by name and at a time, and un-ticking knocks an Implemented
+ *  change back to Approved. */
+export async function tickChangeItem(itemId: string, done: boolean) {
+  const { error } = await supabase.rpc('tick_change_item', { p_item: itemId, p_done: done })
+  if (error) throw error
+}
+
+/** Implemented is refused while any amendment is outstanding. Approval is not
+ *  implementation, and the message says which one is missing. */
+export async function setChangeStatus(changeId: string, status: string) {
+  const { error } = await supabase.rpc('set_change_status', {
+    p_change: changeId, p_status: status,
+  })
+  if (error) throw error
+}
+
+export async function fetchChangeImplementationGap(projectId: string) {
+  const { data, error } = await supabase.rpc('change_implementation_gap', {
+    p_project: projectId,
+  })
+  if (error) throw error
+  return (data ?? []) as {
+    change_id: string; reference: string; title: string; status: string
+    amendments: number; outstanding: number; nothing_listed: boolean
+    oldest_outstanding: string | null
+  }[]
 }

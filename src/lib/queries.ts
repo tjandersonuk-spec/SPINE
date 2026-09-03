@@ -1964,7 +1964,7 @@ export const TRACKED_STATUSES: Record<string, string[]> = {
   bc: ['Not started', 'In progress', 'Submitted', 'Approved',
        'Approved with conditions', 'Not required'],
   scope: ['Not started', 'In progress', 'Complete', 'Not required'],
-  breeam: ['Not started', 'Targeted', 'Evidence submitted', 'Complete', 'Not required'],
+  breeam: ['Not started', 'In progress', 'Evidence submitted', 'Verified', 'Not targeted'],
   default: ['Not started', 'In progress', 'Complete', 'Not required'],
 }
 
@@ -2030,7 +2030,7 @@ export async function updateTrackedItem(id: string, patch: {
   person_id?: string | null; discipline?: string | null
   programme_task_uid?: string | null; offset_days?: number
   anchor?: 'start' | 'finish'; due_date_override?: string | null
-  ext?: Record<string, unknown>; title?: string; heading?: string | null
+  title?: string; heading?: string | null
 }) {
   const { error } = await supabase.from('tracked_items').update(patch).eq('id', id)
   if (error) throw error
@@ -2204,4 +2204,231 @@ export async function fetchHrbSettings(projectId: string) {
 export async function updateHrbSettings(projectId: string, patch: Partial<HrbSettings>) {
   const { error } = await supabase.from('projects').update(patch).eq('id', projectId)
   if (error) throw error
+}
+
+/* ------------------------------------------------------------- BREEAM */
+
+/**
+ * The framework ships empty and is loaded per project by whoever holds the
+ * licence. Every number below is read from a derived view or function: the
+ * browser never adds credits up, because the moment it did the page and the
+ * report would disagree.
+ */
+
+export type BreeamScheme = {
+  id: string
+  version: string
+  name: string | null
+  building_type: string | null
+  building_types: string[]
+  sections: { code: string; name?: string; stated?: number }[]
+  weightings: Record<string, Record<string, number>>
+  ratings: { name: string; min: number }[]
+  created_at: string
+}
+
+export type BreeamSection = {
+  scheme_id: string; code: string; name: string | null
+  stated: number | null; stated_gap: number | null; weighting: number
+  available: number; targeted: number; achieved: number; at_risk: number
+  pct_targeted: number; pct_achieved: number
+  score_targeted: number; score_achieved: number
+}
+
+export type BreeamIssue = {
+  id: string; scheme_id: string; code: string; title: string | null
+  section: string | null; note: string | null
+  min_standards: Record<string, { credits?: number; note?: string }>
+  available: number; targeted: number; raw_achieved: number; achieved: number
+  at_risk: number; prerequisites: number; blocking: number; blocked_by: string[]
+}
+
+export type BreeamCredit = {
+  id: string; issue_id: string; scheme_id: string
+  issue_code: string; issue_title: string | null; section: string | null
+  reference: string; title: string; prompt: string | null
+  status: string; required: boolean
+  company_id: string | null; person_id: string | null; discipline: string | null
+  is_prerequisite: boolean; met: boolean
+  available: number; targeted: number; achieved: number
+  due: string | null; anchor_state: string
+  programme_task_uid: string | null; offset_days: number
+  anchor: 'start' | 'finish'; due_date_override: string | null
+  state: string; state_kind: 'neutral' | 'ok' | 'warn' | 'stop' | 'gap'
+}
+
+export type BreeamTotals = {
+  scheme_id: string; building_type: string | null
+  available: number; targeted: number; achieved: number; at_risk: number
+  score_targeted: number; score_achieved: number; weighting_total: number
+  rating_targeted_on_score: string | null; rating_achieved_on_score: string | null
+  rating_targeted: string | null; rating_achieved: string | null
+  capped_targeted: boolean; capped_achieved: boolean
+}
+
+export type MinStandardFail = {
+  issue_id: string; code: string; title: string | null
+  needed: number; have: number; note: string
+}
+
+export type BreeamImportKind = 'sections' | 'credits' | 'minstd'
+
+export type BreeamImportRow = { line: number; accepted: boolean; why: string | null }
+export type BreeamImportPreview = { creating: number; updating: number; rejected: number }
+export type BreeamImportResult = { created: number; updated: number; rejected: number }
+
+/** PostgREST returns numeric as text; the page wants numbers. */
+const nums = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]): T => {
+  const out = { ...row }
+  for (const k of keys) out[k] = Number(row[k] ?? 0) as T[keyof T]
+  return out
+}
+
+export async function fetchBreeamSchemes(projectId: string) {
+  const { data, error } = await supabase
+    .from('breeam_schemes')
+    .select('id, version, name, building_type, building_types, sections, weightings, ratings, created_at')
+    .eq('project_id', projectId)
+    .order('created_at')
+  if (error) throw error
+  return (data ?? []) as unknown as BreeamScheme[]
+}
+
+export async function fetchActiveBreeamScheme(projectId: string) {
+  const { data, error } = await supabase.rpc('breeam_active_scheme', { p_project: projectId })
+  if (error) throw error
+  return (data ?? null) as string | null
+}
+
+/** Switching the scheme switches the whole framework — sections, weightings,
+ *  issues and score. */
+export async function setActiveBreeamScheme(projectId: string, schemeId: string) {
+  const { error } = await supabase
+    .from('projects').update({ breeam_scheme_id: schemeId }).eq('id', projectId)
+  if (error) throw error
+}
+
+export async function createBreeamScheme(projectId: string, version: string, name: string) {
+  const { data: me } = await supabase.auth.getUser()
+  const { data, error } = await supabase
+    .from('breeam_schemes')
+    .insert({ project_id: projectId, version, name: name || null, created_by: me.user?.id })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id as string
+}
+
+export async function updateBreeamScheme(
+  id: string, patch: { version?: string; name?: string | null; building_type?: string | null },
+) {
+  const { error } = await supabase.from('breeam_schemes').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteBreeamScheme(id: string) {
+  const { error } = await supabase.from('breeam_schemes').delete().eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchBreeamSections(schemeId: string) {
+  const { data, error } = await supabase
+    .from('v_breeam_sections').select('*').eq('scheme_id', schemeId).order('code')
+  if (error) throw error
+  return ((data ?? []) as unknown as BreeamSection[]).map((r) => nums(r, [
+    'stated', 'stated_gap', 'weighting', 'available', 'targeted', 'achieved', 'at_risk',
+    'pct_targeted', 'pct_achieved', 'score_targeted', 'score_achieved',
+  ])).map((r, i) => ({
+    // nums() turns a null stated into 0; put the nulls back, because "no
+    // stated figure" and "stated zero" are different claims.
+    ...r,
+    stated: (data![i] as { stated: unknown }).stated === null ? null : r.stated,
+    stated_gap: (data![i] as { stated_gap: unknown }).stated_gap === null ? null : r.stated_gap,
+  }))
+}
+
+export async function fetchBreeamIssues(schemeId: string) {
+  const { data, error } = await supabase
+    .from('v_breeam_issues').select('*').eq('scheme_id', schemeId).order('code')
+  if (error) throw error
+  return ((data ?? []) as unknown as BreeamIssue[]).map((r) => nums(r, [
+    'available', 'targeted', 'raw_achieved', 'achieved', 'at_risk', 'prerequisites', 'blocking',
+  ]))
+}
+
+export async function fetchBreeamCredits(schemeId: string) {
+  const { data, error } = await supabase
+    .from('v_breeam_credits').select('*').eq('scheme_id', schemeId).order('reference')
+  if (error) throw error
+  return ((data ?? []) as unknown as BreeamCredit[]).map((r) =>
+    nums(r, ['available', 'targeted', 'achieved']))
+}
+
+export async function fetchBreeamTotals(projectId: string, schemeId: string | null) {
+  const { data, error } = await supabase.rpc('breeam_totals', {
+    p_project: projectId, p_scheme: schemeId,
+  })
+  if (error) throw error
+  const row = (data as BreeamTotals[] | null)?.[0]
+  return row ? nums(row, [
+    'available', 'targeted', 'achieved', 'at_risk', 'score_targeted', 'score_achieved',
+    'weighting_total',
+  ]) : null
+}
+
+export async function fetchMinStandardFails(
+  schemeId: string, rating: string, basis: 'targeted' | 'achieved',
+) {
+  const { data, error } = await supabase.rpc('breeam_min_standard_fails', {
+    p_scheme: schemeId, p_rating: rating, p_basis: basis,
+  })
+  if (error) throw error
+  return ((data ?? []) as MinStandardFail[]).map((r) => nums(r, ['needed', 'have']))
+}
+
+export async function fetchAdvisoryStandards(schemeId: string, rating: string) {
+  const { data, error } = await supabase.rpc('breeam_advisory_standards', {
+    p_scheme: schemeId, p_rating: rating,
+  })
+  if (error) throw error
+  return (data ?? []) as { issue_id: string; code: string; title: string | null; note: string }[]
+}
+
+/** The only way the numbers move. Refused above what the credit offers, and
+ *  refused outright on a prerequisite. */
+export async function setBreeamCredit(itemId: string, targeted: number, achieved: number) {
+  const { error } = await supabase.rpc('set_breeam_credit', {
+    p_item: itemId, p_targeted: targeted, p_achieved: achieved,
+  })
+  if (error) throw error
+}
+
+export async function breeamImportValidate(
+  schemeId: string, kind: BreeamImportKind, rows: Record<string, string>[],
+) {
+  const { data, error } = await supabase.rpc('breeam_import_validate', {
+    p_scheme: schemeId, p_kind: kind, p_rows: rows,
+  })
+  if (error) throw error
+  return (data ?? []) as BreeamImportRow[]
+}
+
+export async function breeamImportPreview(
+  schemeId: string, kind: BreeamImportKind, rows: Record<string, string>[],
+) {
+  const { data, error } = await supabase.rpc('breeam_import_preview', {
+    p_scheme: schemeId, p_kind: kind, p_rows: rows,
+  })
+  if (error) throw error
+  return (data as BreeamImportPreview[])[0]
+}
+
+export async function breeamImportApply(
+  schemeId: string, kind: BreeamImportKind, rows: Record<string, string>[], label: string,
+) {
+  const { data, error } = await supabase.rpc('breeam_import_apply', {
+    p_scheme: schemeId, p_kind: kind, p_rows: rows, p_label: label,
+  })
+  if (error) throw error
+  return (data as BreeamImportResult[])[0]
 }

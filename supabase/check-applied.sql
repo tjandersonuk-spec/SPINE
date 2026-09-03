@@ -64,7 +64,11 @@ with expected(ord, migration, kind, marker) as (values
   (46,'20260902200000_phase10_change_requests',       'table',    'change_requests'),
   (47,'20260902200100_phase10_bsa',                   'table',    'occurrences'),
   (48,'20260902200200_phase10_bsa_functions',         'function', 'work_status'),
-  (49,'20260902200300_phase10_rls',                   'policy',   'change_requests_select')
+  (49,'20260902200300_phase10_rls',                   'policy',   'change_requests_select'),
+  (50,'20260902210000_phase11_breeam_schemes',        'table',    'breeam_schemes'),
+  (51,'20260902210100_phase11_breeam_scoring',        'function', 'breeam_totals'),
+  (52,'20260902210200_phase11_breeam_import',         'function', 'breeam_import_apply'),
+  (53,'20260902210300_phase11_rls',                   'policy',   'breeam_schemes_select')
 )
 select
   e.ord::numeric as "#",

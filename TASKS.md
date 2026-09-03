@@ -516,22 +516,79 @@ threshold are regulatory matters that move. Everything here should be reviewed b
 the PDB duty before it is used on a live scheme, and the periods must stay editable rather than
 becoming constants in a later refactor.
 
-## Phase 11 — BREEAM
+## Phase 11 — BREEAM ✅
 
 *Reference: handover BREEAM section. Open prototype at BREEAM.*
 
-- [ ] Tables start empty (licensed content). Scheme = version (e.g. UKNC 2018 v7.1); project can
+- [x] Tables start empty (licensed content). Scheme = version (e.g. UKNC 2018 v7.1); project can
       hold several, switch between them
-- [ ] Sections, weightings per building type, rating thresholds, issues, credits, minimum
+- [x] Sections, weightings per building type, rating thresholds, issues, credits, minimum
       standards loaded via three import templates
-- [ ] Section credits summed from credit rows, never typed; a stated total is a cross-check flagged
+- [x] Section credits summed from credit rows, never typed; a stated total is a cross-check flagged
       when it disagrees
-- [ ] An unverified prerequisite excludes every credit under its issue from the verified score
-- [ ] Minimum standards structured (credits required per rating) so the report can name which issue
+- [x] An unverified prerequisite excludes every credit under its issue from the verified score
+- [x] Minimum standards structured (credits required per rating) so the report can name which issue
       caps a rating and by how much; show score-only and post-minimum-standards ratings side by
       side
-- [ ] Tests: port `breeam.js` hand-worked arithmetic — target 100%, blocked issue, released
+- [x] Tests: port `breeam.js` hand-worked arithmetic — target 100%, blocked issue, released
       prerequisite, the capping case, building-type switching
+
+**A credit is a tracked item.** §1a folds `breeam_credits` into `tracked_items`, so this phase adds
+no credits table: it adds `breeam_issue_id` — a real foreign key, not an `ext` string, because a
+reference to another record must cascade and must be joinable — constrained to be present exactly
+when `kind = 'breeam'`, and a partial unique on `(issue, title)` so a re-import updates the credit
+that is there rather than adding a second beside it. The reference is `<issue code>.<ordinal>`
+counted across the **project**, because a project holds several schemes and two may both carry
+`Man 01`.
+
+**`ext` is typed by value now, not only by key.** Phase 9 named the permitted keys; Phase 11 is
+what reads the numbers, so the validator also refuses a string where a number belongs and refuses
+targeted or achieved above available. The constraint was dropped and re-added rather than
+validated, because Postgres treats VALIDATE on an already-valid check as a no-op and replacing the
+function body re-checks nothing.
+
+**`ext` left the `tracked_items` update grant.** The credit numbers are the score, and
+`set_breeam_credit()` is the only way they move — it refuses more than the credit offers and refuses
+a prerequisite outright. This also closes the utilities dates to a direct PATCH; when the utilities
+UI arrives it needs a `set_utilities_dates()` definer, not a re-grant.
+
+**The scoring basis is outside the update grant too.** `sections`, `weightings`, `ratings` and
+`min_standards` are loaded by `breeam_import_apply()` and never by a PATCH that happens to carry a
+weightings object: a member who could rewrite the weightings could change every figure in the
+report without a single credit moving.
+
+**Derived from end to end.** `v_breeam_credits` → `v_breeam_issues` (a prerequisite that is not
+Verified zeroes the issue and names itself in `blocked_by`) → `v_breeam_sections` (available
+summed from the rows; `stated_gap` non-zero exactly when the tracker disagrees with itself) →
+`breeam_totals()` (both ratings, and whether each is capped). The tracker's state ladder is one
+function, `breeam_credit_state()`, exposed on the view so the page reads it rather than
+reimplementing it.
+
+**A divergence from the prototype, deliberate.** The prototype failed a zero-credit minimum
+standard unconditionally — it tested a `met` flag nothing ever set — which made the achieved rating
+permanently unreachable on any scheme carrying one. Here a zero-credit standard is a criterion: it
+fails only when a prerequisite under that issue is outstanding, and is otherwise listed by
+`breeam_advisory_standards()` and does not cap. A cap the software cannot justify is worse than no
+cap.
+
+**The import trap from the notes is enforced.** A weighting file carries one row per section per
+building type, so a section repeats; a later row that leaves name or stated total blank does not
+erase what an earlier row supplied. Also: `jsonb_set` will not create an intermediate object, so
+the building type's own key is created before a section weighting is set inside it — without that
+every weighting silently failed to load.
+
+**The first building type loaded becomes the active one.** A scheme with a null type weights every
+section zero and reports the whole framework as scoring nothing, which reads as a broken import
+rather than a missing choice.
+
+### Remaining in this phase
+
+- **Evidence and comments on a credit** attach through the Phase 6 polymorphic tables already —
+  the tracker does not yet show or add them. Same gap as `TrackedList`; fix both together.
+- **Rating thresholds are import-only.** The sections template carries weightings but not the
+  rating minimums; the prototype has an add-a-threshold control on Scheme setup. Small, follows.
+- **Playwright**: the tab no-op, the empty-input refusals and the consultant's read-only view are
+  asserted at the database and unit level; the click-through waits on the shared harness.
 
 ## Phase 12 — Commercial tier
 

@@ -150,7 +150,7 @@ describe('an account edits its own fork and nothing else', () => {
 
 describe('editing a template never rewrites a project that already loaded it', () => {
   test('a project keeps the wording it was given', async () => {
-    const project = await asSuperuser(async (c) => {
+    const project = await asSuperuser(async () => {
       const p = (await asUser(w.admin, (u) =>
         u.query(`select create_project($1,'Tpl','TPL') as id`, [w.org]))).rows[0].id
       return p as string

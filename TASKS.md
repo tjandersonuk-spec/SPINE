@@ -781,20 +781,81 @@ would be a second place for the figures to be wrong.
 - **Playwright**: the audience picker, the print action and the three-sheet layout are asserted at
   the database level only.
 
-## Phase 14 — Portfolio dashboards and snapshots
+## Phase 14 — Portfolio dashboards and snapshots ✅
 
 *Reference: brief §6 (portfolio dashboards).*
 
-- [ ] Nightly job writes one row per project to `snapshots` — the only stored derived values, and
+- [x] Nightly job writes one row per project to `snapshots` — the only stored derived values, and
       only for trends
-- [ ] Host home: every live project as a row, worst first, each a link — stage, programme position,
+- [x] Host home: every live project as a row, worst first, each a link — stage, programme position,
       overdue documents, DRM gaps, decisions waiting, HRB stop-works count, client requirements
       confirmed
-- [ ] Consultant health summed across every project that company is appointed on
-- [ ] Decision queue across every project the signed-in person is on
-- [ ] Trend charts from snapshots only (register burn-up, expected risk value over time)
-- [ ] Tests: no live figure is ever read from a snapshot; a project on the host home is one the
+- [x] Consultant health summed across every project that company is appointed on
+- [x] Decision queue across every project the signed-in person is on
+- [x] Trend charts from snapshots only (register burn-up, expected risk value over time)
+- [x] Tests: no live figure is ever read from a snapshot; a project on the host home is one the
       signed-in person is a member of
+
+**"No live figure from a snapshot" is enforced structurally.** The test scans `pg_proc` for any
+function whose source names the table and asserts the list is exactly `take_snapshot`,
+`project_trend` and `portfolio_trend`. A second test writes a snapshot full of obviously wrong
+figures and reads the live portfolio, which disagrees with it — so the guard holds even if
+somebody adds a reader the scan somehow misses. The failure it protects against is a future
+function reaching for the stored number because it is faster: that would put a figure up to a day
+old on a live page, and the staleness would surface only as an argument about whose screen was
+right.
+
+**Which projects appear is `my_projects()`, and the rule is not restated.** Account staff see every
+project in their account; everybody else sees the ones they are a member of. Bellweather is
+appointed on two projects in the test but Cara is a member of one, and she sees one — being your
+firm's job is not the same as being yours.
+
+**Nobody can write a snapshot by hand.** There is no insert, update or delete policy on the table
+at all, and `take_snapshot()`/`take_daily_snapshots()` are `security definer` with execute revoked
+from `authenticated`. A stored figure that could be edited is a stored figure that could be edited
+into agreeing with an argument. The job runs as the service role from a scheduled Edge Function.
+
+**A suspended account is skipped; an archived one is not.** The trend on a finished job is exactly
+what somebody looks at afterwards, but a flat line through a suspension reads as a project that
+stalled rather than one that was switched off.
+
+**The job is safely re-runnable.** `take_snapshot()` upserts on `(project, date)` and the Edge
+Function accepts a date, so a missed night can be backfilled. A job that cannot be retried is one
+that eventually leaves a hole in a chart.
+
+**The roll-up is the only new code.** Every figure on the portfolio page is the one a project page
+already computes — the programme position comes from the single `programme_timeline()`, the gaps
+from the same predicate the matrix uses, consultant health from `consultant_health()` itself (so
+its internal-only rule is inherited rather than restated). `portfolio_summary()` is deliberately
+live rather than read from today's snapshot row, even though the two would usually agree:
+"usually" is how a dashboard starts being a day behind without anybody noticing.
+
+**A firm on four jobs is one row, gathered by catalogue entry.** `companies` is per-project, so the
+same consultant is several rows; matching on name would merge two genuinely different firms that
+share one and split one that was typed twice.
+
+**`my_decisions()` is personal, and correctly so.** It is keyed on `auth.uid()` through
+`decision_queue()` — the opposite of `report_attention()`, because a dashboard is read by the
+person looking at it and a report by somebody else.
+
+**Two bugs the guards caught.** The token guard rejected `bg-ink` on the programme strip: `--ink`
+is defined but never exposed as `--color-ink`, so the class would have produced no CSS and the
+"today" marker would have been invisible. And running the full suite surfaced an **unscoped update
+in the Phase 13 test** — `where reference = 'CHG-001'` reached into Phase 14's fixture and turned
+its stop-work off, because a reference is unique per project and not globally. That is the same
+mistake the product's own schema is shaped to prevent, made in a test.
+
+### Remaining in this phase
+
+- **The cron job is documented, not scheduled.** `supabase/README.md` carries the
+  `cron.schedule(...)` call and the deploy command; somebody has to run them against the hosted
+  project once, and check `snapshots` has rows the next morning.
+- **Per-project trend charts** have their function (`project_trend`) and the chart component, but
+  no page yet — they belong on the project dashboard beside the timeline.
+- **Portfolio filtering by account** is in every function as `p_org` and is not yet a control on
+  the page; it matters once somebody works across two accounts.
+- **Playwright**: the worst-first ordering and the membership scoping are asserted at the database
+  level only.
 
 ## Phase 15 — Marketing site and sign-up
 

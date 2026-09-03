@@ -165,3 +165,40 @@ select p.email from platform_owners o join profiles p on p.id = o.profile_id;
 
 Sign out and back in, and the Accounts and People links appear on the landing
 page.
+
+## The nightly snapshot job
+
+`snapshots` is the only stored derived table in the product, and it exists for
+trend charts alone — no live page reads from it, and `supabase/tests/phase14.test.ts`
+scans `pg_proc` to keep it that way.
+
+One row per live project per day. Deploy the function and schedule it:
+
+```bash
+supabase functions deploy nightly-snapshots
+```
+
+Then in the dashboard, **Integrations → Cron**, add a job that runs a little
+after midnight in the project's own timezone:
+
+```sql
+select cron.schedule(
+  'nightly-snapshots',
+  '15 1 * * *',
+  $$select net.http_post(
+      url    := 'https://<project-ref>.supabase.co/functions/v1/nightly-snapshots',
+      headers := jsonb_build_object(
+        'Content-Type',  'application/json',
+        'Authorization', 'Bearer ' || current_setting('app.service_role_key', true))
+    )$$);
+```
+
+`take_daily_snapshots()` is `security definer` and is deliberately **not**
+granted to `authenticated`: the job runs with no session and must see every
+project, and a snapshot somebody could take by hand is one they could take twice
+on a good day and never on a bad one.
+
+Missed a night? The function accepts `{"date":"2026-09-01"}` and
+`take_snapshot()` upserts on `(project, date)`, so a backfill or a rerun
+replaces rather than duplicating. A job that cannot be safely retried is a job
+that eventually leaves a hole in a chart.

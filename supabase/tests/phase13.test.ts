@@ -323,8 +323,14 @@ describe('what the client report does not say', () => {
 
   test('no change-control classification detail', async () => {
     // Internal is told which change nobody has classified.
+    //
+    // Scoped by project, because a reference is unique PER PROJECT and not
+    // globally -- an unscoped update here reached into another suite's CHG-001
+    // and turned its stop-work off, which surfaced as a sorting failure two
+    // phases away.
     await asSuperuser((c) => c.query(
-      `update change_requests set bsa_controlled = true where reference = 'CHG-001'`))
+      `update change_requests set bsa_controlled = true
+        where project_id = $1 and reference = 'CHG-001'`, [w.project]))
     const internal = await rows(w.admin,
       `select * from report_attention($1,'internal')`, [w.project])
     expect(internal.map((r) => r.kind)).toContain('Change awaiting classification')
@@ -334,7 +340,8 @@ describe('what the client report does not say', () => {
     expect(client.map((r) => r.kind)).not.toContain('Change awaiting classification')
     expect(JSON.stringify(client)).not.toMatch(/classif/i)
     await asSuperuser((c) => c.query(
-      `update change_requests set bsa_controlled = false where reference = 'CHG-001'`))
+      `update change_requests set bsa_controlled = false
+        where project_id = $1 and reference = 'CHG-001'`, [w.project]))
   })
 
   test('the pre-construction pre-assessment is excluded from the breakdown', async () => {

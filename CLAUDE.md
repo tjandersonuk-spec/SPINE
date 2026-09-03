@@ -76,6 +76,20 @@ except the derived views.
   afterwards in the browser is the easiest way in the product to leak a restricted RFI. A section
   the exporter cannot see is marked withheld rather than omitted: a silent omission reads as
   "there is none of that", which is a different and worse claim.
+- **Consultant health is a sort order, never a grade**, and it never leaves the contractor's own
+  staff. A letter or a percentage invites an argument about the mark rather than about the facts
+  under it. Open items are not in the score: a busy consultant is not a worrying one, a late or a
+  silent one is. **"Gone quiet" is silence, not age** — touched means a comment or a change-log
+  entry, so an item being old is not the finding.
+- **There is exactly one `programme_timeline()`**, called by the dashboard and by Phase 13's
+  period report. Two functions drawing the same bar would eventually draw different pictures.
+  The dashboard's `decision_queue()` is keyed on `auth.uid()` and answers "what is waiting on
+  me"; the report's equivalent answers "what is waiting on this audience" and is a **separate
+  function**, because a report addressed to a client that referenced whoever generated it would
+  leak whose account produced it.
+- **A consultant's front is scoped through `my_company_tree()`**, which recurses: a firm is
+  answerable for the specialists it appointed under itself. A rival on the same project is
+  absent from every figure, not merely unhighlighted.
 - Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
   token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
 - **The design tokens are the prototype's, and they come in three groups with a hard boundary

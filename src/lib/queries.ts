@@ -1830,3 +1830,91 @@ export async function fetchChangeLog(projectId: string, limit = 200) {
   if (error) throw error
   return (data ?? []) as unknown as ChangeLogRow[]
 }
+
+/* ------------------------------------------- dashboard and consultant front */
+
+export type MyFront = {
+  company_ids: string[]
+  due_from_us: { id: string; number: string; title: string | null
+    due: string | null; overdue: boolean }[]
+  asked_of_us: { id: string; reference: string; title: string
+    kind: string; due: string | null; urgency: number }[]
+  we_lead: { id: string; ref: string; item: string; discipline: string | null }[]
+  appointment_gaps: { company: string; slot: string }[]
+  tracked_lines: { uid: string; description: string; start: string; finish: string
+    percent: number; removed: boolean }[]
+  waiting_on_you: { kind: string; reference: string; title: string
+    due: string | null; urgency: number }[]
+}
+
+export type Timeline = {
+  start: string | null
+  finish: string | null
+  today: string
+  percent_elapsed: number
+  percent_complete: number | null
+  milestones: { uid: string; description: string; date: string; complete: boolean }[]
+}
+
+export type HealthRow = {
+  company_id: string
+  company_name: string
+  appointment_gaps: number
+  overdue_drawings: number
+  open_issues: number
+  quiet_issues: number
+  concern_score: number
+}
+
+export type QuietRow = {
+  reference: string
+  title: string
+  raised_at: string
+  last_touched: string
+  days_quiet: number
+}
+
+export type DecisionRow = {
+  kind: string
+  record_id: string
+  reference: string
+  title: string
+  due: string | null
+  urgency: number
+}
+
+/** Everything this person's firm is answerable for, and nothing else. */
+export async function fetchMyFront(projectId: string) {
+  const { data, error } = await supabase.rpc('my_front', { p_project: projectId })
+  if (error) throw error
+  return (data ?? null) as MyFront | null
+}
+
+export async function fetchTimeline(projectId: string) {
+  const { data, error } = await supabase.rpc('programme_timeline', { p_project: projectId })
+  if (error) throw error
+  return (data ?? null) as Timeline | null
+}
+
+/** What is waiting on the signed-in person. Deliberately personal — Phase 13's
+ *  report answers the different question "what is waiting on this audience". */
+export async function fetchDecisionQueue(projectId: string) {
+  const { data, error } = await supabase.rpc('decision_queue', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as DecisionRow[]
+}
+
+/** Empty for anyone who is not the contractor's own staff. */
+export async function fetchConsultantHealth(projectId: string) {
+  const { data, error } = await supabase.rpc('consultant_health', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as HealthRow[]
+}
+
+export async function fetchGoneQuiet(projectId: string, weeks = 3) {
+  const { data, error } = await supabase.rpc('gone_quiet', {
+    p_project: projectId, p_weeks: weeks,
+  })
+  if (error) throw error
+  return (data ?? []) as QuietRow[]
+}

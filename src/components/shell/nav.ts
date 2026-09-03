@@ -22,7 +22,7 @@ export const PROJECT_NAV: NavGroup[] = [
     pinned: true,
     core: true,
     items: [
-      { key: 'dashboard', label: 'Home', to: null },
+      { key: 'dashboard', label: 'Home', to: 'home' },
       { key: 'issues', label: 'Tasks and RFIs', to: 'issues' },
       { key: 'meetings', label: 'Meetings', to: 'meetings' },
       { key: 'summary', label: 'Monday summary', to: null },

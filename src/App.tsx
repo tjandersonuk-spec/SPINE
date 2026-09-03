@@ -22,6 +22,7 @@ import ProgrammePage from '@/pages/project/ProgrammePage'
 import RegisterPage from '@/pages/project/RegisterPage'
 import ProjectLayout from '@/pages/project/ProjectLayout'
 import ProjectSettingsPage from '@/pages/project/SettingsPage'
+import TrackedPage from '@/pages/project/TrackedPage'
 import TransmittalsPage from '@/pages/project/TransmittalsPage'
 import RequestAccount from '@/pages/RequestAccount'
 import SetupNeeded from '@/pages/SetupNeeded'
@@ -76,6 +77,14 @@ export default function App() {
           <Route path="meetings" element={<MeetingsPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="transmittals" element={<TransmittalsPage />} />
+          <Route path="planning" element={<TrackedPage kind="planning" />} />
+          <Route path="bc" element={<TrackedPage kind="bc" />} />
+          <Route path="scope" element={<TrackedPage kind="scope" />} />
+          <Route path="preassessment" element={<TrackedPage kind="checklist:precon" />} />
+          <Route path="client" element={<TrackedPage kind="checklist:client" />} />
+          <Route path="handover" element={<TrackedPage kind="checklist:handover" />} />
+          <Route path="highways" element={<TrackedPage kind="checklist:highways" />} />
+          <Route path="utilities" element={<TrackedPage kind="checklist:utilities" />} />
           <Route path="access" element={<AccessPage />} />
           <Route path="settings" element={<ProjectSettingsPage />} />
         </Route>

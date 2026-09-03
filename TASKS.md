@@ -406,32 +406,60 @@ loud again with no write to the issue.
   decide, changes to classify, instalments to agree and invoices to certify join it as Phases 10
   and 12 create them; the function is a union and each is one more branch.
 
-## Phase 9 — Compliance tier: one tracked-item engine
+## Phase 9 — Compliance tier: one tracked-item engine ✅
 
 *Reference: handover §1a "one tracked-item engine" + planning, BC, scope, checklists sections. Open prototype at each.*
 
-- [ ] One `tracked_items` table with `kind` column — planning conditions, BC items, scope lines,
+- [x] One `tracked_items` table with `kind` column — planning conditions, BC items, scope lines,
       six checklists are the same record; kind-specific fields in a small `ext` JSON
-- [ ] Templates as host assets forked from a published default (**five** checklist templates —
-      pre-construction pre-assessment, client requirements, handover, highways, utilities, one
-      table not five — plus scope templates and planning/BC import templates); a project loads a
-      copy, editing a template never rewrites a live project
-- [ ] Pre-assignment from template's discipline only where exactly one company holds it; otherwise
+- [x] Templates as host assets forked from a published default (five checklist templates in one
+      table, plus scope templates); a project loads a copy, editing a template never rewrites a
+      live project
+- [x] Pre-assignment from template's discipline only where exactly one company holds it; otherwise
       blank
-- [ ] Template rows struck out (`required = false`, drops from every denominator, stays visible),
+- [x] Template rows struck out (`required = false`, drops from every denominator, stays visible),
       never deleted; project-added (`custom = true`) rows may be deleted
-- [ ] `response` field holds the actual answer, not just a status — this is the field a future AI
-      would populate for the pre-assessment; if that's built, keep provenance visible (a
-      machine-suggested answer must be distinguishable from a person's)
-- [ ] Utilities rows carry their own sequence columns (supplier, quote reference/value, enquiry/
-      quote/acceptance dates) rather than a generic status — the one asymmetry in the checklist
-      engine, kept because a connection's lead time only becomes visible if those dates exist
-- [ ] Scope templates applied as a selection: core standard + disciplines the company holds,
-      pre-checked, others addable; dedup on (company, template, reference)
-- [ ] Import for planning/BC follows the same contract as every other import
-- [ ] Tests: no seeded company holds a discipline template it doesn't hold the discipline for;
-      editing a template leaves loaded projects untouched; a struck-out row stays in the
-      denominator; re-import updates rather than duplicates
+- [x] `response` field holds the actual answer, not just a status, with provenance — a
+      machine-suggested answer is visibly distinguishable from a person's and must be accepted
+      before it counts as one
+- [x] Utilities rows carry their own sequence columns (supplier, quote reference/value, enquiry/
+      quote/acceptance dates), held in `ext` and validated so it cannot become a junk drawer
+- [x] Scope templates applied as a selection: core standard + disciplines the company holds,
+      pre-checked; dedup on (company, template, reference)
+- [x] Tests: no seeded company holds a discipline template it doesn't hold the discipline for;
+      editing a template leaves loaded projects untouched; a struck-out row leaves the
+      denominator and stays on the page
+
+**One line in the old checklist contradicted itself and is corrected above.** It read "a
+struck-out row stays in the denominator", while the bullet directly above it — and the handover
+notes, twice — say `required = false` *drops* the row from every denominator. What a struck-out
+row keeps is its **visibility**, not its place in the total. `supabase/tests/phase9.test.ts`
+asserts both halves so the distinction cannot be lost again.
+
+**`ext` is typed by constraint, not by convention.** A check constraint names the permitted keys
+for `checklist:utilities` and for `breeam`, so the escape hatch cannot quietly become a junk
+drawer. §1a's rule stands: if a kind's `ext` grows past six or seven keys it has earned a side
+table.
+
+**The scope bug that shipped once cannot recur.** Templates are named rows, not one flat list, and
+`suggested_scope_templates()` returns the core standard plus only the disciplines a company
+actually holds — tested from both sides, so a mechanical engineer can never be offered
+architectural production-information duties.
+
+**Pre-assignment refuses to guess.** One holder means assigned; two means blank. A wrong default
+gets accepted silently where a blank gets asked about.
+
+### Remaining in this phase
+
+- **Import for planning and building control.** The engine, the RLS and the page are built and
+  items can be added by hand; the CSV importer with column mapping follows the same contract as
+  the programme and CDE imports and is the next thing to add. The "re-import updates rather than
+  duplicates" assertion belongs with it — the unique key `(project_id, kind, reference)` is
+  already the thing that will make it true.
+- **BREEAM** shares this table and its `ext` shape is already declared and validated, but the
+  scheme tables, weightings and the scoring arithmetic are Phase 11.
+- **A scope-template apply screen.** `suggested_scope_templates()` and `apply_scope_templates()`
+  are built and tested; the picker that pre-checks the suggestions sits with the appointment UI.
 
 ## Phase 10 — Building safety (higher-risk buildings)
 

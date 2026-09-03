@@ -40,7 +40,13 @@ whether a change may proceed — all computed on read (views/functions), never s
 
 **The one exception:** the nightly `snapshots` table. It stores facts *about a date*, for trend
 charts only. No live figure is ever read from a snapshot, and no live page reads from anything
-except the derived views.
+except the derived views. This is **enforced, not reviewed**: `supabase/tests/phase14.test.ts`
+scans `pg_proc` and fails the build if any function other than `take_snapshot`, `project_trend`
+and `portfolio_trend` names the table. Nobody may write one by hand either — there is no insert,
+update or delete policy at all, and the writer is `security definer` with execute revoked from
+`authenticated`, because a stored figure somebody could edit is one they could edit into agreeing
+with an argument. `portfolio_summary()` is live rather than read from today's row even though the
+two would usually agree: "usually" is how a dashboard starts being a day behind unnoticed.
 
 ## Other rules that must not be reinterpreted
 
@@ -102,6 +108,14 @@ except the derived views.
 - **A consultant's front is scoped through `my_company_tree()`**, which recurses: a firm is
   answerable for the specialists it appointed under itself. A rival on the same project is
   absent from every figure, not merely unhighlighted.
+- **The portfolio is a roll-up and nothing else.** Every figure on it is the one a project page
+  already computes; the only new code is the aggregation, which is what stops the two disagreeing
+  in front of somebody who has both open. Which projects appear is `my_projects()` — stated once,
+  never restated — so account staff see their account's and everybody else sees their own
+  memberships. A firm on several jobs is gathered by **catalogue entry**, not by name: `companies`
+  is per-project, and matching on name would merge two different firms that share one and split
+  one that was typed twice. `my_decisions()` is keyed on `auth.uid()`, the opposite of
+  `report_attention()`, because a dashboard is read by the person looking at it.
 - Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
   token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
 - **The design tokens are the prototype's, and they come in three groups with a hard boundary

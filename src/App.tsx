@@ -6,6 +6,7 @@ import Account from '@/pages/account/Account'
 import AcceptInvitation from '@/pages/AcceptInvitation'
 import ConfirmEmail from '@/pages/ConfirmEmail'
 import Landing from '@/pages/Landing'
+import Portfolio from '@/pages/Portfolio'
 import PlatformAccounts from '@/pages/platform/Accounts'
 import Profile from '@/pages/Profile'
 import PlatformPeople from '@/pages/platform/People'
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
         <Route path="/request-account" element={<RequireAuth><RequestAccount /></RequireAuth>} />
         <Route path="/me" element={<RequireAuth><Profile /></RequireAuth>} />
+        <Route path="/portfolio" element={<RequireAuth><Portfolio /></RequireAuth>} />
         <Route path="/account/:id" element={<RequireAuth><Account /></RequireAuth>} />
         {/* Everything inside a project renders in the shell; the sidebar is
             the navigator, so each entry is a route rather than a tab. */}

@@ -77,6 +77,18 @@ export default function Landing() {
       <PendingInvitations invitations={invitations} onChange={load} />
       <MembershipRequests requests={memberRequests} onChange={load} />
 
+      {/* The view above a single project. Offered once there is more than one
+          to be above — on a single job the project's own dashboard says
+          everything this would, and a portfolio of one is a longer route to
+          the same page. */}
+      {projects.length > 1 && (
+        <div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/portfolio">Portfolio — all {projects.length} projects</Link>
+          </Button>
+        </div>
+      )}
+
       <Tabs defaultValue="projects">
         <TabsList>
           <TabsTrigger value="projects">Projects</TabsTrigger>

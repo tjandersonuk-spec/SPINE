@@ -3266,3 +3266,127 @@ export async function fetchReportComingUp(
   if (error) throw error
   return (data ?? []) as ReportComingUpRow[]
 }
+
+/* --------------------------------------------------- portfolio and trends */
+
+/**
+ * The view above a single project.
+ *
+ * All of it is the same figures the project pages compute — the only new thing
+ * is the roll-up. Which projects appear is `my_projects()`: account staff see
+ * every project in their account, everybody else sees the ones they are a
+ * member of, and that rule is stated once in the database rather than twice.
+ */
+export type PortfolioProject = {
+  project_id: string; code: string; name: string
+  organisation_id: string; account_name: string
+  stage: string | null; hrb: boolean
+  percent_elapsed: number; percent_complete: number
+  overdue_documents: number; drm_gaps: number
+  decisions_waiting: number; stop_works: number
+  client_done: number; client_total: number; open_tasks: number
+  /** A sort key, never a score: the columns are the evidence, the order is the
+   *  judgement. Same reasoning as consultant health. */
+  concern: number
+}
+
+export type PortfolioSummary = {
+  projects: number; hrb_projects: number; stop_works: number
+  overdue_documents: number; drm_gaps: number
+  decisions_waiting: number; open_tasks: number
+}
+
+export type PortfolioHealthRow = {
+  catalogue_company_id: string; company_name: string; projects: number
+  appointment_gaps: number; overdue_drawings: number
+  open_issues: number; quiet_issues: number; concern_score: number
+}
+
+export type MyDecision = {
+  project_id: string; project_code: string; project_name: string
+  kind: string; record_id: string; reference: string
+  title: string; due: string | null; urgency: number
+}
+
+/** A point on a trend line. The ONLY thing read from `snapshots` — no live
+ *  figure ever comes from there, and a test scans pg_proc to keep it so. */
+export type TrendPoint = {
+  date: string; issued: number; anticipated: number; overdue: number
+  open_tasks: number; drm_gaps: number; risk_expected: number
+  certified: number; client_done: number; client_total: number
+}
+
+export type PortfolioTrendPoint = {
+  date: string; projects: number; issued: number; anticipated: number
+  overdue: number; open_tasks: number; drm_gaps: number
+  risk_expected: number; certified: number
+}
+
+const ints = <T extends Record<string, unknown>>(row: T, keys: (keyof T)[]): T => {
+  const out = { ...row }
+  for (const k of keys) out[k] = Number(row[k] ?? 0) as T[keyof T]
+  return out
+}
+
+export async function fetchPortfolioProjects() {
+  const { data, error } = await supabase.rpc('portfolio_projects')
+  if (error) throw error
+  return ((data ?? []) as PortfolioProject[]).map((r) => ints(r, [
+    'percent_elapsed', 'percent_complete', 'overdue_documents', 'drm_gaps',
+    'decisions_waiting', 'stop_works', 'client_done', 'client_total',
+    'open_tasks', 'concern',
+  ]))
+}
+
+export async function fetchPortfolioSummary(orgId: string | null = null) {
+  const { data, error } = await supabase.rpc('portfolio_summary', { p_org: orgId })
+  if (error) throw error
+  const row = (data as PortfolioSummary[] | null)?.[0]
+  return row ? ints(row, [
+    'projects', 'hrb_projects', 'stop_works', 'overdue_documents',
+    'drm_gaps', 'decisions_waiting', 'open_tasks',
+  ]) : null
+}
+
+/** Summed across every project a company is appointed on. A consultant who is
+ *  fine on one job and behind on three is a conversation the per-project view
+ *  cannot start. Internal only, inherited from `consultant_health()`. */
+export async function fetchPortfolioHealth(orgId: string | null = null) {
+  const { data, error } = await supabase.rpc('portfolio_consultant_health', { p_org: orgId })
+  if (error) throw error
+  return ((data ?? []) as PortfolioHealthRow[]).map((r) => ints(r, [
+    'projects', 'appointment_gaps', 'overdue_drawings',
+    'open_issues', 'quiet_issues', 'concern_score',
+  ]))
+}
+
+/** Everything waiting on this person across every project they are on — what a
+ *  design manager running four jobs opens on a Monday. Personal, keyed on
+ *  auth.uid(): the opposite of a report, and correctly so. */
+export async function fetchMyDecisions() {
+  const { data, error } = await supabase.rpc('my_decisions')
+  if (error) throw error
+  return ((data ?? []) as MyDecision[]).map((r) => ints(r, ['urgency']))
+}
+
+export async function fetchProjectTrend(projectId: string, days = 90) {
+  const { data, error } = await supabase.rpc('project_trend', {
+    p_project: projectId, p_days: days,
+  })
+  if (error) throw error
+  return ((data ?? []) as TrendPoint[]).map((r) => ints(r, [
+    'issued', 'anticipated', 'overdue', 'open_tasks', 'drm_gaps',
+    'risk_expected', 'certified', 'client_done', 'client_total',
+  ]))
+}
+
+export async function fetchPortfolioTrend(orgId: string | null = null, days = 90) {
+  const { data, error } = await supabase.rpc('portfolio_trend', {
+    p_org: orgId, p_days: days,
+  })
+  if (error) throw error
+  return ((data ?? []) as PortfolioTrendPoint[]).map((r) => ints(r, [
+    'projects', 'issued', 'anticipated', 'overdue', 'open_tasks',
+    'drm_gaps', 'risk_expected', 'certified',
+  ]))
+}

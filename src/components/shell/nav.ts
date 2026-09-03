@@ -82,6 +82,13 @@ export const PROJECT_NAV: NavGroup[] = [
     ],
   },
   {
+    title: 'Reporting',
+    items: [
+      { key: 'reports', label: 'Period report', to: 'reports' },
+      { key: 'audit', label: 'Audit', to: null },
+    ],
+  },
+  {
     // Admin last, always.
     title: 'Admin',
     core: true,

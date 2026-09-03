@@ -17,6 +17,7 @@ import BuildingSafetyPage from '@/pages/project/BuildingSafetyPage'
 import FeesPage from '@/pages/project/FeesPage'
 import MaterialsPage from '@/pages/project/MaterialsPage'
 import PreconPage from '@/pages/project/PreconPage'
+import ReportsPage from '@/pages/project/ReportsPage'
 import RiskPage from '@/pages/project/RiskPage'
 import WarrantiesPage from '@/pages/project/WarrantiesPage'
 import ChangeLogPage from '@/pages/project/ChangeLogPage'
@@ -95,6 +96,7 @@ export default function App() {
           <Route path="changes-requests" element={<ChangeRequestsPage />} />
           <Route path="warranties" element={<WarrantiesPage />} />
           <Route path="materials" element={<MaterialsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route path="scope" element={<TrackedPage kind="scope" />} />
           <Route path="preassessment" element={<TrackedPage kind="checklist:precon" />} />
           <Route path="client" element={<TrackedPage kind="checklist:client" />} />

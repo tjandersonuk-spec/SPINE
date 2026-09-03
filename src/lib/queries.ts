@@ -3094,3 +3094,175 @@ export async function fetchChangeImplementationGap(projectId: string) {
     oldest_outstanding: string | null
   }[]
 }
+
+/* ------------------------------------------------------------- reports */
+
+/**
+ * Period reports: three audiences, one engine, three pages, nothing stored.
+ *
+ * Every function here is a query. There is no draft, no version and no saved
+ * document, so there is never a stale copy to reconcile against the live
+ * project — and no report table for this file to write to.
+ *
+ * The audience lock is server-side. `my_report_audiences()` says what to offer,
+ * but asking for one that is not on the list is refused by the database, and a
+ * consultant passing another company's id gets a refusal rather than a report
+ * full of their own figures.
+ */
+export type ReportAudience = 'internal' | 'client' | 'consultant'
+export type ReportPeriodKind = 'week' | 'month'
+
+export type ReportPeriod = {
+  kind: ReportPeriodKind; start_date: string; end_date: string; label: string
+}
+
+export type ReportHeader = {
+  project_code: string; project_name: string
+  audience: ReportAudience; company_id: string | null; company_name: string | null
+  title: string; generated_on: string; generated_by: string | null
+  /** Rendered on the document: an omission a reader cannot see stated is
+   *  indistinguishable from an oversight. */
+  exclusions: string
+}
+
+export type ReportMetric = {
+  sort_order: number; value: string; label: string; alert: boolean; tail: string | null
+}
+
+export type ReportComplianceRow = {
+  kind: string; label: string; total: number; done: number; overdue: number
+}
+
+export type ReportAttentionRow = {
+  kind: string; reference: string; title: string; due: string | null
+  tone: 'neutral' | 'warn' | 'stop'
+}
+
+export type ReportActivityRow = {
+  sort_order: number; section: string; headline: string; detail: string[]
+}
+
+export type ReportQuietRow = {
+  reference: string; title: string; raised_at: string
+  last_touched: string; days_quiet: number
+}
+
+export type ReportComingUpRow = {
+  task_uid: string; description: string; finish_date: string
+  is_milestone: boolean; percent_complete: number
+}
+
+export type ReportHealthRow = {
+  company_id: string; company_name: string
+  appointment_gaps: number; overdue_drawings: number
+  open_issues: number; quiet_issues: number; concern_score: number
+}
+
+export const REPORT_AUDIENCE_LABELS: Record<ReportAudience, string> = {
+  internal: 'Internal — senior leadership',
+  client: 'Client',
+  consultant: 'Consultant — company contribution',
+}
+
+/** Which audiences this person may generate. Offering the right list is a
+ *  courtesy; the database is what enforces it. */
+export async function fetchMyReportAudiences(projectId: string) {
+  const { data, error } = await supabase.rpc('my_report_audiences', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as ReportAudience[]
+}
+
+export async function fetchReportPeriod(kind: ReportPeriodKind, end?: string) {
+  const { data, error } = await supabase.rpc('report_period', {
+    p_kind: kind, p_end: end ?? null,
+  })
+  if (error) throw error
+  return (data as ReportPeriod[])[0]
+}
+
+export async function fetchReportHeader(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+) {
+  const { data, error } = await supabase.rpc('report_header', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+  })
+  if (error) throw error
+  return data as ReportHeader
+}
+
+export async function fetchReportMetrics(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+) {
+  const { data, error } = await supabase.rpc('report_metrics', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportMetric[]
+}
+
+export async function fetchReportCompliance(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+) {
+  const { data, error } = await supabase.rpc('report_compliance_rows', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportComplianceRow[]
+}
+
+export async function fetchReportAttention(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+) {
+  const { data, error } = await supabase.rpc('report_attention', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportAttentionRow[]
+}
+
+export async function fetchReportActivity(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+  kind: ReportPeriodKind, end?: string,
+) {
+  const { data, error } = await supabase.rpc('report_activity', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+    p_kind: kind, p_end: end ?? null,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportActivityRow[]
+}
+
+/** Withheld from the client entirely: flagging that something has stalled is a
+ *  tone judgement for a person, not a fact for an automated document. */
+export async function fetchReportGoneQuiet(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+) {
+  const { data, error } = await supabase.rpc('report_gone_quiet', {
+    p_project: projectId, p_audience: audience, p_company: companyId, p_weeks: 3,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportQuietRow[]
+}
+
+/** Internal only, matching the live dashboard exactly. */
+export async function fetchReportHealth(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+) {
+  const { data, error } = await supabase.rpc('report_health', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportHealthRow[]
+}
+
+export async function fetchReportComingUp(
+  projectId: string, audience: ReportAudience, companyId: string | null,
+  kind: ReportPeriodKind, end?: string,
+) {
+  const { data, error } = await supabase.rpc('report_coming_up', {
+    p_project: projectId, p_audience: audience, p_company: companyId,
+    p_kind: kind, p_end: end ?? null,
+  })
+  if (error) throw error
+  return (data ?? []) as ReportComingUpRow[]
+}

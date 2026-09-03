@@ -46,6 +46,36 @@ except the derived views.
 
 - Licensed third-party content (BREEAM criteria, BG6, CIC) is **never shipped**. Tables that would
   hold it start empty and are loaded per-project by whoever holds the licence.
+- **The change log is written by a trigger, and nobody can edit it.** Application-side logging
+  records what the developer remembered to log; the trigger records what actually happened,
+  including an edit made straight through PostgREST. One row per field that genuinely moved — a
+  write that changes nothing logs nothing. No role holds insert, update or delete on
+  `change_log`; every project member reads it, because a trail only some people can see is a
+  record of what someone was shown rather than of what happened.
+- **A tenant sets a name, a logo, one brand colour, and light or dark. That is the whole
+  customiser.** Everything the colour drives — the readable text on it, a tint, a darker hover —
+  is derived in `src/lib/theme.ts`, never asked for. The derived ink is white or **pure black**,
+  not the structural `#14181B`: the worst brand is the one equidistant from both, at 4.58, which
+  clears AA — while a near-black drops a band of mid-luminance colours below 4.5 with neither
+  option passing. `src/theme.test.ts` sweeps the whole colour space rather than a list.
+- **A module nobody has decided about is ON.** Entitlements are packaging, not permission — RLS
+  decides what a person may read and is untouched by any of this — so failing closed protects
+  nothing and breaks the product for any account that has not yet been sold a feature list.
+  `organisations.modules` defaults to `{}`, and reading an absent key as "off" emptied every
+  sidebar the moment the shell started asking. A key that is **not a module at all** stays off,
+  which is what keeps a nav entry naming a module that does not exist from ever appearing.
+  `project_shell()` returns the map already resolved over `module_keys()`, so the client looks
+  a value up rather than reimplementing the rule and eventually disagreeing.
+- **A module that is off is absent, not dimmed**, and its page refuses rather than rendering
+  empty. Showing a locked door tells a consultant what their client has and has not paid for.
+  `src/theme.test.ts` fails the build if a gated nav key is missing from `module_keys()`.
+  **My work and Admin are `core` groups, never gated:** a project with no settings page and no
+  change log is not a cheaper product, it is a broken one.
+- **An export contains exactly what the person exporting can already see.** Every export goes
+  through the same query layer the pages use, so RLS does the filtering — a wide query narrowed
+  afterwards in the browser is the easiest way in the product to leak a restricted RFI. A section
+  the exporter cannot see is marked withheld rather than omitted: a silent omission reads as
+  "there is none of that", which is a different and worse claim.
 - Hi-vis yellow means exactly one thing: an unallocated DRM gap. Nowhere else in the UI. The
   token is `--hivis` and is fixed: semantic colours are never part of a tenant's theme.
 - **The design tokens are the prototype's, and they come in three groups with a hard boundary

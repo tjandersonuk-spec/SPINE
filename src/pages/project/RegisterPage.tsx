@@ -4,6 +4,7 @@ import { useOutletContext, useParams } from 'react-router'
 import { DrawingForm } from '@/components/register/DrawingForm'
 import { ImportCde } from '@/components/register/ImportCde'
 import { Button } from '@/components/ui/button'
+import { RequireModule } from '@/components/shell/RequireModule'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
@@ -68,7 +69,7 @@ export default function RegisterPage() {
   if (loading) return <div className="text-graphite p-6 text-sm">Loading the register…</div>
 
   return (
-    <>
+    <RequireModule module="docs">
       <PageHead
         eyebrow="Design"
         title="Drawing register"
@@ -247,6 +248,6 @@ export default function RegisterPage() {
           onDone={() => { setImporting(false); load() }}
         />
       )}
-    </>
+    </RequireModule>
   )
 }

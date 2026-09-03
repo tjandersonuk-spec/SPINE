@@ -5,6 +5,7 @@ import { ErrorNote } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ModuleSettings } from '@/components/shell/ModuleSettings'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { updateProject } from '@/lib/queries'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
@@ -66,6 +67,10 @@ export default function SettingsPage() {
           <Button type="submit" className="self-start">Save</Button>
         </form>
       </Panel>
+
+      {ctx.isAccountAdmin && ctx.shell && (
+        <ModuleSettings projectId={id} shell={ctx.shell} onChanged={ctx.reload} />
+      )}
     </>
   )
 }

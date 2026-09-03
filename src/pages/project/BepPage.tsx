@@ -3,6 +3,7 @@ import { useOutletContext, useParams } from 'react-router'
 
 import { BepFieldValues } from '@/components/register/BepFieldValues'
 import { Button } from '@/components/ui/button'
+import { RequireModule } from '@/components/shell/RequireModule'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
@@ -53,7 +54,7 @@ export default function BepPage() {
   if (exists === null) return <div className="text-graphite p-6 text-sm">Loading…</div>
 
   return (
-    <>
+    <RequireModule module="bep">
       <PageHead
         eyebrow="Set up"
         title="BIM execution plan"
@@ -297,6 +298,6 @@ export default function BepPage() {
           onClose={() => { setEditingValues(null); load() }}
         />
       )}
-    </>
+    </RequireModule>
   )
 }

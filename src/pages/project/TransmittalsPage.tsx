@@ -4,6 +4,7 @@ import { useOutletContext, useParams } from 'react-router'
 import { IssueTransmittal } from '@/components/register/IssueTransmittal'
 import { PackDrawings } from '@/components/register/PackDrawings'
 import { Button } from '@/components/ui/button'
+import { RequireModule } from '@/components/shell/RequireModule'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
@@ -38,7 +39,7 @@ export default function TransmittalsPage() {
   if (loading) return <div className="text-graphite p-6 text-sm">Loading…</div>
 
   return (
-    <>
+    <RequireModule module="tx">
       <PageHead
         eyebrow="Design"
         title="Packs and transmittals"
@@ -192,7 +193,7 @@ export default function TransmittalsPage() {
           onClose={() => { setEditing(null); load() }}
         />
       )}
-    </>
+    </RequireModule>
   )
 }
 

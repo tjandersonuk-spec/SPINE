@@ -1,6 +1,7 @@
 import { useOutletContext, useParams } from 'react-router'
 
 import { Directory } from '@/components/Directory'
+import { RequireModule } from '@/components/shell/RequireModule'
 import { PageHead } from '@/components/ui/panel'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
 
@@ -9,7 +10,7 @@ export default function DirectoryPage() {
   const ctx = useOutletContext<ProjectContext>()
   if (!ctx.project) return null
   return (
-    <>
+    <RequireModule module="directory">
       <PageHead
         eyebrow="Set up"
         title="Directory"
@@ -20,6 +21,6 @@ export default function DirectoryPage() {
         organisationId={ctx.project.organisation_id}
         canEdit={ctx.canEdit}
       />
-    </>
+    </RequireModule>
   )
 }

@@ -49,7 +49,13 @@ with expected(ord, migration, kind, marker) as (values
   (34,'20260902160200_phase6_meetings',               'table',    'meetings'),
   (35,'20260902160300_phase6_issues',                 'table',    'issues'),
   (36,'20260902160400_phase6_functions',              'function', 'answer_rfi'),
-  (37,'20260902160500_phase6_rls',                    'policy',   'issues_select')
+  (37,'20260902160500_phase6_rls',                    'policy',   'issues_select'),
+  (38,'20260902170000_phase7_change_log',             'table',    'change_log'),
+  (39,'20260902170100_phase7_theming',                'function', 'project_shell'),
+  -- This migration creates no new object -- it replaces two functions -- so it
+  -- is checked by looking inside one of them. A marker naming an object an
+  -- EARLIER migration created would read true whether or not this one ran.
+  (40,'20260902170200_phase7_modules_default_on',     'source',   'module_on:module_keys')
 )
 select
   e.ord::numeric as "#",
@@ -69,6 +75,13 @@ select
       where table_schema = 'public'
         and table_name = split_part(e.marker, '.', 1)
         and column_name = split_part(e.marker, '.', 2))
+    -- 'source' is for a migration that only replaces a function: the marker is
+    -- <function>:<text the new body must contain>.
+    when 'source' then exists (
+      select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and p.proname = split_part(e.marker, ':', 1)
+        and p.prosrc like '%' || split_part(e.marker, ':', 2) || '%')
   end as applied
 from expected e
 

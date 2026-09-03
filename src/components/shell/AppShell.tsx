@@ -55,7 +55,15 @@ function GroupTitle({
   )
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  /** Which modules this project is entitled to. Defaults to permitting
+   *  everything, so a screen outside a project still renders. */
+  moduleOn = () => true,
+}: {
+  children: React.ReactNode
+  moduleOn?: (key: string) => boolean
+}) {
   const { id = '' } = useParams()
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [gaps, setGaps] = useState<number | null>(null)
@@ -140,6 +148,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {PROJECT_NAV.map((group) => {
             const open = !closed[group.title]
+            // A module the account is not entitled to is not dimmed, it is
+            // absent: showing a locked door tells a consultant what their
+            // client has and has not paid for, which is not theirs to know.
+            const items = group.core ? group.items : group.items.filter((i) => moduleOn(i.key))
+            if (items.length === 0) return null
             return (
               <div key={group.title}>
                 <GroupTitle
@@ -149,7 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   onClick={() => setClosed({ ...closed, [group.title]: open })}
                 />
                 {open &&
-                  group.items.map((item) =>
+                  items.map((item) =>
                     item.to ? (
                       <NavLink
                         key={item.key}

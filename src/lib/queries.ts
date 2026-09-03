@@ -1765,3 +1765,68 @@ export async function carryIssueForward(issueId: string, meetingId: string) {
   })
   if (error) throw error
 }
+
+/* ------------------------------------------------- shell, theming, modules */
+
+export type ProjectShell = {
+  project_id: string
+  project_name: string
+  project_code: string
+  organisation_id: string
+  account_name: string
+  brand_colour: string
+  logo_path: string | null
+  theme: 'light' | 'dark'
+  modules: Record<string, boolean>
+}
+
+/** Branding and entitlements for one project — the only account facts a member
+ *  who is not an admin of it may read. */
+export async function fetchProjectShell(projectId: string) {
+  const { data, error } = await supabase.rpc('project_shell', { p_project: projectId })
+  if (error) throw error
+  return (data ?? null) as ProjectShell | null
+}
+
+export async function fetchModuleKeys() {
+  const { data, error } = await supabase.rpc('module_keys')
+  if (error) throw error
+  return (data ?? []) as string[]
+}
+
+export async function setAccountModules(orgId: string, modules: Record<string, boolean>) {
+  const { error } = await supabase.rpc('set_modules', { p_org: orgId, p_modules: modules })
+  if (error) throw error
+}
+
+export async function setProjectModules(
+  projectId: string, override: Record<string, boolean> | null,
+) {
+  const { error } = await supabase.rpc('set_project_modules', {
+    p_project: projectId, p_override: override,
+  })
+  if (error) throw error
+}
+
+export type ChangeLogRow = {
+  id: number
+  entity_type: string
+  entity_id: string | null
+  action: 'insert' | 'update' | 'delete'
+  field: string | null
+  value_from: string | null
+  value_to: string | null
+  created_at: string
+  actor_name: string | null
+}
+
+export async function fetchChangeLog(projectId: string, limit = 200) {
+  const { data, error } = await supabase
+    .from('v_change_log')
+    .select('id, entity_type, entity_id, action, field, value_from, value_to, created_at, actor_name')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as unknown as ChangeLogRow[]
+}

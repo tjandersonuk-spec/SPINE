@@ -42,7 +42,8 @@ with expected(ord, migration, kind, marker) as (values
   (27,'20260902140100_phase5_register',               'table',    'drawing_register'),
   (28,'20260902140200_phase5_functions',              'function', 'construction_status'),
   (29,'20260902140300_phase5_actions',                'function', 'issue_transmittal'),
-  (30,'20260902140400_phase5_rls',                    'policy',   'drawing_register_select')
+  (30,'20260902140400_phase5_rls',                    'policy',   'drawing_register_select'),
+  (31,'20260902150000_storage_bucket',                'function', 'my_company_on_project')
 )
 select
   e.ord::numeric as "#",

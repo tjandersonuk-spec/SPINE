@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
+import { DrawingForm } from '@/components/register/DrawingForm'
 import { ImportCde } from '@/components/register/ImportCde'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
@@ -24,6 +25,8 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
+  const [editing, setEditing] = useState<Drawing | null>(null)
+  const [adding, setAdding] = useState(false)
 
   const load = useCallback(() => {
     Promise.all([fetchRegister(id), hasBep(id)])
@@ -71,7 +74,12 @@ export default function RegisterPage() {
         title="Drawing register"
         meta="What is due, what has arrived, and at which revision. The files stay in the CDE."
         actions={ctx.canEdit ? (
-          <Button size="sm" onClick={() => setImporting(true)}>Import a CDE export</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+              Expect a drawing
+            </Button>
+            <Button size="sm" onClick={() => setImporting(true)}>Import a CDE export</Button>
+          </div>
         ) : null}
       />
 
@@ -169,6 +177,14 @@ export default function RegisterPage() {
                             >
                               <Code>{r.document_number}</Code>
                             </a>
+                          ) : ctx.canEdit ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditing(r)}
+                              className="text-primary cursor-pointer hover:underline"
+                            >
+                              <Code>{r.document_number}</Code>
+                            </button>
                           ) : (
                             <Code>{r.document_number}</Code>
                           )}
@@ -213,6 +229,15 @@ export default function RegisterPage() {
             </Table>
           </TableScroll>
         </Panel>
+      )}
+
+      {(adding || editing) && (
+        <DrawingForm
+          projectId={id}
+          drawing={editing}
+          onClose={() => { setAdding(false); setEditing(null) }}
+          onSaved={() => { setAdding(false); setEditing(null); load() }}
+        />
       )}
 
       {importing && (

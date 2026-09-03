@@ -4,11 +4,13 @@ import { AuthProvider, useAuth } from '@/lib/auth'
 import { supabaseConfigProblem } from '@/lib/supabase'
 import Account from '@/pages/account/Account'
 import AcceptInvitation from '@/pages/AcceptInvitation'
+import ConfirmEmail from '@/pages/ConfirmEmail'
 import Landing from '@/pages/Landing'
 import PlatformAccounts from '@/pages/platform/Accounts'
 import Profile from '@/pages/Profile'
 import PlatformPeople from '@/pages/platform/People'
 import AccessPage from '@/pages/project/AccessPage'
+import BepPage from '@/pages/project/BepPage'
 import DirectoryPage from '@/pages/project/DirectoryPage'
 import MatrixPage from '@/pages/project/MatrixPage'
 import ProgrammePage from '@/pages/project/ProgrammePage'
@@ -22,9 +24,13 @@ import SignIn from '@/pages/SignIn'
 import SignUp from '@/pages/SignUp'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, confirmed } = useAuth()
   if (loading) return null
   if (!session) return <Navigate to="/sign-in" replace />
+  // An unconfirmed address reaches the confirmation screen and nothing else.
+  // Enforced here rather than left to the project's Auth settings: a dashboard
+  // toggle is not visible from the code, and this gate covers every route.
+  if (!confirmed) return <ConfirmEmail />
   return <>{children}</>
 }
 
@@ -57,6 +63,7 @@ export default function App() {
           <Route path="directory" element={<DirectoryPage />} />
           <Route path="matrix" element={<MatrixPage />} />
           <Route path="programme" element={<ProgrammePage />} />
+          <Route path="bep" element={<BepPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="transmittals" element={<TransmittalsPage />} />
           <Route path="access" element={<AccessPage />} />

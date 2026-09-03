@@ -84,8 +84,12 @@ except the derived views.
   new transmittal.
 - **No drawings are ever stored in Supabase Storage.** The drawing register stores a CDE URL
   only. The one storage bucket (`project-files`, private) holds appointment documents and
-  evidence/comment attachments only, path-scoped so a consultant can read only their own company
-  tree.
+  evidence/comment attachments only, path-scoped `project/company/slot/filename` so a consultant
+  reads and writes only their own company tree and cannot see a rival's fee scope on the same
+  project. Links are signed and expire; a replacement supersedes rather than overwrites, so there
+  is no update policy on `storage.objects` at all. The policies resolve the caller's own company
+  through the definer `my_company_on_project()` — read inline they would always fail, because
+  member visibility is admin-only and a consultant cannot see their own membership row.
 - One `visibility` jsonb primitive on any record that has an audience, read by one `can_see()`
   function: `project` (everyone on the project — the default for tasks), `named` (raiser + owner +
   listed people only — the default for risks), `parties` (company trees + named people — change

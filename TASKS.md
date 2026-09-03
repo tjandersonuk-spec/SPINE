@@ -26,8 +26,9 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 ### Logins and confirmation
 
 - [x] `profiles` (people) — one row per human, one login, created on sign-up
-- [ ] Email confirmation required; an unconfirmed login reaches the confirmation screen and
-      nothing else
+- [x] Email confirmation required; an unconfirmed login reaches the confirmation screen and
+      nothing else. Enforced in `RequireAuth`, not left to the project's Auth settings — a
+      dashboard toggle is invisible from the code, and this gate covers every route.
 - [x] Sign-up creates **no** organisation, **no** membership and **no** request — a login on its
       own grants nothing
 - [x] A confirmed login with zero memberships can sign in and lands on the personal landing page;
@@ -93,9 +94,9 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 - [x] `platform_owners` table and `is_platform_owner()`; every select policy on account-scoped
       tables gains `or is_platform_owner()`
-- [ ] Accounts view: list every account, review/amend/approve/reject requests, lock, archive,
+- [x] Accounts view: list every account, review/amend/approve/reject requests, lock, archive,
       delete, set modules and tier
-- [ ] **People view: every login on the platform**, including logins with zero memberships, with
+- [x] **People view: every login on the platform**, including logins with zero memberships, with
       email, confirmation state, sign-up date, last seen, and the accounts they belong to — these
       people appear in no other list in the product
 - [x] `platform_audit`, separate from the per-account change log, with no update or delete policy
@@ -120,7 +121,7 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 ### Tests
 
-- [ ] Port the full assertion list at the end of handover §1b — in particular: a new sign-up sees
+- [x] Port the full assertion list at the end of handover §1b — in particular: a new sign-up sees
       empty tabs and no errors; approving a request creates exactly one admin membership; a
       suspended account stops a live session; an account cannot be deleted unless archived; a
       non-admin's direct `insert` into `projects` is refused; a project invite to a non-member is
@@ -129,8 +130,10 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 ### Remaining in this phase
 
-- [ ] Email confirmation is required in the Supabase project's Auth settings (a dashboard
-      setting, not code) — the sign-up flow already assumes it
+- [ ] Email confirmation switched on in the Supabase project's Auth settings. Not code, and the
+      only item here nobody but the account holder can do. The app no longer depends on it —
+      `RequireAuth` refuses an unconfirmed session either way — but leaving it off means
+      Supabase issues a session to an unverified address in the first place.
 - [x] Platform-owner console: accounts view (review, amend, approve, reject, lock, archive,
       delete, set modules and tier) and the people view listing every login
 - [x] Account-admin screens: member directory, issue and revoke invitations, create a project
@@ -159,10 +162,12 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 ### Remaining in this phase
 
-- [ ] Appointment document upload. The table, the derived status and the policies are built; the
-      Supabase Storage bucket (`project-files`, private, path-scoped) and the upload control are
-      not, so a document can be recorded but not yet attached
-- [ ] Editing a forked discipline list from the UI — the policies allow it, the screen only reads
+- [x] Appointment document upload. The `project-files` bucket is private and path-scoped
+      (`project/company/slot/filename`), so a consultant reads and writes only their own company
+      tree and cannot see a rival's fee scope on the same project. Links are signed and expire;
+      a replacement supersedes rather than overwrites, so there is no update policy at all.
+- [x] Editing a forked discipline list from the UI, including pulling in disciplines the
+      published set has gained since the fork was taken
 - [ ] Playwright click-through, still blocked on a reachable GoTrue and PostgREST
 
 ## Phase 3 — Responsibility matrix (DRM)
@@ -180,11 +185,11 @@ Terminology: an **account** is a row in `organisations` (one main contractor's t
 
 ### Remaining in this phase
 
-- [ ] `drm_roles` — the supporting, reviewing, contributing, approving and informed disciplines
-      beside the lead. Table, policies and grants exist; no screen edits them yet
-- [ ] Editing the forked DRM library from the UI, and bespoke project items — the policies allow
-      both, the screen does neither
-- [ ] `transfers_at_stage`, `cdp_package` and `level_of_information` are stored but not yet shown
+- [x] `drm_roles` — the supporting, reviewing, contributing, approving and informed disciplines
+      beside the lead, edited from the item panel. A discipline holds one role on an item or
+      none: it cannot both review and approve, which is the distinction the codes exist for.
+- [x] Editing the forked DRM library from the UI, and bespoke project items
+- [x] `transfers_at_stage`, `cdp_package` and `level_of_information` shown and editable
 
 ## Phase 4 — Programme and the date spine ✅
 
@@ -212,11 +217,14 @@ by construction, and unbypassable because no role holds insert or update on `pro
 - **Notification when a tracked line moves.** Tracking works and the import knows exactly what
   moved; the email itself waits on Phase 16, which is where transactional email is built. Until
   then a tracked line is visible on the programme page but nothing is sent.
-- **Gantt.** The programme reads as a table. The bar chart is worth doing once there are
-  dependents to draw against it.
-- `programme_dependents()` returns nothing until Phase 5 gives a module the anchor columns. The
-  Phase 4 test fails the build if a table gains `programme_task_uid` without a matching branch,
-  so the inspector cannot silently fall behind.
+- **Gantt** — built as plain SVG rather than from a library, because every commercial Gantt
+  brings its own date engine and that would be a second opinion about dates in a product whose
+  whole point is that there is only one. Summary bars show the rolled-up span, so a summary
+  cannot disagree with what sits under it.
+- `programme_dependents()` now reaches `drawing_register`, added by Phase 5 in the same migration
+  that gave drawings their anchor columns. The Phase 4 test fails the build if a table gains
+  `programme_task_uid` and `offset_days` without a matching branch — and equally if a table that
+  only *links* to a line, like `drawing_pack_programme`, ever appears in it.
 
 ## Phase 5 — Drawing register, packs, transmittals ✅
 
@@ -247,17 +255,19 @@ never appear at all.
 
 ### Remaining in this phase
 
-- **Transmittal recipients.** The schema, the RLS and `issue_transmittal()`'s `p_recipients`
-  argument are all in place, and the distribution rule (empty = whole project; populated = those
-  people plus host and raiser) is modelled. The picker is not built, so every transmittal
-  currently issues with an empty distribution. Needs the project directory UI from Phase 2 to
-  select against.
-- **BEP editor.** `seed_bep()` adopts the ISO 19650 UK Annex structure and the register shows
-  compliance against it, but the fields, values and revision rules can only be edited in SQL.
-- **Drawing anchor editing.** A planned drawing can be given a programme anchor through
-  `addPlannedDrawing`/`setDrawingAnchor`, but there is no form for it on the register page yet.
-- **CDE URL.** The column is there and the register links to it when set; nothing populates it,
-  because it depends on which CDE the project uses.
+- **Transmittal recipients** — picked from the project directory, grouped by firm, each marked
+  for action or information. A recipient is always a named person: `person_id` sits in the
+  primary key, so Postgres makes it NOT NULL whatever the column says, and that is right — a
+  drawing is distributed to someone, not to a firm in the abstract.
+- **BEP editor** — fields, their permitted codes, revision rules and suitability codes. The
+  Originator field has no editor and never will: its codes are the project's companies read
+  live, and a second list would let the BEP and the directory disagree.
+- **Drawing anchor editing** — a form with no date field in it. A drawing is due so many days
+  either side of a programme line; the override is there for the case the spine cannot express
+  and says plainly that it stops following the programme.
+- **CDE URL** — editable on any register row, and the number becomes a link once it is set.
+
+Nothing outstanding in this phase.
 
 ## Phase 6 — Tasks, RFIs, meetings, comments, evidence
 

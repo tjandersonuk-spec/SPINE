@@ -369,3 +369,74 @@ describe('a transmittal is evidence', () => {
     expect(all.rows.map((r) => r.reference)).toEqual(['TX-001', 'TX-002'])
   })
 })
+
+describe('who a transmittal went to', () => {
+  test('named recipients are recorded with their distribution', async () => {
+    const co = (await asUser(w.admin, (c) =>
+      c.query(`select id from companies where project_id=$1 and originator_code='BEL'`,
+        [w.project]))).rows[0].id
+    const person = (await asSuperuser(async (c: Client) => (await c.query(
+      `insert into project_people (project_id, company_id, name, job_role, email)
+       values ($1,$2,'Priya Nair','Project architect','priya@bel.example') returning id`,
+      [w.project, co])).rows[0].id))
+
+    const drawing = (await asUser(w.admin, (c) => c.query(
+      `select id from drawing_register where project_id=$1 and revision is not null limit 1`,
+      [w.project]))).rows[0].id
+
+    const out = (await asUser(w.admin, (c) =>
+      c.query(`select issue_transmittal($1,'Email','For construction',null,null,$2,$3) as o`, [
+        w.project, [drawing],
+        JSON.stringify([{ company_id: co, person_id: person, distribution: 'action' }]),
+      ]))).rows[0].o
+    expect(out.ok).toBe(true)
+
+    const r = await asUser(w.consultant, (c) =>
+      c.query(`select company_id, person_id, distribution from transmittal_recipients
+               where transmittal_id = $1`, [out.transmittal_id]))
+    expect(r.rows).toEqual([{ company_id: co, person_id: person, distribution: 'action' }])
+  })
+
+  test('an empty distribution is the whole project, not a missing one', async () => {
+    const drawing = (await asUser(w.admin, (c) => c.query(
+      `select id from drawing_register where project_id=$1 and revision is not null limit 1`,
+      [w.project]))).rows[0].id
+    const out = (await asUser(w.admin, (c) =>
+      c.query(`select issue_transmittal($1,'CDE',null,null,null,$2,null) as o`,
+        [w.project, [drawing]]))).rows[0].o
+
+    const r = await asUser(w.consultant, (c) =>
+      c.query('select count(*)::int as n from transmittal_recipients where transmittal_id = $1',
+        [out.transmittal_id]))
+    expect(r.rows[0].n).toBe(0)
+
+    // And a consultant on the project can still see it — that is what an empty
+    // distribution means.
+    const seen = await asUser(w.consultant, (c) =>
+      c.query('select reference from transmittals where id = $1', [out.transmittal_id]))
+    expect(seen.rows).toHaveLength(1)
+  })
+
+  test('a recipient is always a named person, never a firm in the abstract', async () => {
+    // person_id sits in the primary key, so Postgres makes it NOT NULL whatever
+    // the column declaration says. That is the right behaviour -- a drawing is
+    // distributed to someone -- but it is worth pinning, because a caller
+    // passing a company alone gets a constraint error rather than a silent
+    // company-wide row.
+    const co = (await asUser(w.admin, (c) =>
+      c.query(`select id from companies where project_id=$1 limit 1`, [w.project]))).rows[0].id
+    const nullable = await asUser(w.admin, (c) =>
+      c.query(`select is_nullable from information_schema.columns
+               where table_name='transmittal_recipients' and column_name='person_id'`))
+    expect(nullable.rows[0].is_nullable).toBe('NO')
+
+    const drawing = (await asUser(w.admin, (c) => c.query(
+      `select id from drawing_register where project_id=$1 and revision is not null limit 1`,
+      [w.project]))).rows[0].id
+    expect(await denied(w.admin,
+      `select issue_transmittal($1,'Email',null,null,null,$2,$3)`, [
+        w.project, [drawing],
+        JSON.stringify([{ company_id: co, person_id: null, distribution: 'information' }]),
+      ])).toMatch(/null value|not-null/)
+  })
+})

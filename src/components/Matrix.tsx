@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import { DrmItemDetail } from '@/components/DrmItemDetail'
 import { ErrorNote } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select-native'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
-  DRM_CATEGORY_NAMES, fetchDrmGaps, fetchDrmItems, fetchDrmLeads, fetchProjectDisciplines,
-  loadDrmIntoProject, setDrmApplicable, setDrmLead,
-  type DrmGap, type DrmItem, type DrmLead,
+  DRM_CATEGORY_NAMES, addBespokeDrmItem, fetchDrmGaps, fetchDrmItems, fetchDrmLeads,
+  fetchDrmRoles, fetchProjectDisciplines, loadDrmIntoProject, setDrmApplicable, setDrmLead,
+  type DrmGap, type DrmItem, type DrmLead, type DrmRole,
 } from '@/lib/queries'
 
 type Disc = { code: string; name: string; required: boolean }
@@ -37,6 +38,12 @@ export function Matrix({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [onlyGaps, setOnlyGaps] = useState(false)
+  const [roles, setRoles] = useState<DrmRole[]>([])
+  const [detail, setDetail] = useState<DrmItem | null>(null)
+  const [addingTo, setAddingTo] = useState<string | null>(null)
+  const [newRef, setNewRef] = useState('')
+  const [newItem, setNewItem] = useState('')
+  const [newLead, setNewLead] = useState('')
 
   const load = useCallback(() => {
     Promise.all([
@@ -44,18 +51,28 @@ export function Matrix({
       fetchDrmLeads(projectId),
       fetchDrmGaps(projectId),
       fetchProjectDisciplines(projectId),
+      fetchDrmRoles(projectId),
     ])
-      .then(([i, l, g, d]) => {
+      .then(([i, l, g, d, r]) => {
         setItems(i)
         setLeads(l)
         setGaps(g)
         setDisciplines(d.filter((x) => x.required))
+        setRoles(r)
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [projectId])
 
   useEffect(load, [load])
+
+  // How many disciplines sit beside the lead on each item, so the matrix says
+  // at a glance which rows have a supporting cast and which are one firm alone.
+  const roleCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of roles) m.set(r.drm_item_id, (m.get(r.drm_item_id) ?? 0) + 1)
+    return m
+  }, [roles])
 
   const act = async (fn: () => Promise<void>) => {
     setError(null)
@@ -159,7 +176,22 @@ export function Matrix({
                   return (
                     <TR key={i.id} gap={Boolean(gap)} muted={!i.applicable}>
                       <TD>
-                        <Code className="font-semibold">{i.ref}</Code>
+                        <button
+                          type="button"
+                          onClick={() => setDetail(i)}
+                          className="text-primary cursor-pointer hover:underline"
+                          aria-label={`Open ${i.ref}`}
+                        >
+                          <Code className="font-semibold">{i.ref}</Code>
+                        </button>
+                        {(roleCount.get(i.id) ?? 0) > 0 && (
+                          <span
+                            className="text-graphite ml-1.5 text-[10px]"
+                            title={`${roleCount.get(i.id)} other disciplines involved`}
+                          >
+                            +{roleCount.get(i.id)}
+                          </span>
+                        )}
                       </TD>
                       <TD>
                         {i.item}
@@ -216,8 +248,70 @@ export function Matrix({
               </TBody>
             </Table>
           </TableScroll>
+
+          {canEdit && (
+            addingTo === code ? (
+              <form
+                className="border-rule mt-1 flex flex-wrap items-end gap-2 rounded-lg border p-3"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!newRef.trim() || !newItem.trim()) return
+                  act(() => addBespokeDrmItem(projectId, {
+                    ref: newRef.trim(), category_code: code, item: newItem.trim(),
+                    lead_discipline: newLead || null,
+                  })).then(() => {
+                    setNewRef(''); setNewItem(''); setNewLead(''); setAddingTo(null)
+                  })
+                }}
+              >
+                <label>
+                  <span className="mb-1 block text-xs font-medium">Ref</span>
+                  <input value={newRef} onChange={(e) => setNewRef(e.target.value)}
+                    placeholder={`${code}.900`}
+                    className="border-rule w-24 rounded border px-2 py-1.5 font-mono text-sm" />
+                </label>
+                <label className="min-w-56 flex-1">
+                  <span className="mb-1 block text-xs font-medium">Item</span>
+                  <input value={newItem} onChange={(e) => setNewItem(e.target.value)}
+                    className="border-rule w-full rounded border px-2 py-1.5 text-sm" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-xs font-medium">Lead</span>
+                  <Select value={newLead} onChange={(e) => setNewLead(e.target.value)}>
+                    <option value="">— nobody —</option>
+                    {disciplines.map((d) => (
+                      <option key={d.code} value={d.code}>{d.code} · {d.name}</option>
+                    ))}
+                  </Select>
+                </label>
+                <Button type="submit" disabled={!newRef.trim() || !newItem.trim()}>Add</Button>
+                <Button type="button" variant="ghost" onClick={() => setAddingTo(null)}>
+                  Cancel
+                </Button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingTo(code)}
+                className="text-graphite-light mt-1 self-start text-xs underline"
+              >
+                Add an item to this section
+              </button>
+            )
+          )}
         </section>
       ))}
+
+      {detail && (
+        <DrmItemDetail
+          item={detail}
+          disciplines={disciplines}
+          leads={leads}
+          canEdit={canEdit}
+          onClose={() => setDetail(null)}
+          onChanged={load}
+        />
+      )}
     </div>
   )
 }

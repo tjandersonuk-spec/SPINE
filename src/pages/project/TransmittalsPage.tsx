@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
+import { IssueTransmittal } from '@/components/register/IssueTransmittal'
 import { PackDrawings } from '@/components/register/PackDrawings'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
-  createPack, fetchPacks, fetchTransmittals, issueTransmittal,
-  type Pack, type Transmittal,
+  createPack, fetchPacks, fetchTransmittals, type Pack, type Transmittal,
 } from '@/lib/queries'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
 
@@ -23,6 +23,8 @@ export default function TransmittalsPage() {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Pack | null>(null)
   const [naming, setNaming] = useState(false)
+  const [issuing, setIssuing] = useState<Pack | null>(null)
+  const [issued, setIssued] = useState<string | null>(null)
 
   const load = useCallback(() => {
     Promise.all([fetchPacks(id), fetchTransmittals(id)])
@@ -32,21 +34,6 @@ export default function TransmittalsPage() {
   }, [id])
 
   useEffect(load, [load])
-
-  const issue = async (pack: Pack) => {
-    try {
-      const out = await issueTransmittal(id, {
-        method: 'Email', reason: pack.name, notes: null,
-        packId: pack.id, drawingIds: null,
-      })
-      setError(null)
-      load()
-      alert(`${out.reference} issued — ${out.drawing_count} drawings, ` +
-        `each frozen at the revision it stands at now.`)
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
 
   if (loading) return <div className="text-graphite p-6 text-sm">Loading…</div>
 
@@ -118,7 +105,7 @@ export default function TransmittalsPage() {
                           <Button size="sm" variant="ghost" onClick={() => setEditing(p)}>
                             Drawings
                           </Button>
-                          <Button size="sm" variant="secondary" onClick={() => void issue(p)}>
+                          <Button size="sm" variant="secondary" onClick={() => setIssuing(p)}>
                             Issue
                           </Button>
                         </div>
@@ -166,6 +153,26 @@ export default function TransmittalsPage() {
           </TableScroll>
         )}
       </Panel>
+
+      {issued && (
+        <Panel kind="evidence" className="mb-4">
+          <p className="text-sm">{issued}</p>
+        </Panel>
+      )}
+
+      {issuing && (
+        <IssueTransmittal
+          projectId={id}
+          pack={issuing}
+          onClose={() => setIssuing(null)}
+          onIssued={(ref, count) => {
+            setIssuing(null)
+            setIssued(`${ref} issued — ${count} drawing${count === 1 ? '' : 's'}, ` +
+              'each frozen at the revision it stood at.')
+            load()
+          }}
+        />
+      )}
 
       {naming && (
         <NewPack

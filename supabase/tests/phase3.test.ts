@@ -358,3 +358,114 @@ describe('drm_leads is scoped to its own project', () => {
     })
   })
 })
+
+describe('the disciplines beside the lead', () => {
+  test('a discipline holds one role on an item, never two', async () => {
+    const item = (await asUser(w.admin, (c) =>
+      c.query('select id from drm_items where project_id = $1 limit 1', [w.project]))).rows[0].id
+
+    await asUser(w.admin, (c) => c.query(
+      `insert into drm_roles (drm_item_id, discipline_code, role_code) values ($1,'S','R')`,
+      [item]))
+
+    // The primary key is (item, discipline): setting a second role replaces the
+    // first rather than adding one. A discipline that both reviews and approves
+    // is exactly the ambiguity the codes exist to prevent.
+    await asUser(w.admin, (c) => c.query(
+      `insert into drm_roles (drm_item_id, discipline_code, role_code) values ($1,'S','A')
+       on conflict (drm_item_id, discipline_code) do update set role_code = excluded.role_code`,
+      [item]))
+
+    const r = await asUser(w.admin, (c) =>
+      c.query(`select role_code from drm_roles where drm_item_id = $1 and discipline_code = 'S'`,
+        [item]))
+    expect(r.rows).toHaveLength(1)
+    expect(r.rows[0].role_code).toBe('A')
+  })
+
+  test('only the five ISO roles are accepted', async () => {
+    const item = (await asUser(w.admin, (c) =>
+      c.query('select id from drm_items where project_id = $1 limit 1', [w.project]))).rows[0].id
+    expect(await refused(() => asUser(w.admin, (c) => c.query(
+      `insert into drm_roles (drm_item_id, discipline_code, role_code) values ($1,'M','Z')`,
+      [item])))).toMatch(/role_code/)
+  })
+
+  test('a consultant reads the roles but cannot set them', async () => {
+    const seen = await asUser(w.consultant, (c) =>
+      c.query(`select count(*)::int as n from drm_roles r
+               join drm_items i on i.id = r.drm_item_id where i.project_id = $1`, [w.project]))
+    expect(seen.rows[0].n).toBeGreaterThan(0)
+
+    const item = (await asUser(w.admin, (c) =>
+      c.query('select id from drm_items where project_id = $1 limit 1', [w.project]))).rows[0].id
+    expect(await refused(() => asUser(w.consultant, (c) => c.query(
+      `insert into drm_roles (drm_item_id, discipline_code, role_code) values ($1,'E','I')`,
+      [item])))).toMatch(/row-level security/)
+  })
+
+  test('the three transfer fields are stored and readable', async () => {
+    const item = (await asUser(w.admin, (c) =>
+      c.query('select id from drm_items where project_id = $1 limit 1', [w.project]))).rows[0].id
+    await asUser(w.admin, (c) => c.query(
+      `update drm_items set transfers_at_stage='4', cdp_package='Curtain walling',
+              level_of_information='LOD 350' where id = $1`, [item]))
+    const r = await asUser(w.consultant, (c) =>
+      c.query(`select transfers_at_stage, cdp_package, level_of_information
+               from drm_items where id = $1`, [item]))
+    expect(r.rows[0]).toEqual({
+      transfers_at_stage: '4', cdp_package: 'Curtain walling', level_of_information: 'LOD 350',
+    })
+  })
+})
+
+describe('editing a template never rewrites a project', () => {
+  test('a forked library is the account’s own, and the published one is untouchable', async () => {
+    // The published library belongs to everyone; only a fork is editable.
+    const published = await asUser(w.admin, (c) =>
+      c.query(`select id, item from drm_library_items where organisation_id is null limit 1`))
+    await asUser(w.admin, (c) =>
+      c.query(`update drm_library_items set item = 'Tampered' where id = $1`,
+        [published.rows[0].id]))
+    const after = await asUser(w.admin, (c) =>
+      c.query('select item from drm_library_items where id = $1', [published.rows[0].id]))
+    expect(after.rows[0].item).toBe(published.rows[0].item)
+  })
+
+  test('editing the fork leaves a project that already loaded it alone', async () => {
+    await asUser(w.admin, (c) => c.query('select fork_drm_library($1)', [w.org]))
+
+    const before = await asUser(w.admin, (c) =>
+      c.query('select id, item from drm_items where project_id = $1 order by ref limit 1',
+        [w.project]))
+    const projectItem = before.rows[0]
+
+    // Change the same item in the account's library.
+    await asUser(w.admin, (c) => c.query(
+      `update drm_library_items set item = 'Reworded in the template'
+       where organisation_id = $1 and item = $2`, [w.org, projectItem.item]))
+
+    const after = await asUser(w.admin, (c) =>
+      c.query('select item from drm_items where id = $1', [projectItem.id]))
+    expect(after.rows[0].item).toBe(projectItem.item)
+  })
+
+  test('a bespoke item can be added to a project without touching the library', async () => {
+    const libBefore = await asUser(w.admin, (c) =>
+      c.query('select count(*)::int as n from drm_library_items where organisation_id = $1',
+        [w.org]))
+
+    await asUser(w.admin, (c) => c.query(
+      `insert into drm_items (project_id, ref, category_code, item, lead_discipline, applicable)
+       values ($1,'09.900','09','Bespoke interface on this job only','A',true)`, [w.project]))
+
+    const seen = await asUser(w.consultant, (c) =>
+      c.query(`select item from drm_items where project_id = $1 and ref = '09.900'`, [w.project]))
+    expect(seen.rows).toHaveLength(1)
+
+    const libAfter = await asUser(w.admin, (c) =>
+      c.query('select count(*)::int as n from drm_library_items where organisation_id = $1',
+        [w.org]))
+    expect(libAfter.rows[0].n).toBe(libBefore.rows[0].n)
+  })
+})

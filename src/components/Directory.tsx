@@ -9,30 +9,106 @@ import { Code, Pill } from '@/components/ui/table'
 import {
   addCompanyToProject, addPersonToProject, fetchAppointmentStatus, fetchCatalogue,
   fetchCompanyDisciplines, fetchContacts, fetchDisciplineGaps, fetchProjectCompanies,
+  appointmentDocumentUrl, approveAppointmentDocument, fetchAppointmentDocuments,
   fetchProjectDisciplines, fetchProjectPeople, seedSampleProject, setCompanyDiscipline, SLOT_LABELS,
+  uploadAppointmentDocument,
   type AppointmentSlot, type CatalogueCompany, type Contact, type ProjectCompany,
   type ProjectPerson,
 } from '@/lib/queries'
 
 type Disc = { code: string; name: string; required: boolean }
 
-function AppointmentDocs({ companyId }: { companyId: string }) {
+function AppointmentDocs({
+  projectId, companyId, canApprove,
+}: { projectId: string; companyId: string; canApprove: boolean }) {
   const [slots, setSlots] = useState<AppointmentSlot[]>([])
-  useEffect(() => {
-    fetchAppointmentStatus(companyId).then(setSlots).catch(() => setSlots([]))
+  const [docs, setDocs] = useState<Awaited<ReturnType<typeof fetchAppointmentDocuments>>>([])
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    Promise.all([fetchAppointmentStatus(companyId), fetchAppointmentDocuments(companyId)])
+      .then(([s2, d]) => { setSlots(s2); setDocs(d) })
+      .catch((e: Error) => setError(e.message))
   }, [companyId])
 
+  useEffect(load, [load])
+
+  const docFor = (slot: string) => docs.find((d) => d.slot === slot)
+
+  const upload = (slot: string, file: File) => {
+    setBusy(slot); setError(null)
+    uploadAppointmentDocument(projectId, companyId, slot, file)
+      .then(load)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setBusy(null))
+  }
+
+  const open = (path: string) => {
+    // The bucket is private: there is no public URL, only a link that expires.
+    appointmentDocumentUrl(path)
+      .then((url) => window.open(url, '_blank', 'noreferrer'))
+      .catch((e: Error) => setError(e.message))
+  }
+
   return (
-    <div className="flex flex-wrap gap-1">
-      {slots.map((s) => (
-        <Pill
-          key={s.slot}
-          title={s.filename ?? 'Nothing uploaded'}
-          tone={s.state === 'approved' ? 'ok' : s.state === 'missing' ? 'neutral' : 'warn'}
-        >
-          {SLOT_LABELS[s.slot] ?? s.slot}: {s.state}
-        </Pill>
-      ))}
+    <div className="flex flex-col gap-1.5">
+      {error && <p className="text-stop text-xs">{error}</p>}
+      <div className="flex flex-wrap gap-1">
+        {slots.map((s) => {
+          const doc = docFor(s.slot)
+          return (
+            <span key={s.slot} className="inline-flex items-center gap-1">
+              <Pill
+                title={s.filename ?? 'Nothing uploaded'}
+                tone={s.state === 'approved' ? 'ok' : s.state === 'missing' ? 'neutral' : 'warn'}
+              >
+                {SLOT_LABELS[s.slot] ?? s.slot}: {s.state}
+              </Pill>
+              {doc && (
+                <button
+                  type="button"
+                  onClick={() => open(doc.storage_path)}
+                  className="text-primary text-xs underline"
+                  title={doc.filename}
+                >
+                  open
+                </button>
+              )}
+              {canApprove && doc && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    approveAppointmentDocument(doc.id, !doc.approved)
+                      .then(load)
+                      .catch((e: Error) => setError(e.message))
+                  }}
+                  className="text-graphite-light text-xs underline"
+                >
+                  {doc.approved ? 'unapprove' : 'approve'}
+                </button>
+              )}
+              <label className="text-graphite-light cursor-pointer text-xs underline">
+                {busy === s.slot ? 'uploading…' : doc ? 'replace' : 'upload'}
+                <input
+                  type="file"
+                  className="hidden"
+                  disabled={busy !== null}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) upload(s.slot, f)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            </span>
+          )
+        })}
+      </div>
+      <p className="text-graphite-light text-[11px]">
+        Appointments and scopes only. Drawings are never uploaded — the register keeps a link
+        into the CDE.
+      </p>
     </div>
   )
 }
@@ -234,7 +310,7 @@ export function Directory({
                 })}
               </div>
 
-              <AppointmentDocs companyId={c.id} />
+              <AppointmentDocs projectId={projectId} companyId={c.id} canApprove={canEdit} />
 
               <div className="flex flex-col gap-1 border-t pt-2">
                 {people.filter((p) => p.company_id === c.id).length === 0 ? (

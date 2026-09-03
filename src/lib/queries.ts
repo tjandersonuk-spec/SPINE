@@ -712,19 +712,88 @@ export type DrmItem = {
   item: string
   lead_discipline: string | null
   cdp_package: string | null
+  transfers_at_stage: string | null
+  level_of_information: string | null
   applicable: boolean
   guidance_note: string | null
   notes: string | null
 }
 
+/** The disciplines beside the lead. One row per discipline per item, so a
+ *  discipline holds exactly one role on an item — it cannot both review and
+ *  approve, which is the distinction the codes exist to make. */
+export type DrmRole = {
+  drm_item_id: string
+  discipline_code: string
+  role_code: 'S' | 'R' | 'C' | 'A' | 'I'
+}
+
+export const DRM_ROLE_NAMES: Record<DrmRole['role_code'], string> = {
+  S: 'Supporting',
+  R: 'Reviewing',
+  C: 'Contributing',
+  A: 'Approving',
+  I: 'Informed',
+}
+
 export async function fetchDrmItems(projectId: string): Promise<DrmItem[]> {
   const { data, error } = await supabase
     .from('drm_items')
-    .select('id, ref, category_code, item, lead_discipline, cdp_package, applicable, guidance_note, notes')
+    .select('id, ref, category_code, item, lead_discipline, cdp_package, transfers_at_stage, level_of_information, applicable, guidance_note, notes')
     .eq('project_id', projectId)
     .order('ref')
   if (error) throw error
   return data ?? []
+}
+
+export async function fetchDrmRoles(projectId: string): Promise<DrmRole[]> {
+  const { data, error } = await supabase
+    .from('drm_roles')
+    .select('drm_item_id, discipline_code, role_code, drm_items!inner(project_id)')
+    .eq('drm_items.project_id', projectId)
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as DrmRole
+    return {
+      drm_item_id: row.drm_item_id,
+      discipline_code: row.discipline_code,
+      role_code: row.role_code,
+    }
+  })
+}
+
+/** The roles on one item. */
+export async function fetchDrmRolesForItem(itemId: string): Promise<DrmRole[]> {
+  const { data, error } = await supabase
+    .from('drm_roles')
+    .select('drm_item_id, discipline_code, role_code')
+    .eq('drm_item_id', itemId)
+  if (error) throw error
+  return (data ?? []) as unknown as DrmRole[]
+}
+
+export async function setDrmRole(
+  itemId: string, discipline: string, role: DrmRole['role_code'] | null,
+) {
+  // A discipline holds one role on an item or none, so setting a role replaces
+  // whatever it had rather than adding a second.
+  const { error } = role === null
+    ? await supabase.from('drm_roles').delete()
+        .eq('drm_item_id', itemId).eq('discipline_code', discipline)
+    : await supabase.from('drm_roles')
+        .upsert({ drm_item_id: itemId, discipline_code: discipline, role_code: role },
+                { onConflict: 'drm_item_id,discipline_code' })
+  if (error) throw error
+}
+
+export async function setDrmFields(itemId: string, patch: {
+  transfers_at_stage?: string | null
+  cdp_package?: string | null
+  level_of_information?: string | null
+  notes?: string | null
+}) {
+  const { error } = await supabase.from('drm_items').update(patch).eq('id', itemId)
+  if (error) throw error
 }
 
 /** Who leads each item, resolved live through the directory. Never cached. */
@@ -1070,15 +1139,295 @@ export async function fetchTransmittals(projectId: string) {
   })
 }
 
+export type Recipient = {
+  company_id: string
+  person_id: string | null
+  distribution: 'action' | 'information'
+}
+
 export async function issueTransmittal(projectId: string, opts: {
   method: string; reason: string | null; notes: string | null
   packId: string | null; drawingIds: string[] | null
+  /** Empty means the whole project sees it; populated means those people, plus
+   *  the host and the raiser either way. */
+  recipients: Recipient[]
 }) {
   const { data, error } = await supabase.rpc('issue_transmittal', {
     p_project: projectId, p_method: opts.method, p_reason: opts.reason,
     p_notes: opts.notes, p_pack: opts.packId, p_drawing_ids: opts.drawingIds,
-    p_recipients: null,
+    p_recipients: opts.recipients.length ? opts.recipients : null,
   })
   if (error) throw error
   return data as { ok: boolean; reference: string; drawing_count: number }
+}
+
+/** Everyone in the project directory, grouped by their firm. */
+export async function fetchDirectoryPeople(projectId: string) {
+  const { data, error } = await supabase
+    .from('project_people')
+    .select('id, company_id, name, job_role, email, companies!inner(project_id, name)')
+    .eq('companies.project_id', projectId)
+    .order('name')
+  if (error) throw error
+  return (data ?? []).map((r) => {
+    const row = r as unknown as {
+      id: string; company_id: string; name: string; job_role: string | null
+      email: string | null; companies: { name: string }
+    }
+    return {
+      id: row.id, company_id: row.company_id, name: row.name,
+      job_role: row.job_role, email: row.email, company_name: row.companies.name,
+    }
+  })
+}
+
+/* --------------------------------------------------------------------- BEP */
+
+export type BepField = {
+  id: string
+  position: number
+  name: string
+  min_len: number
+  max_len: number
+  required: boolean
+  source: 'project' | 'directory' | 'standard' | 'free'
+}
+
+export type BepValue = { code: string; description: string | null }
+
+export async function fetchBepFields(projectId: string) {
+  const { data, error } = await supabase
+    .from('bep_fields')
+    .select('id, position, name, min_len, max_len, required, source')
+    .eq('project_id', projectId)
+    .order('position')
+  if (error) throw error
+  return (data ?? []) as unknown as BepField[]
+}
+
+/** The permitted codes for one field. For a `directory` field this is a live
+ *  join to the project's companies — there are no stored values to read. */
+export async function fetchBepFieldCodes(fieldId: string) {
+  const { data, error } = await supabase.rpc('bep_field_codes', { p_field: fieldId })
+  if (error) throw error
+  return (data ?? []) as BepValue[]
+}
+
+export async function addBepValue(fieldId: string, code: string, description: string | null) {
+  const { error } = await supabase.from('bep_field_values')
+    .insert({ field_id: fieldId, code, description })
+  if (error) throw error
+}
+
+export async function removeBepValue(fieldId: string, code: string) {
+  const { error } = await supabase.from('bep_field_values')
+    .delete().eq('field_id', fieldId).eq('code', code)
+  if (error) throw error
+}
+
+export async function updateBepField(id: string, patch: Partial<Omit<BepField, 'id'>>) {
+  const { error } = await supabase.from('bep_fields').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function fetchRevisionRules(projectId: string) {
+  const { data, error } = await supabase
+    .from('bep_revision_rules')
+    .select('prefix, construction_status')
+    .eq('project_id', projectId)
+    .order('prefix')
+  if (error) throw error
+  return (data ?? []) as { prefix: string; construction_status: string }[]
+}
+
+export async function addRevisionRule(projectId: string, prefix: string, status: string) {
+  const { error } = await supabase.from('bep_revision_rules')
+    .insert({ project_id: projectId, prefix, construction_status: status })
+  if (error) throw error
+}
+
+export async function removeRevisionRule(projectId: string, prefix: string) {
+  const { error } = await supabase.from('bep_revision_rules')
+    .delete().eq('project_id', projectId).eq('prefix', prefix)
+  if (error) throw error
+}
+
+export async function fetchSuitabilityCodes(projectId: string) {
+  const { data, error } = await supabase
+    .from('bep_suitability_codes')
+    .select('code, description, in_use')
+    .eq('project_id', projectId)
+    .order('code')
+  if (error) throw error
+  return (data ?? []) as { code: string; description: string | null; in_use: boolean }[]
+}
+
+export async function setSuitabilityInUse(projectId: string, code: string, inUse: boolean) {
+  const { error } = await supabase.from('bep_suitability_codes')
+    .update({ in_use: inUse }).eq('project_id', projectId).eq('code', code)
+  if (error) throw error
+}
+
+/* ------------------------------------------------- editing a forked template */
+
+/** Edit a discipline in the account's own list. Only a fork is editable: the
+ *  published default belongs to everyone, and the policies refuse it. */
+export async function updateDiscipline(
+  organisationId: string, code: string,
+  patch: { name?: string; iso_letter?: string | null; sort_order?: number },
+) {
+  const { error } = await supabase.from('disciplines').update(patch)
+    .eq('organisation_id', organisationId).eq('code', code)
+  if (error) throw error
+}
+
+export async function addDiscipline(organisationId: string, d: {
+  code: string; name: string; iso_letter: string | null; sort_order: number
+}) {
+  const { error } = await supabase.from('disciplines')
+    .insert({ organisation_id: organisationId, ...d })
+  if (error) throw error
+}
+
+export async function removeDiscipline(organisationId: string, code: string) {
+  const { error } = await supabase.from('disciplines').delete()
+    .eq('organisation_id', organisationId).eq('code', code)
+  if (error) throw error
+}
+
+/** Pull in disciplines the published set has gained since the fork was taken.
+ *  Touches nothing the account has already edited or deliberately removed. */
+export async function refreshDisciplineFork(organisationId: string) {
+  const { data, error } = await supabase.rpc('refresh_discipline_fork', {
+    p_org: organisationId,
+  })
+  if (error) throw error
+  return data as number
+}
+
+export type LibraryItem = {
+  id: string
+  ref: string
+  category_code: string
+  item: string
+  default_lead_discipline: string | null
+  cdp_likely: boolean
+  guidance_note: string | null
+  forked: boolean
+}
+
+export async function fetchAccountLibrary(organisationId: string) {
+  const { data, error } = await supabase.rpc('account_drm_library', { p_org: organisationId })
+  if (error) throw error
+  return (data ?? []) as LibraryItem[]
+}
+
+export async function forkLibrary(organisationId: string) {
+  const { data, error } = await supabase.rpc('fork_drm_library', { p_org: organisationId })
+  if (error) throw error
+  return data as number
+}
+
+export async function updateLibraryItem(id: string, patch: {
+  ref?: string; category_code?: string; item?: string
+  default_lead_discipline?: string | null; cdp_likely?: boolean; guidance_note?: string | null
+}) {
+  const { error } = await supabase.from('drm_library_items').update(patch).eq('id', id)
+  if (error) throw error
+}
+
+export async function addLibraryItem(organisationId: string, row: {
+  ref: string; category_code: string; item: string
+  default_lead_discipline: string | null; cdp_likely: boolean
+}) {
+  const { error } = await supabase.from('drm_library_items')
+    .insert({ organisation_id: organisationId, ...row })
+  if (error) throw error
+}
+
+export async function removeLibraryItem(id: string) {
+  const { error } = await supabase.from('drm_library_items').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** A one-off item that exists on this project only — never in the library,
+ *  because a job-specific thing does not belong in the template every future
+ *  project starts from. */
+export async function addBespokeDrmItem(projectId: string, row: {
+  ref: string; category_code: string; item: string; lead_discipline: string | null
+}) {
+  const { error } = await supabase.from('drm_items')
+    .insert({ project_id: projectId, ...row, applicable: true })
+  if (error) throw error
+}
+
+export async function removeDrmItem(id: string) {
+  const { error } = await supabase.from('drm_items').delete().eq('id', id)
+  if (error) throw error
+}
+
+/* ----------------------------------------------- appointment documents */
+
+/** The one bucket. Appointment documents and evidence attachments only — a
+ *  drawing is never uploaded anywhere, the register keeps a CDE URL. */
+const BUCKET = 'project-files'
+
+/** Path shape the storage policies read: project/company/slot/filename. */
+const objectPath = (projectId: string, companyId: string, slot: string, filename: string) =>
+  `${projectId}/${companyId}/${slot}/${filename}`
+
+export async function uploadAppointmentDocument(
+  projectId: string, companyId: string, slot: string, file: File,
+) {
+  const path = objectPath(projectId, companyId, slot, file.name)
+  const { error: upErr } = await supabase.storage.from(BUCKET)
+    .upload(path, file, { upsert: false })
+  if (upErr) throw upErr
+
+  const { data: me } = await supabase.auth.getUser()
+  // A replacement supersedes rather than overwrites, so what was approved is
+  // still readable afterwards.
+  const { data: existing } = await supabase.from('appointment_documents')
+    .select('id').eq('company_id', companyId).eq('slot', slot).maybeSingle()
+
+  const { data: inserted, error } = await supabase.from('appointment_documents')
+    .upsert({
+      company_id: companyId, slot, storage_path: path, filename: file.name,
+      uploaded_by: me.user?.id ?? null, approved: false, approved_by: null, approved_at: null,
+    }, { onConflict: 'company_id,slot' })
+    .select('id')
+    .single()
+  if (error) throw error
+  return { id: inserted.id as string, superseded: existing?.id ?? null }
+}
+
+/** A time-limited link. The bucket is private, so there is no public URL and
+ *  nothing is readable without a policy check first. */
+export async function appointmentDocumentUrl(storagePath: string) {
+  const { data, error } = await supabase.storage.from(BUCKET)
+    .createSignedUrl(storagePath, 60 * 10)
+  if (error) throw error
+  return data.signedUrl
+}
+
+export async function fetchAppointmentDocuments(companyId: string) {
+  const { data, error } = await supabase
+    .from('appointment_documents')
+    .select('id, slot, storage_path, filename, uploaded_at, approved')
+    .eq('company_id', companyId)
+  if (error) throw error
+  return (data ?? []) as {
+    id: string; slot: string; storage_path: string; filename: string
+    uploaded_at: string; approved: boolean
+  }[]
+}
+
+export async function approveAppointmentDocument(id: string, approved: boolean) {
+  const { data: me } = await supabase.auth.getUser()
+  const { error } = await supabase.from('appointment_documents').update({
+    approved,
+    approved_by: approved ? (me.user?.id ?? null) : null,
+    approved_at: approved ? new Date().toISOString() : null,
+  }).eq('id', id)
+  if (error) throw error
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
+import { Gantt, GanttKey } from '@/components/programme/Gantt'
 import { ImportProgramme } from '@/components/programme/ImportProgramme'
 import { LineInspector } from '@/components/programme/LineInspector'
 import { Button } from '@/components/ui/button'
@@ -42,6 +43,7 @@ export default function ProgrammePage() {
   const [inspecting, setInspecting] = useState<ProgrammeTask | null>(null)
   const [importing, setImporting] = useState(false)
   const [showRemoved, setShowRemoved] = useState(false)
+  const [view, setView] = useState<'table' | 'chart'>('table')
 
   // A sync callback that starts the fetch, matching ProjectLayout: an async
   // function called straight from an effect reads as a synchronous setState.
@@ -117,7 +119,22 @@ export default function ProgrammePage() {
         <Panel
           title={`${visible.length} line${visible.length === 1 ? '' : 's'}`}
           actions={
-            removedCount > 0 ? (
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={view === 'table' ? 'secondary' : 'ghost'}
+                onClick={() => setView('table')}
+              >
+                Table
+              </Button>
+              <Button
+                size="sm"
+                variant={view === 'chart' ? 'secondary' : 'ghost'}
+                onClick={() => setView('chart')}
+              >
+                Chart
+              </Button>
+              {removedCount > 0 ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -125,9 +142,21 @@ export default function ProgrammePage() {
               >
                 {showRemoved ? 'Hide' : 'Show'} {removedCount} removed
               </Button>
-            ) : null
+              ) : null}
+            </div>
           }
         >
+          {view === 'chart' ? (
+            <>
+              <Gantt
+                tasks={visible}
+                rollups={rollups}
+                watched={watched}
+                onSelect={setInspecting}
+              />
+              <GanttKey />
+            </>
+          ) : (
           <TableScroll>
             <Table>
               <THead>
@@ -206,6 +235,7 @@ export default function ProgrammePage() {
               </TBody>
             </Table>
           </TableScroll>
+          )}
         </Panel>
       )}
 

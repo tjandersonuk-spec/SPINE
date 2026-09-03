@@ -38,7 +38,7 @@ export const PROJECT_NAV: NavGroup[] = [
       { key: 'directory', label: 'Directory', to: 'directory' },
       { key: 'drm', label: 'Responsibility matrix', to: 'matrix' },
       { key: 'scope', label: 'Scope of service', to: null },
-      { key: 'bep', label: 'BEP', to: null },
+      { key: 'bep', label: 'BEP', to: 'bep' },
       { key: 'programme', label: 'Programme', to: 'programme' },
     ],
   },

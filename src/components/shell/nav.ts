@@ -32,7 +32,7 @@ export const PROJECT_NAV: NavGroup[] = [
     title: 'Pre-construction',
     items: [
       { key: 'preassessment', label: 'Pre-assessment', to: 'preassessment' },
-      { key: 'precon', label: 'Fee budget', to: null },
+      { key: 'precon', label: 'Fee budget', to: 'precon' },
       { key: 'client', label: 'Client requirements', to: 'client' },
     ],
   },
@@ -51,8 +51,8 @@ export const PROJECT_NAV: NavGroup[] = [
     items: [
       { key: 'docs', label: 'Drawing register', to: 'register' },
       { key: 'tx', label: 'Packs and transmittals', to: 'transmittals' },
-      { key: 'materials', label: 'Material samples', to: null },
-      { key: 'crs', label: 'Change requests', to: null },
+      { key: 'materials', label: 'Material samples', to: 'materials' },
+      { key: 'crs', label: 'Change requests', to: 'changes-requests' },
     ],
   },
   {
@@ -69,8 +69,8 @@ export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'Commercial',
     items: [
-      { key: 'fees', label: 'Fees and cashflow', to: null },
-      { key: 'risk', label: 'Risk and opportunity', to: null },
+      { key: 'fees', label: 'Fees and cashflow', to: 'fees' },
+      { key: 'risk', label: 'Risk and opportunity', to: 'risk' },
     ],
   },
   {
@@ -78,7 +78,7 @@ export const PROJECT_NAV: NavGroup[] = [
     items: [
       { key: 'handover', label: 'Handover checklist', to: 'handover' },
       { key: 'gateways', label: 'Gateways', to: null },
-      { key: 'warranties', label: 'Warranties', to: null },
+      { key: 'warranties', label: 'Warranties', to: 'warranties' },
     ],
   },
   {

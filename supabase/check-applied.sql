@@ -68,7 +68,17 @@ with expected(ord, migration, kind, marker) as (values
   (50,'20260902210000_phase11_breeam_schemes',        'table',    'breeam_schemes'),
   (51,'20260902210100_phase11_breeam_scoring',        'function', 'breeam_totals'),
   (52,'20260902210200_phase11_breeam_import',         'function', 'breeam_import_apply'),
-  (53,'20260902210300_phase11_rls',                   'policy',   'breeam_schemes_select')
+  (53,'20260902210300_phase11_rls',                   'policy',   'breeam_schemes_select'),
+  (54,'20260902220000_phase12_fees',                  'table',    'fees'),
+  (55,'20260902220100_phase12_fees_functions',        'function', 'cashflow_curve'),
+  (56,'20260902220200_phase12_precon',                'table',    'precon_budget'),
+  (57,'20260902220300_phase12_risk',                  'table',    'risks'),
+  (58,'20260902220400_phase12_warranties',            'table',    'warranties'),
+  (59,'20260902220500_phase12_materials',             'table',    'material_submissions'),
+  (60,'20260902220600_phase12_changereq',             'function', 'set_change_status'),
+  (61,'20260902220700_phase12_rls',                   'policy',   'fees_select'),
+  (62,'20260902220800_phase12_programme_dependents',  'source',   'programme_dependents:Instalment'),
+  (63,'20260902220900_phase12_can_see_admin_only',    'source',   'can_see:is_account_admin')
 )
 select
   e.ord::numeric as "#",

@@ -1,9 +1,11 @@
 import Papa from 'papaparse'
 
 import {
-  fetchActiveBreeamScheme, fetchBreeamCredits, fetchChangeLog, fetchIssues, fetchMeetings,
-  fetchPacks, fetchProgramme, fetchProjectCompanies, fetchProjectPeople, fetchRegister,
-  fetchTransmittals, fetchDrmItems, fetchDrmLeads,
+  fetchActiveBreeamScheme, fetchBreeamCredits, fetchChangeLog, fetchChangeRequests,
+  fetchFeePosition, fetchFees, fetchInstalments, fetchInvoices, fetchIssues, fetchMaterials,
+  fetchMeetings, fetchPacks, fetchProgramme, fetchProjectCompanies, fetchProjectPeople,
+  fetchPreconBudget, fetchRegister, fetchRisks, fetchTransmittals, fetchWarranties,
+  canSeePrecon, fetchDrmItems, fetchDrmLeads,
 } from '@/lib/queries'
 
 /**
@@ -22,6 +24,13 @@ export type ModuleExport = {
   /** The entitlement this belongs to, or null if it is always available. */
   module: string | null
   fetch: (projectId: string) => Promise<Record<string, unknown>[]>
+  /**
+   * An explicit visibility question, for a module where RLS filters rows
+   * rather than refusing the query. Without it a consultant's export of the
+   * pre-construction budget would come back as `[]`, which reads as "there is
+   * no budget" — a different and worse claim than "you cannot see it".
+   */
+  visible?: (projectId: string) => Promise<boolean>
 }
 
 export const EXPORTS: ModuleExport[] = [
@@ -98,6 +107,101 @@ export const EXPORTS: ModuleExport[] = [
     key: 'changes', label: 'Change log', module: null,
     fetch: (p) => fetchChangeLog(p, 5000) as unknown as Promise<Record<string, unknown>[]>,
   },
+  // The commercial tier. Every one of these goes through the same RLS the
+  // pages do, which on these tables is the difference between an export and a
+  // leak: a consultant's CSV carries their own company tree and no other.
+  {
+    key: 'fees', label: 'Fees and variations', module: 'fees',
+    fetch: (p) => fetchFees(p) as unknown as Promise<Record<string, unknown>[]>,
+  },
+  {
+    key: 'fee-position', label: 'Fee position by company', module: 'fees',
+    fetch: (p) => fetchFeePosition(p) as unknown as Promise<Record<string, unknown>[]>,
+  },
+  {
+    key: 'schedule', label: 'Payment schedule', module: 'fees',
+    fetch: async (p) => (await fetchInstalments(p)).map((s) => ({
+      reference: s.reference, company: s.company_name ?? '', description: s.description ?? '',
+      value: s.value, due: s.due ?? '', status: s.status,
+      agreed_at: s.agreed_at ?? '', invoiced: s.invoiced,
+      due_uninvoiced: s.due_uninvoiced,
+      programme_task_uid: s.programme_task_uid ?? '', offset_days: s.offset_days,
+    })),
+  },
+  {
+    key: 'invoices', label: 'Invoices', module: 'fees',
+    fetch: async (p) => (await fetchInvoices(p)).map((v) => ({
+      reference: v.reference, company: v.company_name ?? '',
+      against: v.schedule_reference ?? '', value: v.value,
+      date_submitted: v.date_submitted, date_paid: v.date_paid ?? '',
+      status: v.status, document_held: v.has_document,
+    })),
+  },
+  {
+    key: 'risks', label: 'Risk register', module: 'risk',
+    fetch: async (p) => [
+      ...await fetchRisks(p, 'risk'), ...await fetchRisks(p, 'opportunity'),
+    ].map((r) => ({
+      reference: r.reference, kind: r.kind, title: r.title,
+      category: r.category ?? '', owner: r.owner_name ?? '',
+      likelihood: r.likelihood_name, likelihood_pct: r.likelihood_pct,
+      impact_cost: r.impact_cost, band: r.band_name, score: r.score,
+      // Expected value, never the raw total. An export that carried only the
+      // gross figure would invite exactly the sum the register avoids.
+      expected_value: r.expected_value,
+      status: r.status, state: r.state, review_due: r.review_due ?? '',
+      realised_as: r.issue_reference ?? '',
+    })),
+  },
+  {
+    key: 'change-requests', label: 'Change requests', module: 'crs',
+    fetch: async (p) => (await fetchChangeRequests(p)).map((c) => ({
+      reference: c.reference, title: c.title, status: c.status,
+      decision_due: c.decision_due ?? '', effective: c.effective_date ?? '',
+      impact_cost_expected: c.impact_cost ?? '',
+      variation: c.variation_reference ?? '', variation_value: c.variation_value ?? '',
+      amendments: c.amendments, outstanding: c.amendments_outstanding,
+      approved_with_nothing_listed: c.approved_with_nothing_listed,
+      bsa_state: c.bsa_controlled ? c.bsa_state : '',
+    })),
+  },
+  {
+    key: 'warranties', label: 'Warranties', module: 'warranties',
+    fetch: async (p) => (await fetchWarranties(p)).map((x) => ({
+      reference: x.reference, title: x.title, drm_ref: x.drm_ref ?? '',
+      lead_discipline: x.lead_discipline ?? '',
+      // Resolved live through the matrix at the moment of export, rather than
+      // carrying a stored id nobody can read.
+      owner: x.owners.join('; '), holders: x.holders,
+      provided_by: x.provided_by ?? '', period_years: x.period_years ?? '',
+      beneficiary: x.beneficiary ?? '', status: x.status,
+      due: x.due ?? '', unallocated: x.unallocated,
+    })),
+  },
+  {
+    key: 'precon-budget', label: 'Pre-construction fee budget', module: 'precon',
+    visible: canSeePrecon,
+    fetch: async (p) => (await fetchPreconBudget(p)).map((l) => ({
+      reference: l.reference, category: l.category, discipline: l.discipline ?? '',
+      title: l.title, required: l.required, budget: l.budget,
+      quotes: l.quotes, chosen: l.preferred_source ?? '',
+      forecast: l.forecast, variance: l.variance,
+      appointed_fees: l.appointed_fees, appointed_approved: l.appointed_approved,
+    })),
+  },
+  {
+    key: 'materials', label: 'Material samples', module: 'materials',
+    fetch: async (p) => (await fetchMaterials(p)).map((m) => ({
+      reference: m.reference, title: m.title, spec: m.spec ?? '',
+      location: m.location ?? '', company: m.company_name ?? '',
+      rounds: m.rounds, latest_round: m.latest_round ?? '',
+      decision: m.decision ?? '', awaiting_decision: m.awaiting_decision,
+      // A rejection stays on the record after a later approval, and it stays
+      // in the export too.
+      ever_rejected: m.was_rejected, rejections: m.rejections,
+      due: m.due ?? '',
+    })),
+  },
 ]
 
 /** Trigger a download in the browser. */
@@ -142,6 +246,12 @@ export async function exportProjectJson(
   for (const m of EXPORTS) {
     if (m.module && !moduleOn(m.module)) {
       out[m.key] = { withheld: 'this module is not switched on for this project' }
+      continue
+    }
+    // Asked before the fetch, for the modules where RLS filters rows instead
+    // of refusing: an empty array would assert there is nothing there.
+    if (m.visible && !(await m.visible(projectId))) {
+      out[m.key] = { withheld: 'not visible to you' }
       continue
     }
     try {

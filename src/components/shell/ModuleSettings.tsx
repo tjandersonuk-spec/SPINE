@@ -68,8 +68,9 @@ export function ModuleSettings({
     <Panel title="Modules on this project">
       {error && <p className="text-stop mb-2 text-sm">{error}</p>}
       <p className="text-graphite mb-3 max-w-prose text-sm">
-        Switching a module off removes it from the sidebar and its page stops opening. The data
-        behind it is refused by the database as well, so this is not a matter of hiding a link.
+        Everything is on until somebody turns it off. Switching a module off removes it from the
+        sidebar and its page stops opening — the data behind it is refused by the database as
+        well, so this is not a matter of hiding a link.
       </p>
 
       {Object.entries(GROUPS).map(([group, groupKeys]) => (

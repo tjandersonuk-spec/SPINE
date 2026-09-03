@@ -18,8 +18,11 @@ export type ProjectData = {
   isAccountAdmin: boolean
   /** Branding and entitlements, merged. Null until the shell has loaded. */
   shell: ProjectShell | null
-  /** Is this module on for this project? Unknown keys are off, so a page that
-   *  forgets to be entitled is hidden rather than exposed. */
+  /** Is this module on for this project? The map from project_shell() is
+   *  already resolved — every module key with an explicit answer — so this is
+   *  a lookup and not a second implementation of the absent-means-on rule.
+   *  An unknown key is off, which is what keeps a nav entry naming a module
+   *  that does not exist from ever appearing. */
   moduleOn: (key: string) => boolean
 }
 

@@ -41,6 +41,18 @@ migration is handed over as a pair, in this order and this shape:
 2. What to do with it: **SQL Editor → New query → Ctrl+V → Run**, and what a
    successful result looks like.
 
+3. **Always finish the set with the check.** However many migrations went out,
+   the last thing handed over is:
+
+   ```powershell
+   Get-Content supabase\check-applied.sql | Set-Clipboard
+   ```
+
+   Not optional and not "if you want to be sure". Two migrations from a merged
+   PR silently never got applied once, and nothing surfaced it until a page
+   failed weeks later — the check is what turns "I think I did those" into an
+   answer. Say how many rows to expect, so a short table is obvious.
+
 Copy the SQL into the chat as well only when it is short enough to check by eye.
 For anything long — a seed especially — the clipboard is the safer route,
 because a data insert that pastes forty rows short looks exactly like one that

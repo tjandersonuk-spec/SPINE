@@ -799,24 +799,34 @@ describe('module entitlements', () => {
       const org = (
         await c.query(
           `insert into organisations (name, slug, status, modules)
-           values ('Modo','modo','active','{"compliance":false,"commercial":true}') returning id`
+           values ('Modo','modo','active','{"breeam":false,"fees":true}') returning id`
         )
       ).rows[0].id
       const project = (
         await c.query(
           `insert into projects (organisation_id, name, code, modules_override)
-           values ($1,'Pilot','PIL','{"compliance":true}') returning id`,
+           values ($1,'Pilot','PIL','{"breeam":true}') returning id`,
           [org]
         )
       ).rows[0].id
       return { project }
     })
     const on = await asSuperuser(async (c) => ({
-      compliance: (await c.query(`select module_on($1,'compliance') as v`, [project])).rows[0].v,
-      commercial: (await c.query(`select module_on($1,'commercial') as v`, [project])).rows[0].v,
+      // The account says breeam is off; this project's override says on.
+      overridden: (await c.query(`select module_on($1,'breeam') as v`, [project])).rows[0].v,
+      // Set on the account, untouched by the override.
+      inherited: (await c.query(`select module_on($1,'fees') as v`, [project])).rows[0].v,
+      // A real module nobody has decided about is on: entitlements are
+      // packaging, and an account that has never been sold a feature list
+      // should still have a working product.
+      undecided: (await c.query(`select module_on($1,'drm') as v`, [project])).rows[0].v,
+      // Not a module at all, so off however it is written -- which is what
+      // stops a nav entry naming a module that does not exist from appearing.
       unknown: (await c.query(`select module_on($1,'energy') as v`, [project])).rows[0].v,
     }))
-    expect(on).toEqual({ compliance: true, commercial: true, unknown: false })
+    expect(on).toEqual({
+      overridden: true, inherited: true, undecided: true, unknown: false,
+    })
   })
 })
 

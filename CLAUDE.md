@@ -58,12 +58,19 @@ except the derived views.
   not the structural `#14181B`: the worst brand is the one equidistant from both, at 4.58, which
   clears AA — while a near-black drops a band of mid-luminance colours below 4.5 with neither
   option passing. `src/theme.test.ts` sweeps the whole colour space rather than a list.
+- **A module nobody has decided about is ON.** Entitlements are packaging, not permission — RLS
+  decides what a person may read and is untouched by any of this — so failing closed protects
+  nothing and breaks the product for any account that has not yet been sold a feature list.
+  `organisations.modules` defaults to `{}`, and reading an absent key as "off" emptied every
+  sidebar the moment the shell started asking. A key that is **not a module at all** stays off,
+  which is what keeps a nav entry naming a module that does not exist from ever appearing.
+  `project_shell()` returns the map already resolved over `module_keys()`, so the client looks
+  a value up rather than reimplementing the rule and eventually disagreeing.
 - **A module that is off is absent, not dimmed**, and its page refuses rather than rendering
   empty. Showing a locked door tells a consultant what their client has and has not paid for.
-  `module_on()` returns false for an unknown key, so a nav entry whose key is missing from
-  `module_keys()` can never be switched on by anyone — `src/theme.test.ts` fails the build on
-  that mismatch. **My work and Admin are `core` groups, never gated:** a project with no settings
-  page and no change log is not a cheaper product, it is a broken one.
+  `src/theme.test.ts` fails the build if a gated nav key is missing from `module_keys()`.
+  **My work and Admin are `core` groups, never gated:** a project with no settings page and no
+  change log is not a cheaper product, it is a broken one.
 - **An export contains exactly what the person exporting can already see.** Every export goes
   through the same query layer the pages use, so RLS does the filtering — a wide query narrowed
   afterwards in the browser is the easiest way in the product to leak a restricted RFI. A section

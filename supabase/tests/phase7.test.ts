@@ -147,7 +147,14 @@ describe('the shell reads branding without reading the account', () => {
     expect(s.brand_colour).toBe('#0B1A2B')
     expect(s.account_name).toBe('HBC7')
     expect(s.theme).toBe('light')
-    expect(s.modules).toEqual({ directory: true, drm: true, breeam: false })
+    // Every module key, resolved: what the account said, and true wherever it
+    // said nothing. The client never sees the raw map, so it cannot
+    // reimplement the absent-means-on rule and disagree with the database.
+    expect(s.modules.directory).toBe(true)
+    expect(s.modules.drm).toBe(true)
+    expect(s.modules.breeam).toBe(false)
+    expect(s.modules.fees).toBe(true)          // never mentioned, so included
+    expect(Object.keys(s.modules).length).toBeGreaterThan(20)
   })
 
   test('and nothing else about it — a consultant still cannot read the account row', async () => {
@@ -184,8 +191,40 @@ describe('module entitlements', () => {
   test('a project inherits the account map', async () => {
     const r = await asUser(w.consultant, (c) =>
       c.query(`select module_on($1,'drm') as drm, module_on($1,'breeam') as breeam,
-                      module_on($1,'fees') as unset`, [w.project]))
-    expect(r.rows[0]).toEqual({ drm: true, breeam: false, unset: false })
+                      module_on($1,'fees') as undecided,
+                      module_on($1,'telepathy') as not_a_module`, [w.project]))
+    // An explicit false is off. A key nobody has decided about is ON: modules
+    // are packaging, not permission, and an account that has never been sold a
+    // feature list should still have a working product. A key that is not a
+    // module at all stays off, so a nav entry naming one never appears.
+    expect(r.rows[0]).toEqual({
+      drm: true, breeam: false, undecided: true, not_a_module: false,
+    })
+  })
+
+  test('an account whose entitlements were never set has everything', async () => {
+    // The regression this rule exists for. Every account defaults to an empty
+    // map; reading absent as "off" emptied the whole sidebar the moment the
+    // shell started asking.
+    const bare = await asSuperuser(async (c: Client) => {
+      const org = (await c.query(
+        `insert into organisations (name, slug, status) values ('Bare','bare7','active')
+         returning id`)).rows[0].id
+      await c.query(
+        `insert into organisation_members (organisation_id, profile_id, role)
+         values ($1,$2,'admin')`, [org, w.admin])
+      return (await c.query(
+        `insert into projects (organisation_id, name, code) values ($1,'Fresh','FR7')
+         returning id`, [org])).rows[0].id
+    })
+
+    const shell = (await asUser(w.admin, (c) =>
+      c.query('select project_shell($1) as s', [bare]))).rows[0].s
+    expect(Object.values(shell.modules).every((v) => v === true)).toBe(true)
+
+    const r = await asUser(w.admin, (c) =>
+      c.query(`select module_on($1,'directory') as d, module_on($1,'breeam') as b`, [bare]))
+    expect(r.rows[0]).toEqual({ d: true, b: true })
   })
 
   test('a project override wins over the account', async () => {
@@ -202,7 +241,12 @@ describe('module entitlements', () => {
   test('the shell sees the merged map, not the two halves', async () => {
     const s = (await asUser(w.consultant, (c) =>
       c.query('select project_shell($1) as s', [w.project]))).rows[0].s
-    expect(s.modules).toEqual({ directory: true, drm: false, breeam: true })
+    // The override flipped drm and breeam; directory came from the account;
+    // everything nobody mentioned is on.
+    expect(s.modules.drm).toBe(false)
+    expect(s.modules.breeam).toBe(true)
+    expect(s.modules.directory).toBe(true)
+    expect(s.modules.programme).toBe(true)
   })
 
   test('a module key nothing answers to is refused', async () => {

@@ -59,6 +59,14 @@ beforeAll(async () => {
       `insert into company_disciplines (company_id, discipline_code)
        values ($1,'A'), ($2,'M'), ($3,'M')`, [arch, mep, mepTwo])
 
+    // This suite owns the published library: it builds a small controlled one
+    // and asserts exact counts against it, so the defaults that ship with the
+    // product are cleared first. Deleting them here rather than working around
+    // them keeps every count below meaning what it says.
+    await c.query('delete from scope_template_items')
+    await c.query('delete from scope_templates where organisation_id is null')
+    await c.query('delete from checklist_templates where organisation_id is null')
+
     // Published templates: one checklist, and two scope templates — the core
     // standard plus an architectural one.
     await c.query(

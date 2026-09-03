@@ -1238,6 +1238,13 @@ begin
   update warranties set required = false
   where project_id = p_project and reference = 'WTY-012';
 
+  -- Every counter this section consumed. Missing one is not a cosmetic slip:
+  -- load_risk_library() asks next_reference() for RSK-001 and hits the seeded
+  -- row, which is a unique-violation and a dead button.
+  perform sample_seq(p_project, 'RSK',
+    (select count(*) from risks where project_id = p_project and reference like 'RSK-%'));
+  perform sample_seq(p_project, 'OPP',
+    (select count(*) from risks where project_id = p_project and reference like 'OPP-%'));
   perform sample_seq(p_project, 'WTY',
     (select count(*) from warranties where project_id = p_project));
 
@@ -1468,6 +1475,10 @@ begin
     (select count(*) from drawing_packs where project_id = p_project));
   perform sample_seq(p_project, 'TX',
     (select count(*) from transmittals where project_id = p_project));
+  perform sample_seq(p_project, 'RSK',
+    (select count(*) from risks where project_id = p_project and reference like 'RSK-%'));
+  perform sample_seq(p_project, 'OPP',
+    (select count(*) from risks where project_id = p_project and reference like 'OPP-%'));
   perform sample_seq(p_project, 'WTY',
     (select count(*) from warranties where project_id = p_project));
 

@@ -629,6 +629,10 @@ describe('the risk register', () => {
   })
 
   test('the library loads with no owner and no date', async () => {
+    // This test owns the published library: it asserts exact counts, so the
+    // defaults that ship with the product are cleared first and restored by
+    // nothing -- the suite rebuilds the database from the migrations each run.
+    await asSuperuser((c) => c.query('delete from risk_templates'))
     await asSuperuser((c) => c.query(
       `insert into risk_templates (organisation_id, reference, kind, title, category, likelihood)
        values (null,'RT-01','risk','Late statutory approval','Statutory',4),

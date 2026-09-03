@@ -90,7 +90,8 @@ with expected(ord, migration, kind, marker) as (values
   (72,'20260902260000_theme_default_dark',           'default',  'organisations.theme=dark'),
   (73,'20260902260100_reference_counter_per_prefix', 'source',   'next_reference:Keyed on the prefix'),
   (74,'20260902260200_breeam_score_is_a_percentage', 'source',   'report_metrics:round(b.score_achieved)::text'),
-  (75,'20260902270000_sample_delivery_data',         'function', 'seed_sample_compliance')
+  (75,'20260902270000_sample_delivery_data',         'function', 'seed_sample_compliance'),
+  (76,'20260902280000_default_template_libraries',   'count',    'checklist_templates')
 )
 select
   e.ord::numeric as "#",
@@ -118,6 +119,10 @@ select
         and table_name = split_part(e.marker, '.', 1)
         and column_name = split_part(split_part(e.marker, '.', 2), '=', 1)
         and column_default like '%' || split_part(e.marker, '=', 2) || '%')
+    -- 'count' is for a migration that ships rows rather than a schema object:
+    -- the marker is the table, and the check is that a published set exists.
+    when 'count' then exists (
+      select 1 from checklist_templates where organisation_id is null)
     -- 'source' is for a migration that only replaces a function: the marker is
     -- <function>:<text the new body must contain>.
     when 'source' then exists (

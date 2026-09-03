@@ -173,7 +173,13 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
 - Every reference to another record is a working link, never printed text.
 - Templates (DRM library, checklist templates, scope templates, risk/warranty libraries) are
   **host assets forked from a published default**. Editing a template never rewrites a project
-  that already loaded a copy of it.
+  that already loaded a copy of it. **All five published defaults ship** — only the DRM library
+  did for a long time, so four of the five "load from library" paths returned nothing and read as
+  broken rather than empty, and a library with no published default cannot be forked at all. The
+  shipped content is written for this product and is deliberately not BG6, not the CIC schedules
+  and not BREEAM: those are licensed, are never shipped, and are loaded per-project by whoever
+  holds the licence. A test that asserts an exact count against a library must clear the published
+  rows first and say that it owns the library, rather than being written around the defaults.
 - Warranties resolve their owner live through the DRM lead discipline. **Never add a `company_id`
   column to warranties** — same gap the matrix shows, same fix.
 - **A pack holds references, and never a date.** `drawing_pack_programme` links a pack to a

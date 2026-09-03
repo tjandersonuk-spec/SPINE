@@ -131,6 +131,23 @@ describe('every gated nav entry is a module the database knows', () => {
     expect(orphans, `nav keys with no module: ${orphans.join(', ')}`).toEqual([])
   })
 
+  test('every nav entry points at a route that exists', () => {
+    // A nav entry whose `to` has no route renders a blank page rather than an
+    // error, and a `to: null` entry renders as permanently dimmed. Both look
+    // like a broken product to whoever clicks them, and neither says why --
+    // which is exactly how three entries sat greyed out for several phases.
+    const app = readFileSync('src/App.tsx', 'utf8')
+    const routes = new Set(
+      [...app.matchAll(/<Route path="([^"]+)"/g)].map((m) => m[1]))
+
+    const unbuilt = [...nav.matchAll(/key: '([a-z]+)', label: '([^']+)', to: null/g)]
+    expect(unbuilt.map((m) => m[2]), 'nav entries with no page behind them').toEqual([])
+
+    const targets = [...nav.matchAll(/to: '([^']+)'/g)].map((m) => m[1])
+    const missing = targets.filter((t) => !t.startsWith('/') && !routes.has(t))
+    expect(missing, `nav targets with no route in App.tsx: ${missing.join(', ')}`).toEqual([])
+  })
+
   test('My work and Admin are core, so they are never gated away', () => {
     // A project with no settings page and no change log is not a cheaper
     // product, it is a broken one.

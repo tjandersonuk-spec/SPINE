@@ -1129,7 +1129,12 @@ begin
       ('NLS','PS-NLS-1','Design stage assessment' , 22800,'1230', 0,'Agreed'),
       ('NLS','PS-NLS-2','Post-construction review', 15200,'1480', 0,'Proposed'),
       ('PVL','PS-PVL-1','Stage 4 cost plan'       , 34800,'1120', 0,'Agreed'),
-      ('PVL','PS-PVL-2','Final account'           , 23200,'1481',30,'Proposed')
+      ('PVL','PS-PVL-2','Final account'           , 23200,'1481',30,'Proposed'),
+      -- Past its date with nothing invoiced against it. Nothing announces
+      -- this: it is a view precisely because a missed claim makes no noise,
+      -- and the audit page is where it surfaces.
+      ('CAL','PS-CAL-1','Stage 3 completion'      , 16800,'1110', 0,'Agreed'),
+      ('CAL','PS-CAL-2','Stage 4 completion'      , 11200,'1120', 0,'Agreed')
     ) as t(co, ref, descr, value, uid, off, status)
   loop
     insert into payment_schedule (project_id, company_id, reference, description,
@@ -1210,27 +1215,29 @@ begin
   perform realise_risk(v_risk);
 
   -- ---- warranties ----------------------------------------------------------
-  -- A warranty resolves its owner live through the DRM lead discipline. There
-  -- is no company column here and there must never be one: same gap the matrix
-  -- shows, same fix.
+  -- A warranty resolves its owner live through the DRM lead discipline, so each
+  -- row names the duty it answers to. There is no company column here and there
+  -- must never be one: same gap the matrix shows, same fix. WTY-008 is the
+  -- deliberate one -- it hangs off the lift duty, nobody holds vertical
+  -- transportation, so it shows as unallocated exactly as TSK-007 says.
   insert into warranties (project_id, reference, drm_ref, title, description,
     period_years, beneficiary, form, provided_by, status, programme_task_uid,
     offset_days, anchor)
   select p_project, w.ref, w.drm, w.title, w.descr, w.years, w.benef, w.form,
          w.by, w.status, '1481', w.off, 'finish'
   from (values
-    ('WTY-001',null,'Architect collateral warranty','Collateral warranty from the architect to the client and to the funder.',12,'Client and funder','JCT CWa/P&T','Bellhouse Architects','Executed',-120),
-    ('WTY-002',null,'Structural engineer collateral warranty','Collateral warranty from the civil and structural engineer.',12,'Client and funder','JCT CWa/P&T','Craven Wells Consulting','Executed',-120),
-    ('WTY-003',null,'Building services engineer collateral warranty','Collateral warranty from the MEP engineer.',12,'Client and funder','JCT CWa/P&T','Merton Beattie Engineers','Under review',-120),
-    ('WTY-004',null,'Fire engineer collateral warranty','Collateral warranty from the fire engineer.',12,'Client and funder','JCT CWa/P&T','Ridley Fire Consulting','Draft received',-120),
-    ('WTY-005',null,'Facade subcontractor warranty','Subcontractor collateral warranty for the facade package.',12,'Client and funder','JCT SCWa/P&T','Ashgrove Facades Ltd','Requested',-90),
-    ('WTY-006',null,'Rainscreen system manufacturer guarantee','Manufacturer''s product and finish guarantee for the rainscreen.',25,'Client','Manufacturer standard',null,'Not started',-60),
-    ('WTY-007',null,'Roof waterproofing guarantee','Single ply membrane guarantee including workmanship.',20,'Client','Manufacturer standard',null,'Not started',-60),
-    ('WTY-008',null,'Lift installation warranty','Lift supplier warranty and the first year maintenance.',2,'Management company','Supplier standard',null,'Not started',-30),
-    ('WTY-009',null,'Structural warranty / latent defects','Ten year structural warranty for the residential units.',10,'Client and purchasers','NHBC Buildmark','NHBC','Requested',-180),
-    ('WTY-010',null,'Landscape establishment guarantee','Five year establishment and replacement guarantee for the planting.',5,'Management company','Contract appendix',null,'Not started',0),
-    ('WTY-011',null,'Waterproofing to the podium deck','Guarantee for the podium deck waterproofing and the drainage layer.',20,'Client and management company','Manufacturer standard',null,'Not started',-30),
-    ('WTY-012',null,'Acoustic consultant collateral warranty','Collateral warranty from the acoustic consultant.',12,'Client','JCT CWa/P&T','Calder Acoustics','Not required',-120)
+    ('WTY-001','04.020','Architect collateral warranty','Collateral warranty from the architect to the client and to the funder.',12,'Client and funder','JCT CWa/P&T','Bellhouse Architects','Executed',-120),
+    ('WTY-002','03.010','Structural engineer collateral warranty','Collateral warranty from the civil and structural engineer.',12,'Client and funder','JCT CWa/P&T','Craven Wells Consulting','Executed',-120),
+    ('WTY-003','06.090','Building services engineer collateral warranty','Collateral warranty from the MEP engineer.',12,'Client and funder','JCT CWa/P&T','Merton Beattie Engineers','Under review',-120),
+    ('WTY-004','08.010','Fire engineer collateral warranty','Collateral warranty from the fire engineer.',12,'Client and funder','JCT CWa/P&T','Ridley Fire Consulting','Draft received',-120),
+    ('WTY-005','04.010','Facade subcontractor warranty','Subcontractor collateral warranty for the facade package.',12,'Client and funder','JCT SCWa/P&T','Ashgrove Facades Ltd','Requested',-90),
+    ('WTY-006','04.020','Rainscreen system manufacturer guarantee','Manufacturer''s product and finish guarantee for the rainscreen.',25,'Client','Manufacturer standard',null,'Not started',-60),
+    ('WTY-007','04.060','Roof waterproofing guarantee','Single ply membrane guarantee including workmanship.',20,'Client','Manufacturer standard',null,'Not started',-60),
+    ('WTY-008','06.160','Lift installation warranty','Lift supplier warranty and the first year maintenance.',2,'Management company','Supplier standard',null,'Not started',-30),
+    ('WTY-009','02.010','Structural warranty / latent defects','Ten year structural warranty for the residential units.',10,'Client and purchasers','NHBC Buildmark','NHBC','Requested',-180),
+    ('WTY-010','07.020','Landscape establishment guarantee','Five year establishment and replacement guarantee for the planting.',5,'Management company','Contract appendix',null,'Not started',0),
+    ('WTY-011','04.070','Waterproofing to the podium deck','Guarantee for the podium deck waterproofing and the drainage layer.',20,'Client and management company','Manufacturer standard',null,'Not started',-30),
+    ('WTY-012','08.080','Acoustic consultant collateral warranty','Collateral warranty from the acoustic consultant.',12,'Client','JCT CWa/P&T','Calder Acoustics','Not required',-120)
   ) as w(ref, drm, title, descr, years, benef, form, by, status, off);
 
   -- The warranty that will not be taken: the row survives rather than being

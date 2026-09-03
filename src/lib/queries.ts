@@ -1998,6 +1998,27 @@ export async function fetchTrackedItems(projectId: string, kind: string) {
   return (data ?? []) as unknown as TrackedItem[]
 }
 
+/**
+ * Everything overdue, across every tracked kind at once.
+ *
+ * The per-kind pages each ask for their own list. The audit asks the same
+ * question of all of them, and doing that as nine round trips would be nine
+ * chances for the page to disagree with itself.
+ */
+export async function fetchOverdueTracked(projectId: string) {
+  const { data, error } = await supabase
+    .from('v_tracked_items')
+    .select('id, kind, reference, title, due, company_name')
+    .eq('project_id', projectId)
+    .eq('overdue', true)
+    .order('due')
+  if (error) throw error
+  return (data ?? []) as {
+    id: string; kind: string; reference: string; title: string
+    due: string | null; company_name: string | null
+  }[]
+}
+
 export async function fetchTrackedProgress(projectId: string) {
   const { data, error } = await supabase.rpc('tracked_progress', { p_project: projectId })
   if (error) throw error

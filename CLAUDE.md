@@ -88,6 +88,19 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   module back shows exactly what was there. **To add a bolt-on:** one row in
   `module_catalogue()`, a `RequireModule` around its page, a nav entry with the same key. The
   owner's editor and project settings render from the catalogue and need no change.
+- **A nav entry with no page behind it is a broken product, not a roadmap.** The sidebar shows
+  the whole lifecycle, but every entry now resolves: `src/theme.test.ts` fails the build for a
+  `to: null` entry and for any target with no route in `App.tsx`. Monday summary, Gateways and
+  Audit sat dimmed for several phases and read as modules somebody had switched off, which is the
+  one thing a dimmed entry must never look like. **Audit is every silent check on one page** — the
+  findings that announce themselves nowhere else, each one a derivation another page already
+  makes, with the clear checks shown rather than hidden because "nothing found" and "not checked"
+  are different claims. **Gateways is the three statutory hold points** read off the records that
+  already carry them, and it names the specific things standing in the way rather than counting
+  them: a count is not an answer to "can we start". For a building that is not higher-risk it says
+  so, because an empty gateway reads as an outstanding one. **The Monday summary is the personal
+  one** — `decision_queue()` keyed on `auth.uid()`, seven days back and fourteen forward — and
+  gone-quiet appears on it only for the contractor's own staff.
 - **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
   is the lifecycle nav, outside it is the workspace (`WORKSPACE_NAV`, all `core`). The project
   switcher top-left is grouped by account and carries Portfolio and New project; the person

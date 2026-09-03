@@ -951,6 +951,28 @@ test:
   while `breeam_totals()` compared the same value straight against the rating thresholds. A project
   on course for 74 per cent reported "7430%".
 
+## Interlude — the last three greyed-out pages ✅
+
+Monday summary, Gateways and Audit were the only nav entries with no page behind them. They
+rendered permanently dimmed, which reads as a module somebody has switched off rather than one
+nobody has built — the exact confusion a dimmed entry must never cause. All three are now built,
+and none of them adds a derivation: every figure on them is one another page already computes.
+
+- **Monday summary** (`/summary`, core) — what is waiting on you, what is late, what falls due in
+  the next fortnight, what changed in the last week. Gone-quiet appears only for the contractor's
+  own staff.
+- **Gateways** (`/gateways`) — gateway 1, 2 and 3 read off the planning conditions, the building
+  control checklist, the golden thread derivations and the change-control classification. It lists
+  what is standing in the way rather than counting it, and says plainly when a building is not
+  higher-risk.
+- **Audit** (`/audit`) — every silent check in one place: unallocated duties and disciplines,
+  incomplete appointments, warranties with no owner, numbers that break the convention, drawings
+  never issued, golden thread findings, changes approved with work outstanding, unowned risks,
+  instalments due with nothing claimed, and fee schedules that do not total.
+
+`src/theme.test.ts` now fails the build for a nav entry with `to: null` or a target with no route,
+so this cannot recur silently.
+
 ## Phase 15 — Marketing site and sign-up
 
 *Reference: `docs/landing-page-reference.html`, brief §5.*

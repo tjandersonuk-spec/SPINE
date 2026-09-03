@@ -88,6 +88,19 @@ describe('the public site is reachable without a login', () => {
     expect(layout).toMatch(/session \?/)
   })
 
+  test('no auth screen is a dead end', () => {
+    // Somebody who cannot get past sign-in -- wrong address, no account yet,
+    // waiting on an approval -- is otherwise stuck there with the site they
+    // arrived from unreachable. Every screen you can be stopped on carries a
+    // way back to the public site or a way to sign out.
+    for (const f of ['src/pages/SignIn.tsx', 'src/pages/SignUp.tsx']) {
+      expect(readFileSync(f, 'utf8'), `${f} has no way back`).toContain('to="/welcome"')
+    }
+    // The confirmation wall has no form on it at all, so it needs its own.
+    const confirm = readFileSync('src/pages/ConfirmEmail.tsx', 'utf8')
+    expect(confirm).toMatch(/signOut|to="\/welcome"/)
+  })
+
   test('`/` decides between the site and the application', () => {
     // Both live at the same address on purpose: the marketing page has to be
     // the thing at the top of the domain, and a signed-in person must never be

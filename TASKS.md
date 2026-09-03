@@ -1029,6 +1029,17 @@ goes to sign-up, then confirmation, then `/request-account` — which is the flo
 figures to be set, so the cards say POA and a test fails the build if a currency figure ever
 appears — a placeholder number on a public page is a number somebody quotes back at you.
 
+**No auth screen is a dead end.** Sign in, sign up and the confirmation wall all carry a way
+back to the public site — somebody who cannot get past sign-in, because they have no account yet
+or are waiting on an approval, was otherwise stuck on it with the site they arrived from
+unreachable. A test asserts each of those screens keeps a way off it.
+
+**The project URL absorbs the one setup mistake worth absorbing.** The Supabase dashboard shows
+the address twice — bare in Project Settings, and as the REST endpoint on the API pages, which is
+the one on screen while somebody is copying values into Netlify. Pasting it produced a deployed
+site that refused to start. The endpoint suffixes are now trimmed; anything else still fails the
+check, with the value actually typed quoted back.
+
 ### Remaining in this phase
 
 - **A contact form with nowhere to post.** Sending mail is Phase 16, so the form composes a real

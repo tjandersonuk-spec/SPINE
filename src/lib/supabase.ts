@@ -1,7 +1,29 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = import.meta.env.VITE_SUPABASE_URL
+const rawUrl = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+/**
+ * The Supabase dashboard shows the project's address in more than one form.
+ * Project Settings gives the bare one; the API documentation pages give the
+ * REST endpoint, `https://<ref>.supabase.co/rest/v1/`, and that is the one
+ * sitting on the screen when somebody is copying values across. Pasting it
+ * produced a site that refused to start with an error about the URL not
+ * looking like a URL, which is true and unhelpful.
+ *
+ * So the endpoint suffixes are trimmed rather than rejected. Anything else
+ * still fails the check below: this fixes one specific, predictable mistake
+ * and does not start guessing at what somebody might have meant.
+ */
+export function normaliseProjectUrl(v: string | undefined): string | undefined {
+  if (!v) return v
+  return v
+    .trim()
+    .replace(/\/(rest|auth|storage|realtime|functions)\/v\d+\/?$/, '')
+    .replace(/\/+$/, '')
+}
+
+const url = normaliseProjectUrl(rawUrl)
 
 /**
  * Why this does not throw.
@@ -20,8 +42,9 @@ function describeConfigProblem(): string | null {
 
   if (missing.length > 0) return `${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} not set.`
 
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/.test(url)) {
-    return `VITE_SUPABASE_URL does not look like a Supabase project URL. It should be https://<your-ref>.supabase.co, but it is "${url}".`
+  if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)$/.test(url!)) {
+    return `VITE_SUPABASE_URL does not look like a Supabase project URL. It should be `
+      + `https://<your-ref>.supabase.co, but it is "${rawUrl}".`
   }
 
   // A service_role key here would ship full database access to every visitor.

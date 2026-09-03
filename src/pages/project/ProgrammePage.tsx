@@ -5,6 +5,7 @@ import { Gantt, GanttKey } from '@/components/programme/Gantt'
 import { ImportProgramme } from '@/components/programme/ImportProgramme'
 import { LineInspector } from '@/components/programme/LineInspector'
 import { Button } from '@/components/ui/button'
+import { RequireModule } from '@/components/shell/RequireModule'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import {
@@ -87,7 +88,7 @@ export default function ProgrammePage() {
   if (loading) return <div className="text-graphite p-6 text-sm">Loading the programme…</div>
 
   return (
-    <>
+    <RequireModule module="programme">
       <PageHead
         eyebrow="Set up"
         title="Programme"
@@ -256,6 +257,6 @@ export default function ProgrammePage() {
           onImported={() => { setImporting(false); load() }}
         />
       )}
-    </>
+    </RequireModule>
   )
 }

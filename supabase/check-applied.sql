@@ -49,7 +49,9 @@ with expected(ord, migration, kind, marker) as (values
   (34,'20260902160200_phase6_meetings',               'table',    'meetings'),
   (35,'20260902160300_phase6_issues',                 'table',    'issues'),
   (36,'20260902160400_phase6_functions',              'function', 'answer_rfi'),
-  (37,'20260902160500_phase6_rls',                    'policy',   'issues_select')
+  (37,'20260902160500_phase6_rls',                    'policy',   'issues_select'),
+  (38,'20260902170000_phase7_change_log',             'table',    'change_log'),
+  (39,'20260902170100_phase7_theming',                'function', 'project_shell')
 )
 select
   e.ord::numeric as "#",

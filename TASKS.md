@@ -311,23 +311,55 @@ and they collide at `TSK-001`. Caught by the tests rather than by a user.
 - **Distribution on an issue is set when it is raised, not edited afterwards.** `visibility` is in
   the update grant so the owner may change it; there is no screen for it yet.
 
-## Phase 7 — Change log, exports, the shell
+## Phase 7 — Change log, exports, the shell ✅
 
 *Reference: handover §5 (change log trigger), §8 (theming). Open prototype Settings.*
 
-- [ ] Postgres trigger writes every insert/update to a change log (entity, id, field, from, to,
+- [x] Postgres trigger writes every insert/update to a change log (entity, id, field, from, to,
       who, when)
-- [ ] Exports page: CSV per module + full-project JSON, honouring visibility
-- [ ] Shell: lifecycle nav (My work pinned; Pre-construction, Set up, Design, Compliance,
+- [x] Exports page: CSV per module + full-project JSON, honouring visibility
+- [x] Shell: lifecycle nav (My work pinned; Pre-construction, Set up, Design, Compliance,
       Commercial, Handover; Admin last), collapsible groups, brand-colour sidebar with hi-vis
-      active item
-- [ ] Tenant theming from host record: name, logo, one brand colour with derived contrast text,
+      active item — built earlier, before Phase 4
+- [x] Tenant theming from host record: name, logo, one brand colour with derived contrast text,
       light/dark — semantic colours (gap, ok, warn, stop) are fixed, not customisable
-- [ ] Panel kinds (evidence, discussion, commercial, compliance) each with a tinted header;
-      discussion threads chat-shaped
-- [ ] Module entitlements read from host record; a page whose module is off says so, doesn't render
-- [ ] Tests: brand colour reaches the stylesheet with auto contrast text; no setting exists for
+- [x] Panel kinds (evidence, discussion, commercial, compliance) each with a tinted header
+- [x] Module entitlements read from host record; a page whose module is off says so, doesn't render
+- [x] Tests: brand colour reaches the stylesheet with auto contrast text; no setting exists for
       semantic colours; switching a module off removes its nav entry and its page refuses
+
+**The trigger, not the code.** Application-side logging records what the developer remembered to
+log. A trigger records what actually happened, including the edit somebody made straight through
+PostgREST — and a test asserts exactly that case. One row per field that genuinely moved, so a
+write changing nothing logs nothing and the trail stays readable. No role holds insert, update or
+delete on `change_log`: it cannot be edited afterwards by anybody, which is the only thing that
+makes it worth keeping.
+
+**The derived ink uses pure black, not the structural ink, and the difference is load-bearing.**
+Solving for the brand equidistant from white and black puts the worst case at 4.58 — past AA.
+Using `#14181B` as the dark option drops it enough that a band of mid-luminance colours clears
+neither: `#C25E00` gives 4.29 against white and 4.16 against the near-black. The test sweeps the
+whole colour space rather than a hand-picked list, because no list I would have written contained
+the orange that failed.
+
+**My work and Admin are `core`, not modules.** A project with no settings page and no change log
+is not a cheaper product, it is a broken one. `src/theme.test.ts` asserts both directions: every
+gated nav key exists in `module_keys()` — an unknown key can never be switched on by anyone and
+would simply never appear — and no core key is a module.
+
+**A module that is off is absent, not dimmed.** Showing a locked door tells a consultant what
+their client has and has not paid for, which is not theirs to know.
+
+### Remaining in this phase
+
+- **Logo upload.** `organisations.logo_path` is read by the shell and the sign-in page; the
+  upload control is not built, so a logo is set by putting a file in the bucket. The same file
+  picker is wanted for evidence and comment attachments and is worth building once.
+- **Account-level module editing.** `set_modules()` exists and is tested; the screen edits the
+  project override only. An account admin wanting to change the default for every project does it
+  in SQL for now.
+- **PDF export.** The exports page does CSV and JSON. jsPDF with a populated title block belongs
+  with Phase 13's reports, which is where the layout is decided.
 
 ## Phase 8 — Consultant front and the project dashboard
 

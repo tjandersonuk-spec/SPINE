@@ -11,12 +11,16 @@
  * `to` is a path under /project/:id. A null `to` means not built yet.
  */
 export type NavItem = { key: string; label: string; to: string | null }
-export type NavGroup = { title: string; pinned?: boolean; items: NavItem[] }
+/** `core` groups are never gated on entitlement. My work and Admin are not
+ *  modules a tenant buys — a project with no settings page and no change log
+ *  is not a cheaper product, it is a broken one. */
+export type NavGroup = { title: string; pinned?: boolean; core?: boolean; items: NavItem[] }
 
 export const PROJECT_NAV: NavGroup[] = [
   {
     title: 'My work',
     pinned: true,
+    core: true,
     items: [
       { key: 'dashboard', label: 'Home', to: null },
       { key: 'issues', label: 'Tasks and RFIs', to: 'issues' },
@@ -80,11 +84,12 @@ export const PROJECT_NAV: NavGroup[] = [
   {
     // Admin last, always.
     title: 'Admin',
+    core: true,
     items: [
       { key: 'access', label: 'Project access', to: 'access' },
       { key: 'settings', label: 'Project settings', to: 'settings' },
-      { key: 'changes', label: 'Change log', to: null },
-      { key: 'exports', label: 'Exports', to: null },
+      { key: 'changes', label: 'Change log', to: 'changes' },
+      { key: 'exports', label: 'Exports', to: 'exports' },
     ],
   },
 ]

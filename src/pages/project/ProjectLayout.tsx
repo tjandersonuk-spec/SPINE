@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useParams } from 'react-router'
 
 import { AppShell } from '@/components/shell/AppShell'
-import { fetchMyAccounts, fetchProjectMembers, type ProjectMember } from '@/lib/queries'
+import {
+  fetchMyAccounts, fetchProjectMembers, fetchProjectShell,
+  type ProjectMember, type ProjectShell,
+} from '@/lib/queries'
 import { supabase } from '@/lib/supabase'
+import { applyBrand, applyTheme } from '@/lib/theme'
 
 export type ProjectData = {
   project: { name: string; code: string; organisation_id: string } | null
@@ -12,6 +16,11 @@ export type ProjectData = {
   accountRole: string | null
   canEdit: boolean
   isAccountAdmin: boolean
+  /** Branding and entitlements, merged. Null until the shell has loaded. */
+  shell: ProjectShell | null
+  /** Is this module on for this project? Unknown keys are off, so a page that
+   *  forgets to be entitled is hidden rather than exposed. */
+  moduleOn: (key: string) => boolean
 }
 
 /** What a page under /project/:id receives. */
@@ -24,9 +33,9 @@ export type ProjectContext = ProjectData & { reload: () => void }
  */
 export default function ProjectLayout() {
   const { id = '' } = useParams()
-  const [data, setData] = useState<ProjectData>({
+  const [data, setData] = useState<Omit<ProjectData, 'moduleOn'>>({
     project: null, members: [], me: null, accountRole: null,
-    canEdit: false, isAccountAdmin: false,
+    canEdit: false, isAccountAdmin: false, shell: null,
   })
   const [error, setError] = useState<string | null>(null)
 
@@ -36,8 +45,9 @@ export default function ProjectLayout() {
       fetchProjectMembers(id),
       supabase.auth.getUser(),
       fetchMyAccounts(),
+      fetchProjectShell(id),
     ])
-      .then(([p, members, u, accounts]) => {
+      .then(([p, members, u, accounts, shell]) => {
         if (p.error) throw p.error
         const me = u.data.user?.id ?? null
         const accountRole = accounts.find((a) => a.id === p.data.organisation_id)?.role ?? null
@@ -45,8 +55,15 @@ export default function ProjectLayout() {
         const isProjectAdmin = members.some(
           (m) => m.profile_id === me && m.project_role === 'project_admin'
         )
+        // The tenant sets one colour; everything it drives is derived. Applied
+        // before the first paint of the shell so the sidebar never flashes the
+        // default brand and then correct itself.
+        if (shell) {
+          applyBrand(shell.brand_colour)
+          applyTheme(shell.theme)
+        }
         setData({
-          project: p.data, members, me, accountRole, isAccountAdmin,
+          project: p.data, members, me, accountRole, isAccountAdmin, shell,
           canEdit: isAccountAdmin || isProjectAdmin,
         })
       })
@@ -56,7 +73,7 @@ export default function ProjectLayout() {
   useEffect(load, [load])
 
   return (
-    <AppShell>
+    <AppShell moduleOn={(key: string) => data.shell?.modules?.[key] === true}>
       {error && (
         <p className="border-stop/40 bg-stop-bg text-stop mb-4 rounded-md border px-3 py-2 text-sm">
           {error}
@@ -64,7 +81,13 @@ export default function ProjectLayout() {
       )}
       {/* reload is assembled here rather than stored in state: putting a
           callback beside the data it refreshes makes it capture itself. */}
-      <Outlet context={{ ...data, reload: load } satisfies ProjectContext} />
+      <Outlet
+        context={{
+          ...data,
+          moduleOn: (key: string) => data.shell?.modules?.[key] === true,
+          reload: load,
+        } satisfies ProjectContext}
+      />
     </AppShell>
   )
 }

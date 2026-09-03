@@ -11,6 +11,8 @@ import Profile from '@/pages/Profile'
 import PlatformPeople from '@/pages/platform/People'
 import AccessPage from '@/pages/project/AccessPage'
 import BepPage from '@/pages/project/BepPage'
+import ChangeLogPage from '@/pages/project/ChangeLogPage'
+import ExportsPage from '@/pages/project/ExportsPage'
 import DirectoryPage from '@/pages/project/DirectoryPage'
 import MatrixPage from '@/pages/project/MatrixPage'
 import IssuesPage from '@/pages/project/IssuesPage'
@@ -66,6 +68,8 @@ export default function App() {
           <Route path="matrix" element={<MatrixPage />} />
           <Route path="programme" element={<ProgrammePage />} />
           <Route path="bep" element={<BepPage />} />
+          <Route path="changes" element={<ChangeLogPage />} />
+          <Route path="exports" element={<ExportsPage />} />
           <Route path="issues" element={<IssuesPage />} />
           <Route path="meetings" element={<MeetingsPage />} />
           <Route path="register" element={<RegisterPage />} />

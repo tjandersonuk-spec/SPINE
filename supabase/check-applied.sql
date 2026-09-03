@@ -60,7 +60,11 @@ with expected(ord, migration, kind, marker) as (values
   (42,'20260902190000_phase9_tracked_items',          'table',    'tracked_items'),
   (43,'20260902190100_phase9_templates',              'table',    'checklist_templates'),
   (44,'20260902190200_phase9_functions',              'function', 'load_checklist'),
-  (45,'20260902190300_phase9_rls',                    'policy',   'tracked_items_select')
+  (45,'20260902190300_phase9_rls',                    'policy',   'tracked_items_select'),
+  (46,'20260902200000_phase10_change_requests',       'table',    'change_requests'),
+  (47,'20260902200100_phase10_bsa',                   'table',    'occurrences'),
+  (48,'20260902200200_phase10_bsa_functions',         'function', 'work_status'),
+  (49,'20260902200300_phase10_rls',                   'policy',   'change_requests_select')
 )
 select
   e.ord::numeric as "#",

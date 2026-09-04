@@ -122,6 +122,26 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   nobody labels becomes the name by default. The brief's §5 sign-up ("creates a pending host") is
   superseded by the identity model: a login and an account are separate things, so "Start a trial"
   goes to sign-up, confirmation, then `/request-account`.
+- **An email is the recipient's own query, not a careful copy of it.** Nothing may appear in a
+  message that its addressee could not see in the application, and the only way that is a
+  guarantee rather than a promise is to build every message by running the app's own queries as
+  the recipient. `my_week()` is an ordinary **invoker** function keyed on `auth.uid()`, exactly
+  like a page; `build_digest()` sets the claim and calls it, and is **owned by `notifier`** — a
+  role holding no `BYPASSRLS` and owning no table, so every policy written `to authenticated` is
+  enforced against it. Assembling a message in the Edge Function, with the service role and every
+  policy bypassed, is the mistake this exists to prevent. PostgreSQL refuses to let a
+  `security definer` function change the role, so the owning role is the mechanism; a migration
+  that recreates the function without `owner to notifier` silently removes it, and
+  `supabase/tests/phase16.test.ts` asserts the owner, the absent `BYPASSRLS` and that `my_week()`
+  is not a definer. **Composing and sending are separate**: `queue_notifications()` writes the
+  ledger and the sender drains it, so an outage loses nothing and a unique `dedupe_key` means a
+  message is composed once however often the job runs — with the due date inside an overdue key,
+  so a moved programme and a missed new date is a fresh message rather than a silence.
+  **There is no invitation preference**: an invitation is how somebody consents to join an
+  account, one they could mute is a consent they have silently lost the ability to give, and it
+  often goes to a person with no login at all. The ledger is readable by its recipient and by
+  nobody else, an account admin included — the body of a digest is that person's own view of their
+  own projects.
 - **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
   is the lifecycle nav, outside it is the workspace (`WORKSPACE_NAV`, all `core`). The project
   switcher top-left is grouped by account and carries Portfolio and New project; the person

@@ -202,3 +202,72 @@ Missed a night? The function accepts `{"date":"2026-09-01"}` and
 `take_snapshot()` upserts on `(project, date)`, so a backfill or a rerun
 replaces rather than duplicating. A job that cannot be safely retried is a job
 that eventually leaves a hole in a chart.
+
+---
+
+## The notification sender
+
+`send-notifications` does two things in order: `queue_notifications()` composes
+every message that is due and writes it to the `notifications` ledger, then the
+function posts whatever is in that ledger and records the outcome against each
+row.
+
+They are separate on purpose. A provider outage loses no message, because the
+rows are already written and the next run sends them; and a message is composed
+exactly once however often the job runs, because every row carries a unique
+`dedupe_key`.
+
+```
+supabase functions deploy send-notifications
+```
+
+Environment, set under **Edge Functions → Secrets**:
+
+| Variable | What it is |
+|---|---|
+| `RESEND_API_KEY` | The mail provider's key. **Absent means dry run** — messages queue and are not sent, which is the right default for a half-configured job. |
+| `MAIL_FROM` | e.g. `Spine <no-reply@yourdomain>`. Must be a domain verified with the provider. |
+| `APP_URL` | e.g. `https://yourdomain`. Used to build the links in each message; absent, the message still sends without them. |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are supplied by the platform.
+
+Then in **Integrations → Cron**, early enough that a digest arrives before the
+working day:
+
+```sql
+select cron.schedule(
+  'send-notifications',
+  '0 7 * * *',
+  $$select net.http_post(
+      url    := 'https://<project-ref>.supabase.co/functions/v1/send-notifications',
+      headers := jsonb_build_object(
+        'Content-Type',  'application/json',
+        'Authorization', 'Bearer ' || current_setting('app.service_role_key', true))
+    )$$);
+```
+
+### If it answers 401
+
+The refusal now says which check failed, and the commonest cause is the anon
+key: it is a valid JWT, so Supabase's own gateway lets it through, and only the
+function refuses it. A log line reading `booted` with no shutdown means the
+request reached the function — so a 401 after that is this check, not the
+gateway.
+
+Use the `service_role` key from **Project Settings → API**. On projects that
+still issue legacy keys it is the long `eyJ…` JWT; on newer ones it is the
+`sb_secret_…` value, and the function accepts either.
+
+### Why the sender does not decide what an email says
+
+It cannot, and that is the point. `build_digest()` runs as the recipient — the
+claim is set so `auth.uid()` answers as them, and the function is owned by
+`notifier`, a role that holds no `BYPASSRLS` and owns no table, so every policy
+written `to authenticated` is enforced against it. What comes back is what that
+person could load in the application, because the same policies ran.
+
+Assembling a message in the Edge Function instead, with the service role and
+every policy bypassed, is exactly the mistake that arrangement exists to
+prevent. `supabase/tests/phase16.test.ts` asserts the owner and the absence of
+`BYPASSRLS`, because a later migration that recreates the function without the
+`owner to notifier` line would silently undo it.

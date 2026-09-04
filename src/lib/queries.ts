@@ -2112,6 +2112,57 @@ export async function deleteTemplateRow(kind: TemplateKind, id: string) {
   if (error) throw error
 }
 
+/* ------------------------------------------------------------ notifications */
+export type NotificationPrefs = {
+  assignments: boolean; overdue: boolean; digest: boolean; paused: boolean
+}
+
+/** The effective values, absent row included. The default lives in SQL so the
+ *  page and the sender cannot disagree about what "not decided" means. */
+export async function fetchNotificationPreferences(): Promise<NotificationPrefs> {
+  const { data, error } = await supabase.rpc('my_notification_preferences')
+  if (error) throw error
+  const row = (data as NotificationPrefs[])[0]
+  return row ?? { assignments: true, overdue: true, digest: true, paused: false }
+}
+
+export async function setNotificationPreferences(p: NotificationPrefs) {
+  const { error } = await supabase.rpc('set_notification_preferences', {
+    p_assignments: p.assignments, p_overdue: p.overdue,
+    p_digest: p.digest, p_paused: p.paused,
+  })
+  if (error) throw error
+}
+
+/** What this week's email would say, read from the same function that builds
+ *  it. Somebody can see exactly what they are being sent, before it is sent. */
+export async function fetchMyWeek() {
+  const { data, error } = await supabase.rpc('my_week')
+  if (error) throw error
+  return data as {
+    generated_at: string
+    waiting: { project: string; project_id: string; kind: string
+               reference: string; title: string; due: string | null }[]
+    overdue: { project_id: string; reference: string; title: string; due: string | null }[]
+    invitations: { account: string; token: string }[]
+  }
+}
+
+/** What was actually sent to me. Nobody else can read this, including an
+ *  account admin: a mailbox somebody else can open is not a mailbox. */
+export async function fetchMyNotifications(limit = 50) {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id, kind, subject, queued_at, sent_at, failed_at, error')
+    .order('queued_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []) as {
+    id: string; kind: string; subject: string; queued_at: string
+    sent_at: string | null; failed_at: string | null; error: string | null
+  }[]
+}
+
 export async function fetchOverdueTracked(projectId: string) {
   const { data, error } = await supabase
     .from('v_tracked_items')

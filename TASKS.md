@@ -1050,12 +1050,60 @@ check, with the value actually typed quoted back.
 - **Playwright**: that `/` differs signed in and signed out is asserted structurally here, and
   the click-through belongs with the rest of the outstanding Playwright work.
 
-## Phase 16 — Email and notifications
+## Phase 16 — Email and notifications ✅
 
-- [ ] Invitations (phase 1)
-- [ ] Assignment and overdue notifications
-- [ ] Monday digest per person ("My week" as an email)
-- [ ] All templates honour visibility — nothing in an email the recipient couldn't see in the app
+- [x] Invitations (phase 1)
+- [x] Assignment and overdue notifications
+- [x] Monday digest per person ("My week" as an email)
+- [x] All templates honour visibility — nothing in an email the recipient couldn't see in the app
+
+**The visibility rule is a mechanism, not a promise.** The usual way to build a digest is a job
+with full database access that assembles the message and is careful about what it includes —
+and careful is a promise that one forgotten join breaks, at which point a consultant is reading
+a rival's overdue drawings in their inbox. So no email is assembled that way. `my_week()` is an
+ordinary invoker function keyed on `auth.uid()`, exactly like the pages. `build_digest()` sets the
+claim and calls it, and is **owned by `notifier`** — a role that holds no `BYPASSRLS` and owns no
+table, so every policy written `to authenticated` is enforced against it. The email is not a
+careful copy of what the recipient can see; it is the same query. A test asserts the impersonated
+digest is identical to what that person loads, and asserts the owner, because a later migration
+that recreates the function without the owner line would silently undo the whole thing.
+
+PostgreSQL refuses to let a `security definer` function change the role at all, so the obvious
+`set role authenticated` approach is not available — the owning role is what makes RLS apply.
+
+**Composing and sending are separate.** `queue_notifications()` writes to the `notifications`
+ledger; the Edge Function sends what is in it. A provider outage loses nothing, and a `dedupe_key`
+means a message is composed once however often the job runs. An overdue key carries the due date,
+so a moved programme and a missed new date is a fresh message rather than a silence.
+
+**There is no invitation preference, on purpose.** An invitation is how somebody consents to join
+an account; one they could mute is a consent they have silently lost the ability to give, and it
+frequently goes to a person with no login at all. `paused` does not cover it either, and the
+settings page says so rather than leaving it to be found out.
+
+**Somebody can read their own email before it is sent.** The profile page previews the week from
+the same function that builds the message, and lists what has been sent to them. Nobody else can
+read that ledger — not an account admin: the body of a digest is that person's own view of their
+own projects, and a mailbox somebody else can open is not a mailbox.
+
+**The sender's own authorisation reads the token's role rather than matching a string.** It was
+an equality check against `SUPABASE_SERVICE_ROLE_KEY`, which is brittle twice over: a project on
+the newer `sb_secret_…` keys injects a different value from the one you copy out of the dashboard,
+and — far more commonly — somebody pastes the anon key, which is a valid JWT, passes Supabase's
+gateway, and then fails here with the bare word "Unauthorized". Reading the `role` claim is safe
+because the gateway verified the signature before the request arrived. The refusal now names the
+role it was given, because "you sent the anon key" is the answer rather than a disclosure.
+
+### Remaining in this phase
+
+- **No provider is configured.** `RESEND_API_KEY` absent is a dry run: messages queue and are not
+  sent, which is the right default for a half-configured job but means nothing has been sent
+  against a real provider yet. Verify a domain, set the secret, and watch the first run.
+- **The cron job is documented, not scheduled** — the same position as the nightly snapshot.
+  `supabase/README.md` carries the statement.
+- **Comment mentions do not notify.** `@` in a comment is the obvious next event and is not wired;
+  it belongs with rooms in Phase 17, which is where mentions will matter most.
+- **Playwright** for the preferences screen and the preview.
 
 ## Phase 17 — Project rooms
 

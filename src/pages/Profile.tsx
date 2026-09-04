@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { NotificationSettings } from '@/components/NotificationSettings'
 import { ErrorNote } from '@/components/ui/notes'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,6 +90,8 @@ export default function Profile() {
           </Button>
         </form>
       </section>
+
+      <NotificationSettings />
     </>
   )
 }

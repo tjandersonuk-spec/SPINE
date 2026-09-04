@@ -139,7 +139,8 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   so a moved programme and a missed new date is a fresh message rather than a silence.
   **There is no invitation preference**: an invitation is how somebody consents to join an
   account, one they could mute is a consent they have silently lost the ability to give, and it
-  often goes to a person with no login at all. The ledger is readable by its recipient and by
+  often goes to a person with no login at all. A **mention** is a preference, because being named
+  in a room is work correspondence rather than consent. The ledger is readable by its recipient and by
   nobody else, an account admin included — the body of a digest is that person's own view of their
   own projects.
 - **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
@@ -159,6 +160,29 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   under it. Open items are not in the score: a busy consultant is not a worrying one, a late or a
   silent one is. **"Gone quiet" is silence, not age** — touched means a comment or a change-log
   entry, so an item being old is not the finding.
+- **A figure on the dashboard is the report's figure.** `dashboard_metrics()` resolves which
+  audience the caller is — account staff get `internal`, the `client` role gets `client`,
+  everybody else their own company — and then **delegates to `report_metrics()`**. It counts
+  nothing itself. The prototype computes its dashboard numbers separately from its report
+  numbers, and two functions counting overdue drawings is how the two disagree in front of
+  somebody who has both open. The audience is resolved in the function, never asked for by the
+  page, so `report_scope()` can never be reached with a company somebody guessed.
+- **A chart has a status palette, a brand and nothing else.** There is deliberately no
+  categorical ramp — a second accent beside a tenant's brand is a second brand — so any chart
+  wanting many series is the wrong chart. Two consequences are structural and `src/theme.test.ts`
+  enforces them. **A filled mark carries `chart-ink`**, because browsers strip background colours
+  when printing and a bar without it prints as an empty outline, which reads as "the figure is
+  zero" rather than "the ink was dropped". **Hi-vis never appears in a chart.** And because the
+  semantic hues are fixed in both themes and measure closer to each other than two peer series
+  should — warn against stop is ΔE 11.2 to normal vision on the light paper, ok against stop is
+  5.0 under deuteranopia on the dark — **colour carries the tone and never the identity**: every
+  segment states its own number and word, every trend line is labelled at its end. A *reference*
+  series (anticipated, against issued) is drawn thin and dashed in graphite so it never reads as
+  a peer, which is also what keeps it apart from the brand at ΔE 11.6. Charts live in
+  `src/components/charts` with one recipe per mark: `SegmentBar` for a whole divided into states,
+  `ProgressRow` for done-of-total with overdue called out separately, `TrendChart` for the
+  snapshot series. Never a pie: the question is always "how much of the whole", which a length
+  answers and an angle does not.
 - **There is exactly one `programme_timeline()`**, called by the dashboard and by Phase 13's
   period report. Two functions drawing the same bar would eventually draw different pictures.
   The dashboard's `decision_queue()` is keyed on `auth.uid()` and answers "what is waiting on
@@ -207,8 +231,15 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   header and sidebar — is obsidian in both themes: it frames the page rather than being part of it.
 - **One surface: `glass`.** Every container — `Panel`, `TableScroll`, `Card`, `Stat`, the report
   sheets — is the `glass` utility (frosted backing, hairline, ambient depth, specular top rim);
-  `glass-hi` is the same surface lit in the brand for the selected one, and `glass-popover` is the
-  less see-through version for menus, dialogs and drawers. Do not compose a container from
+  `glass-hi` is the same surface lit in the brand for the selected one, `glass-hivis` is it lit
+  hi-vis for the one figure that counts unallocated duties, and `glass-popover` is the less
+  see-through version for menus, dialogs and drawers. **The two lit variants are written
+  `.glass.glass-hi` and `.glass.glass-hivis`, in a `@layer utilities` block, and are always used
+  as `glass glass-hi`.** As bare `@utility` definitions they silently did nothing: they override
+  the same three properties `glass` sets, Tailwind sorts what it generates, and it emitted both
+  of them *before* `glass` — so a selected panel rendered as an ordinary one and the hi-vis tile
+  looked like every other tile, in both themes. A compound selector outranks `.glass` whatever
+  the order, and `src/theme.test.ts` fails the build if either goes back to being a bare utility. Do not compose a container from
   `bg-card border shadow` by hand; a second recipe is a second material. The print stylesheet
   replaces the glass tokens with opaque white and switches every `backdrop-filter` off.
 - **Hi-vis in the chrome is the matrix gap count and nothing else.** The active nav item is lit in
@@ -266,6 +297,63 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   is no update policy on `storage.objects` at all. The policies resolve the caller's own company
   through the definer `my_company_on_project()` — read inline they would always fail, because
   member visibility is admin-only and a consultant cannot see their own membership row.
+- **A room is a room, and a room message carries the room's audience.** Project rooms are the
+  correspondence that has not found a record yet, and the reason they are rooms rather than direct
+  messages is structural: `can_see()` grants an account admin and a project admin past every mode,
+  so a genuinely private two-person channel would need chat to have its own branch that the
+  override does not cross — and a channel in a Building Safety Act tool where two people can agree
+  something and leave no trace is the thing the module replaces. Chat gets no such branch, and
+  every room states its audience at the top, ending in "and administrators", because that is
+  always true. Messages reuse `comments` with `entity_type = 'room'`; a message carries the
+  default `{"mode":"project"}` of every comment, so **the select policy reads the room's
+  visibility and not the message's** — otherwise a `named` room means nothing. `can_see_room()` is
+  that one predicate, used by the room and by everything posted in it. `can_see_room_as()` answers
+  it for somebody else by setting the claim, the same mechanism `build_digest()` uses, and is
+  asked in exactly one place: whether naming a person is a mention or a notification about
+  something they could not then open.
+- **Nothing said in a room can be made to disappear.** There is no delete policy for a room
+  message at all — a delete straight through PostgREST removes nothing — and `withdraw_message()`
+  marks the row while leaving its author, its time and its text where they were. The people who
+  can still read it are exactly the people who had already read it; what changes is that the
+  conversation now records the retraction as well as the message. A withdrawn message can no
+  longer be edited. A room is archived, never deleted, and an archived room still reads.
+- **Chat must not change what anything else says.** `gone_quiet()` counts a comment on the record
+  and never a room message, or a room full of banter makes a stalled item look active and the
+  finding stops being found. `report_activity()`'s Discussion figure excludes `entity_type =
+  'room'` for the same reason — it claims to count correspondence logged against the project
+  record, and a busy week in one room would otherwise read as a productive month in a document
+  sent to a client. Rooms get a line of their own for the **internal** audience alone, and no
+  export offers one. There is no change-log trigger on rooms, following `comments`.
+- **The sample project opens its rooms and writes no conversation in them.** A message needs an
+  author and an author is a login; the sample directory has none, so the only available voice is
+  whoever ran the seed, and a coordination thread where one person says nine things to themselves
+  is a worse fiction than an empty room. The rooms and their audiences are seeded; the messages
+  are left to be real.
+- **Every record carries a discussion, and a remark in one becomes a task.** A discussion that
+  can only be read ends in somebody's inbox, which is the thing this product exists to replace —
+  so `CommentThread` hangs off every register: issues, meetings, drawings, matrix duties, tracked
+  items (which is planning, building control, scope, BREEAM and every checklist at once), risks,
+  change requests, material samples, warranties, fees, invoices, payment instalments, drawing
+  packs, transmittals, companies, the BEP and occurrence reports. `src/discussion.test.ts` names
+  that list and fails the build when a register is missing from it: a register added without a
+  thread looks finished, works, and quietly sends the conversation back to email, which is
+  exactly the failure nobody reports. The entity type is the register's **own** name, because the
+  task's category is derived from it — `DiscussRow` and `useDiscussion` are the row-level recipe
+  for a register with no detail page, one thread open at a time. **Raising is chosen before the
+  remark is posted**, and it opens `RaiseIssue`, the same form the issues tab uses: one form
+  wherever it is reached from, or a thinner "raise from a discussion" one drifts from it within a
+  phase. `discuss_and_raise()` writes the comment and the task **in one statement** — two calls
+  leave a comment with no task, which is the state nobody notices because the remark is there and
+  it looks handled. The task carries `origin_comment_id`, `origin_entity`, `origin_id` and a
+  `category` derived from the entity type by `discussion_category()` — stated once, because the
+  category is written by the raise and read by the task list's filter and two lists would
+  disagree the first time a checklist kind was added. A checklist's category names **which**
+  checklist: "Handover checklist" is a filter somebody would use where "checklist" returns four
+  registers at once. A task typed straight into the issues tab has no origin and no category, and
+  a test asserts it stays that way — pretending otherwise puts it in a filter it does not belong
+  to. Adding `raise_issue()` parameters means **dropping the old signature first**: `create or
+  replace` with a different argument list makes an overload, and a call matching both then fails
+  with "is not unique" at run time, from a page, on a database that migrated without complaint.
 - One `visibility` jsonb primitive on any record that has an audience, read by one `can_see()`
   function: `project` (everyone on the project — the default for tasks), `named` (raiser + owner +
   listed people only — the default for risks), `parties` (company trees + named people — change

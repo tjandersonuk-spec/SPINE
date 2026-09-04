@@ -1,3 +1,5 @@
+import { CommentThread } from '@/components/issues/CommentThread'
+import { useDeepLink } from '@/lib/deep-link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -38,6 +40,11 @@ export function TrackedList({
   const [note, setNote] = useState<string | null>(null)
   const [showStruck, setShowStruck] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
+  /** Which row has its discussion open. One at a time: a page of twenty
+   *  open threads is a page nobody reads. */
+  const [talking, setTalking] = useState<string | null>(null)
+  const link = useDeepLink(rows, (r, ref) => r.reference === ref,
+    (r) => setTalking(r.id))
   const [draft, setDraft] = useState('')
   const [adding, setAdding] = useState(false)
 
@@ -130,7 +137,8 @@ export function TrackedList({
               </THead>
               <TBody>
                 {visible.map((r) => (
-                  <TR key={r.id} muted={!r.required}>
+                  <TR key={r.id} data-ref={r.reference}
+                    gap={link.isTarget(r.reference)} muted={!r.required}>
                     <TD>
                       <Code className={!r.required ? 'text-xs line-through' : 'text-xs'}>
                         {r.ext?.template_reference as string ?? r.reference}
@@ -272,6 +280,36 @@ export function TrackedList({
                           </button>
                         )
                       )}
+                      {/* Every record that somebody can be asked about carries a
+                          discussion, and a remark in one can become a task. The
+                          prototype puts this on twenty record types; a checklist
+                          item with nowhere to say "this is blocked on the
+                          survey" is where the conversation leaves the product. */}
+                      <button
+                        type="button"
+                        onClick={() => setTalking((t) => (t === r.id ? null : r.id))}
+                        className="text-graphite mt-1 block text-xs underline"
+                      >
+                        {talking === r.id ? 'Hide' : 'Discuss'}
+                      </button>
+                    </TD>
+                  </TR>
+                ))}
+                {visible.map((r) => talking === r.id && (
+                  <TR key={`talk-${r.id}`}>
+                    <TD colSpan={6} className="bg-surface-2/40">
+                      <div className="px-1 py-2">
+                        <CommentThread
+                          projectId={projectId}
+                          // The kind itself, not a generic "checklist": the
+                          // category a raised task carries is derived from
+                          // this, and "Handover checklist" is a filter
+                          // somebody would use where "checklist" returns four
+                          // registers at once.
+                          entityType={kind}
+                          entityId={r.id}
+                        />
+                      </div>
                     </TD>
                   </TR>
                 ))}

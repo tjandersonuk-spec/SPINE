@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router'
 
-import { BrandMark, CrystalMark } from '@/components/BrandMark'
+import { CrystalMark } from '@/components/BrandMark'
 import { AccountMenu } from '@/components/shell/AccountMenu'
 import { PROJECT_NAV, WORKSPACE_NAV } from '@/components/shell/nav'
 import { ProjectSwitcher } from '@/components/shell/ProjectSwitcher'
@@ -142,10 +142,6 @@ export function AppShell({
 
       <div className="flex min-h-[calc(100svh-3rem)]">
         <nav className="bg-chrome-side text-chrome-ink sticky top-12 hidden h-[calc(100svh-3rem)] w-[214px] shrink-0 overflow-y-auto border-r border-white/5 pt-2.5 pb-5 backdrop-blur-lg md:block">
-          <div className="flex items-center gap-2 px-4 pt-1 pb-2.5">
-            <BrandMark className="max-h-7 w-auto" />
-          </div>
-          <div className="mx-4 h-px bg-white/8" />
 
           {groups.map((group) => {
             const open = !closed[group.title]

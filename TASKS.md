@@ -1122,31 +1122,31 @@ two people is not achievable without giving chat its own branch that the overrid
 liability rather than a feature. So nothing here is private, the module says so, and every room
 shows who can read it at the top. A two-person room is still a room.
 
-- [ ] `chat_rooms`: project, name, purpose, `visibility` (the existing primitive — `project` for
+- [x] `chat_rooms`: project, name, purpose, `visibility` (the existing primitive — `project` for
       the whole team, `named` for a few people, `parties` for a company tree). No `*_members`
       table: the audience is the visibility column, like every other record with one.
-- [ ] Messages reuse `comments` with `entity_type = 'room'`. It is already a threaded message
+- [x] Messages reuse `comments` with `entity_type = 'room'`. It is already a threaded message
       table with an author, a parent, a visibility and an `edited_at` — a chat room is what it
       was always shaped for, and a second message table would be a second place for a message to
       be.
-- [ ] Live delivery through Supabase Realtime. No new infrastructure.
-- [ ] Convert to task: extend `issues.source_kind` with `'chat'`, and make the control work on a
+- [x] Live delivery through Supabase Realtime. No new infrastructure.
+- [x] Convert to task: extend `issues.source_kind` with `'chat'`, and make the control work on a
       **selected range** of messages rather than one, because the real workflow is "this whole
       exchange is now an RFI". Quote the messages into the task and link both ways. Raising from
       a single message already works — `origin_comment_id` and `canRaiseTask` are built.
-- [ ] A bolt-on like every other: one `module_catalogue()` row, a nav entry with the same key, a
+- [x] A bolt-on like every other: one `module_catalogue()` row, a nav entry with the same key, a
       `RequireModule` around the page.
 
 ### What it must not do
 
-- [ ] **No change-log trigger.** Chat volume would drown a log whose whole value is that it is
+- [x] **No change-log trigger.** Chat volume would drown a log whose whole value is that it is
       readable. `comments` carries no trigger either; same precedent, same reason.
-- [ ] **Chatter is not "touched".** Only a message linked to a record counts towards gone-quiet,
+- [x] **Chatter is not "touched".** Only a message linked to a record counts towards gone-quiet,
       or a room full of banter makes a stalled item look active and the finding stops being
       found.
-- [ ] **Delete tombstones, never removes.** "The trail is not yours to edit" is on the public
+- [x] **Delete tombstones, never removes.** "The trail is not yours to edit" is on the public
       site. WhatsApp-style delete-for-everyone would contradict it; an edit shows as edited.
-- [ ] **Client reports and exports exclude it** unless a room's own visibility says otherwise —
+- [x] **Client reports and exports exclude it** unless a room's own visibility says otherwise —
       the same `report_scope()` and exclusion list as everything else.
 
 ## Phase 18 — Energy modelling (later, not now)

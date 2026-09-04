@@ -1539,6 +1539,11 @@ export async function raiseIssue(projectId: string, opts: {
   originCommentId?: string | null
   meetingId?: string | null
   visibility?: Record<string, unknown> | null
+  /** The record the task was raised from, so the list can be filtered by the
+   *  register it came out of. The category is derived from the entity type in
+   *  SQL — stated once, or the filter and the raise disagree. */
+  originEntity?: string | null
+  originId?: string | null
 }) {
   const { data, error } = await supabase.rpc('raise_issue', {
     p_project: projectId,
@@ -1555,6 +1560,8 @@ export async function raiseIssue(projectId: string, opts: {
     p_meeting: opts.meetingId ?? null,
     p_agenda_item: null,
     p_visibility: opts.visibility ?? null,
+    p_origin_entity: opts.originEntity ?? null,
+    p_origin_id: opts.originId ?? null,
   })
   if (error) throw error
   return data as { ok: boolean; id: string; reference: string }
@@ -2114,7 +2121,8 @@ export async function deleteTemplateRow(kind: TemplateKind, id: string) {
 
 /* ------------------------------------------------------------ notifications */
 export type NotificationPrefs = {
-  assignments: boolean; overdue: boolean; digest: boolean; paused: boolean
+  assignments: boolean; overdue: boolean; digest: boolean
+  mentions: boolean; paused: boolean
 }
 
 /** The effective values, absent row included. The default lives in SQL so the
@@ -2123,13 +2131,14 @@ export async function fetchNotificationPreferences(): Promise<NotificationPrefs>
   const { data, error } = await supabase.rpc('my_notification_preferences')
   if (error) throw error
   const row = (data as NotificationPrefs[])[0]
-  return row ?? { assignments: true, overdue: true, digest: true, paused: false }
+  return row ?? { assignments: true, overdue: true, digest: true,
+                  mentions: true, paused: false }
 }
 
 export async function setNotificationPreferences(p: NotificationPrefs) {
   const { error } = await supabase.rpc('set_notification_preferences', {
     p_assignments: p.assignments, p_overdue: p.overdue,
-    p_digest: p.digest, p_paused: p.paused,
+    p_digest: p.digest, p_mentions: p.mentions, p_paused: p.paused,
   })
   if (error) throw error
 }
@@ -3312,6 +3321,10 @@ export type ReportHeader = {
 
 export type ReportMetric = {
   sort_order: number; value: string; label: string; alert: boolean; tail: string | null
+  /** 'money' renders through the currency formatter. The query returns a
+   *  number; a currency symbol written into SQL arrives corrupted. */
+  unit: string | null
+  detail_key: string | null
 }
 
 export type ReportComplianceRow = {
@@ -3600,4 +3613,267 @@ export async function fetchAccountBranding(orgId: string) {
   const { data, error } = await supabase.rpc('account_branding', { p_org: orgId })
   if (error) throw error
   return (data ?? null) as AccountBranding | null
+}
+
+/* ------------------------------------------------------------------- rooms */
+/**
+ * Project rooms.
+ *
+ * The correspondence that has not found its record yet. Everything here reads
+ * through the room's own audience: a message carries the default visibility of
+ * every comment, and it is the room that decides who may read it, so the client
+ * never filters — the select policy does.
+ */
+export type RoomRow = {
+  id: string
+  name: string
+  purpose: string | null
+  mode: 'project' | 'named' | 'parties' | 'internal'
+  archived: boolean
+  last_message_at: string | null
+  last_author: string | null
+  last_body: string | null
+  unread: number
+}
+
+export type RoomMessage = {
+  id: string
+  author_id: string
+  author: string
+  body: string
+  parent_id: string | null
+  created_at: string
+  edited_at: string | null
+  deleted_at: string | null
+  deleted_by: string | null
+  mentions: string[] | null
+}
+
+export type RoomAudience = {
+  mode: 'project' | 'named' | 'parties' | 'internal'
+  people: string[]
+  companies: string[]
+  opened_by: string | null
+}
+
+export async function fetchProjectRooms(projectId: string): Promise<RoomRow[]> {
+  const { data, error } = await supabase.rpc('project_rooms', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as RoomRow[]
+}
+
+/** Null when the caller cannot read the room, which is how the page tells the
+ *  difference between an empty room and one that is not theirs. */
+export async function fetchRoomAudience(roomId: string): Promise<RoomAudience | null> {
+  const { data, error } = await supabase.rpc('room_audience', { p_room: roomId })
+  if (error) throw error
+  return (data ?? null) as RoomAudience | null
+}
+
+export async function fetchRoomMessages(roomId: string): Promise<RoomMessage[]> {
+  const { data, error } = await supabase.rpc('room_messages', { p_room: roomId })
+  if (error) throw error
+  return (data ?? []) as RoomMessage[]
+}
+
+export async function postRoomMessage(
+  roomId: string, body: string, mentions: string[] = [], parentId: string | null = null,
+) {
+  const { data, error } = await supabase.rpc('post_message', {
+    p_room: roomId, p_body: body, p_parent: parentId, p_mentions: mentions,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Not a delete. The row keeps its author, its time and its text and gains a
+ *  mark saying to disregard it — there is no delete policy for a room message
+ *  at all, so this is the only path. */
+export async function withdrawRoomMessage(id: string) {
+  const { error } = await supabase.rpc('withdraw_message', { p_id: id })
+  if (error) throw error
+}
+
+export async function markRoomRead(roomId: string) {
+  const { error } = await supabase.rpc('mark_room_read', { p_room: roomId })
+  if (error) throw error
+}
+
+export async function createRoom(input: {
+  projectId: string; name: string; purpose?: string | null
+  visibility?: { mode: string; people?: string[]; companies?: string[] }
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { data, error } = await supabase.from('chat_rooms')
+    .insert({
+      project_id: input.projectId, name: input.name.trim(),
+      purpose: input.purpose?.trim() || null,
+      visibility: input.visibility ?? { mode: 'project' },
+      created_by: me.user?.id,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id as string
+}
+
+/** Archiving is the only way a room ends. `project_id` and `created_by` are
+ *  outside the update grant, so a room cannot be moved. */
+export async function setRoomArchived(id: string, archived: boolean) {
+  const { error } = await supabase.from('chat_rooms')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function raiseFromRoom(input: {
+  roomId: string; messageIds: string[]; title: string
+  kind?: 'chat' | 'rfi'; personId?: string | null; question?: string | null
+}) {
+  const { data, error } = await supabase.rpc('raise_from_room', {
+    p_room: input.roomId, p_messages: input.messageIds, p_title: input.title,
+    p_kind: input.kind ?? 'chat', p_person: input.personId ?? null,
+    p_rfi_question: input.question ?? null,
+  })
+  if (error) throw error
+  return data as { ok: boolean; id: string; reference: string }
+}
+
+/**
+ * Live delivery, through Realtime rather than a second piece of infrastructure.
+ * Row level security is applied to the replicated rows, so a subscriber hears
+ * about a message only if the room's audience already lets them read it.
+ */
+export function subscribeToRoom(roomId: string, onChange: () => void) {
+  const channel = supabase
+    .channel(`room:${roomId}`)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'comments', filter: `entity_id=eq.${roomId}` },
+      () => onChange())
+    .subscribe()
+  return () => { void supabase.removeChannel(channel) }
+}
+
+/* ------------------------------------------------------- dashboard figures */
+/**
+ * The headline figures, which are the report's own.
+ *
+ * `dashboard_metrics()` resolves the caller's audience and delegates to
+ * `report_metrics()`, so the number on the dashboard and the number in the
+ * report are the same query rather than two that agree today.
+ */
+export type Metric = {
+  sort_order: number
+  value: string
+  label: string
+  alert: boolean
+  tail: string | null
+  /** 'money' renders through the currency formatter. Currency is a rendering
+   *  decision, so the query returns a number and the client formats it. */
+  unit: string | null
+  /** What metric_items() will answer for. Null means nothing to open. */
+  detail_key: string | null
+}
+
+export async function fetchDashboardMetrics(projectId: string): Promise<Metric[]> {
+  const { data, error } = await supabase.rpc('dashboard_metrics', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as Metric[]
+}
+
+export type AppointmentBucket = { state: 'complete' | 'partial' | 'none'; companies: number }
+
+export async function fetchAppointmentSummary(projectId: string): Promise<AppointmentBucket[]> {
+  const { data, error } = await supabase.rpc('appointment_summary', { p_project: projectId })
+  if (error) throw error
+  return ((data ?? []) as AppointmentBucket[])
+    .map((r) => ({ ...r, companies: Number(r.companies) }))
+}
+
+/** One row behind a figure, with the page it lives on. */
+export type MetricItem = {
+  reference: string
+  title: string
+  detail: string | null
+  due: string | null
+  overdue: boolean
+  link: string
+}
+
+export async function fetchMetricItems(projectId: string, key: string): Promise<MetricItem[]> {
+  const { data, error } = await supabase.rpc('metric_items', {
+    p_project: projectId, p_key: key,
+  })
+  if (error) throw error
+  return (data ?? []) as MetricItem[]
+}
+
+/** The names behind one cell of the consultant health table. Account staff
+ *  only — it is refused rather than returned empty, because empty would read
+ *  as "that firm has nothing outstanding". */
+export async function fetchCompanyItems(
+  projectId: string, companyId: string, kind: string,
+): Promise<MetricItem[]> {
+  const { data, error } = await supabase.rpc('company_items', {
+    p_project: projectId, p_company: companyId, p_kind: kind,
+  })
+  if (error) throw error
+  return (data ?? []) as MetricItem[]
+}
+
+export async function fetchAppointmentCompanies(
+  projectId: string, state: string,
+): Promise<MetricItem[]> {
+  const { data, error } = await supabase.rpc('appointment_companies', {
+    p_project: projectId, p_state: state,
+  })
+  if (error) throw error
+  return (data ?? []) as MetricItem[]
+}
+
+/**
+ * Post a remark and raise the task it becomes, in one call.
+ *
+ * Not two calls: a comment that posted with a task that did not is the state
+ * nobody notices, because the remark is there and it looks handled.
+ */
+export async function discussAndRaise(projectId: string, opts: {
+  entityType: string
+  entityId: string
+  body: string
+  title: string
+  kind: Issue['source_kind']
+  personId?: string | null
+  taskUid?: string | null
+  offsetDays?: number
+  anchor?: 'start' | 'finish'
+  priority?: number
+  rfiQuestion?: string | null
+  visibility?: Record<string, unknown> | null
+}) {
+  const { data, error } = await supabase.rpc('discuss_and_raise', {
+    p_project: projectId,
+    p_entity_type: opts.entityType,
+    p_entity_id: opts.entityId,
+    p_body: opts.body,
+    p_title: opts.title,
+    p_kind: opts.kind,
+    p_person: opts.personId ?? null,
+    p_task_uid: opts.taskUid ?? null,
+    p_offset: opts.offsetDays ?? 0,
+    p_anchor: opts.anchor ?? 'finish',
+    p_priority: opts.priority ?? 50,
+    p_rfi_question: opts.rfiQuestion ?? null,
+    p_visibility: opts.visibility ?? null,
+  })
+  if (error) throw error
+  return data as { ok: boolean; id: string; reference: string; comment_id: string }
+}
+
+/** The categories present on this project, for the task list's filter. Read
+ *  off the rows, so it never offers one with nothing behind it. */
+export async function fetchIssueCategories(projectId: string) {
+  const { data, error } = await supabase.rpc('issue_categories', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as { category: string; open_items: number; total: number }[]
 }

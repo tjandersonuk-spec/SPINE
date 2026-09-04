@@ -16,28 +16,53 @@ const TONES = {
   plain: { tile: '', value: 'text-foreground' },
   warn: { tile: 'border-warn/40 shadow-warn-halo', value: 'text-warn-ink' },
   stop: { tile: 'border-stop/40 shadow-stop-halo', value: 'text-stop-ink' },
-  gap: { tile: 'border-hivis/40 shadow-hivis bg-hivis-bg', value: 'text-hivis-ink' },
+  gap: { tile: 'glass-hivis', value: 'text-hivis-ink' },
 } as const
 
 export function Stat({
-  label, value, hint, tone = 'plain', className, ...props
+  label, value, hint, tone = 'plain', onOpen, className, ...props
 }: React.ComponentProps<'div'> & {
   label: React.ReactNode
   value: React.ReactNode
   hint?: React.ReactNode
   tone?: keyof typeof TONES
+  /** Given, the tile becomes a button that opens the rows it counted. A figure
+   *  nobody can open is one somebody has to reconstruct by hand elsewhere. */
+  onOpen?: () => void
 }) {
   const t = TONES[tone]
-  return (
-    <div
-      className={cn('glass rounded-lg px-3.5 py-3', t.tile, className)}
-      {...props}
-    >
+  const body = (
+    <>
       <Eyebrow>{label}</Eyebrow>
       <p className={cn('mt-1 font-mono text-3xl font-semibold tracking-tight tabular-nums', t.value)}>
         {value}
       </p>
       {hint && <p className="text-graphite mt-1 text-xs">{hint}</p>}
+    </>
+  )
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className={cn(
+          'glass hover:border-rule-highlight rounded-lg px-3.5 py-3 text-left transition-colors',
+          'focus-visible:ring-primary/40 outline-none focus-visible:ring-[3px]',
+          t.tile, className)}
+      >
+        {body}
+        <span className="text-graphite mt-1 block text-[10px]">Open the list</span>
+      </button>
+    )
+  }
+
+  return (
+    <div
+      className={cn('glass rounded-lg px-3.5 py-3', t.tile, className)}
+      {...props}
+    >
+      {body}
     </div>
   )
 }

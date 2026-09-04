@@ -3,10 +3,12 @@ import { useOutletContext, useParams } from 'react-router'
 
 import { Money } from '@/components/commercial/Money'
 import { fmtDate } from '@/lib/format'
+import { useDeepLink } from '@/lib/deep-link'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { CommentThread } from '@/components/issues/CommentThread'
 import {
   CHANGE_IMPACT_COSTS, CHANGE_ITEM_ENTITIES, CHANGE_STATUSES,
   addChangeRequest, addChangeRequestItem, fetchChangeImplementationGap,
@@ -37,6 +39,10 @@ export default function ChangeRequestsPage() {
   const [companies, setCompanies] = useState<ProjectCompany[]>([])
   const [variations, setVariations] = useState<Fee[]>([])
   const [open, setOpen] = useState<string | null>(null)
+  // Declared after `setOpen` exists: a link from the dashboard names a
+  // reference, and landing on the list without opening it is a page change
+  // dressed up as navigation.
+  const link = useDeepLink(rows, (r, ref) => r.reference === ref, (r) => setOpen(r.id))
   const [adding, setAdding] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -94,7 +100,8 @@ export default function ChangeRequestsPage() {
               </THead>
               <TBody>
                 {gap.map((g) => (
-                  <TR key={g.change_id}>
+                  <TR key={g.change_id} data-ref={g.reference}
+                    gap={link.isTarget(g.reference)}>
                     <TD><Code className="text-xs">{g.reference}</Code></TD>
                     <TD>{g.title}</TD>
                     <TD>
@@ -149,6 +156,7 @@ export default function ChangeRequestsPage() {
                     companies={companies}
                     variations={variations}
                     canEdit={ctx.canEdit}
+                    projectId={id}
                     open={open === r.id}
                     onToggle={() => setOpen(open === r.id ? null : r.id)}
                     guard={guard}
@@ -172,8 +180,9 @@ export default function ChangeRequestsPage() {
 }
 
 function ChangeRow({
-  row, items, companies, variations, canEdit, open, onToggle, guard,
+  projectId, row, items, companies, variations, canEdit, open, onToggle, guard,
 }: {
+  projectId: string
   row: ChangeRequest
   items: ChangeRequestItem[]
   companies: ProjectCompany[]
@@ -375,6 +384,13 @@ function ChangeRow({
                   </span>
                 </label>
               )}
+
+              {/* A change request is the record people argue about most, and
+                  the argument was happening somewhere this product could not
+                  see. A remark here becomes a task. */}
+              <div className="mt-4">
+                <CommentThread projectId={projectId} entityType="changereq" entityId={row.id} />
+              </div>
             </div>
           </TD>
         </TR>

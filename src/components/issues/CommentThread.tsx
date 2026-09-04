@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
+import { RaiseIssue } from '@/components/issues/RaiseIssue'
 import { Button } from '@/components/ui/button'
 import { Code } from '@/components/ui/table'
 import {
@@ -35,6 +36,10 @@ export function CommentThread({
   const [editing, setEditing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  /** Raising is chosen before the remark is posted, not after: the task's
+   *  title, owner and date are decided while the person is still thinking
+   *  about the thing they just typed. */
+  const [raising, setRaising] = useState<'comment' | 'rfi' | null>(null)
 
   const load = useCallback(() => {
     Promise.all([
@@ -231,11 +236,57 @@ export function CommentThread({
               ))}
             </select>
           </label>
+          {canRaiseTask && (
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              disabled={busy || !body.trim()}
+              onClick={() => setRaising('comment')}
+              title="Post this and raise it as a task at the same time"
+            >
+              Raise as a task
+            </Button>
+          )}
+          {canRaiseTask && (
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              disabled={busy || !body.trim()}
+              onClick={() => setRaising('rfi')}
+            >
+              Raise as an RFI
+            </Button>
+          )}
           <Button size="sm" type="submit" disabled={busy || !body.trim()}>
             {busy ? 'Posting…' : 'Post'}
           </Button>
         </div>
+        <p className="text-graphite text-xs">
+          Raising asks for a title, who carries it and a date anchored to the programme, and
+          posts the remark and the task together. The task remembers it came from here, so the
+          task list can be filtered by it.
+        </p>
       </form>
+
+      {/* The same form the issues tab uses. A second, thinner one for "raise
+          from a discussion" would drift from it within a phase. */}
+      {raising && (
+        <RaiseIssue
+          projectId={projectId}
+          kind={raising}
+          origin={{ entityType, entityId, body: body.trim() }}
+          initialDescription={body.trim()}
+          onClose={() => setRaising(null)}
+          onRaised={() => {
+            setRaising(null)
+            setBody('')
+            setAttachTo('')
+            load()
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@
  * The brand colour reaches the stylesheet with readable text on it, and no
  * semantic colour is reachable from the theming layer at all.
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 
 import { contrast, deriveBrand, inkFor, parseHex } from '@/lib/theme'
@@ -97,8 +97,16 @@ describe('no semantic colour is reachable from theming', () => {
 describe('every gated nav entry is a module the database knows', () => {
   const nav = readFileSync('src/components/shell/nav.ts', 'utf8')
   // module_catalogue() is the one registry; module_keys() derives from it.
-  const sql = readFileSync(
-    'supabase/migrations/20260902250000_entitlements_owner_only.sql', 'utf8')
+  // Read from whichever migration last redefines it rather than a pinned file:
+  // adding a bolt-on is one catalogue row, and a guard that keeps reading the
+  // file that row is no longer in stops guarding on the day it matters.
+  const sql = (() => {
+    const files = readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql')).sort()
+    const last = files.filter((f) =>
+      readFileSync(`supabase/migrations/${f}`, 'utf8').includes('function module_catalogue')).pop()
+    if (!last) throw new Error('no migration defines module_catalogue()')
+    return readFileSync(`supabase/migrations/${last}`, 'utf8')
+  })()
 
   /** The keys the catalogue declares: the first quoted value of each row. */
   const moduleKeys = new Set(
@@ -159,5 +167,117 @@ describe('every gated nav entry is a module the database knows', () => {
     for (const k of ['dashboard', 'issues', 'settings', 'access']) {
       expect(moduleKeys.has(k), `${k} should not be a module`).toBe(false)
     }
+  })
+})
+
+/**
+ * The chart rules, which are the ones a later chart will quietly break.
+ *
+ * The design system gives charts a status palette and a tenant-settable brand
+ * and nothing else — there is deliberately no categorical ramp, because a
+ * second accent beside a tenant's brand is a second brand. That makes two
+ * things structural rather than stylistic, and both are cheap to lose.
+ */
+describe('a chart obeys the rules the palette leaves it', () => {
+  const charts = readdirSync('src/components/charts')
+    .filter((f) => f.endsWith('.tsx'))
+    .map((f) => [f, readFileSync(`src/components/charts/${f}`, 'utf8')] as const)
+
+  test('there are charts to check', () => {
+    expect(charts.length).toBeGreaterThan(0)
+  })
+
+  test('every filled mark asks to be printed', () => {
+    // Browsers strip background colours when printing. A bar without
+    // `chart-ink` prints as an empty outline, which reads as "the figure is
+    // zero" rather than "the ink was dropped" — the worst way for a chart to
+    // fail, because it is silent and it is wrong.
+    // A data mark is an opaque fill in a resting state. A hover tint
+    // (`hover:bg-primary/[0.04]`) is neither, and forcing it to print would be
+    // the opposite mistake — screen affordances are not meant to reach paper.
+    const MARK = /(?<![\w:-])bg-(ok|warn|stop|primary|hivis)(?![\w/-])/
+    const bad: string[] = []
+    for (const [name, src] of charts) {
+      for (const m of src.matchAll(/className=\{?[`'"][^`'"]*[`'"]/g)) {
+        if (MARK.test(m[0]) && !m[0].includes('chart-ink')) bad.push(`${name}: ${m[0]}`)
+      }
+    }
+    expect(bad, `filled marks that will print blank:\n${bad.join('\n')}`).toEqual([])
+  })
+
+  test('hi-vis never appears in a chart', () => {
+    // It means exactly one thing in this product — an unallocated matrix duty
+    // — and a chart segment lit in it would be the second meaning.
+    const bad = charts.filter(([, src]) => /\b(bg|fill|stroke|text)-hivis\b/.test(src))
+    expect(bad.map(([n]) => n), 'hi-vis is the matrix gap and nothing else').toEqual([])
+  })
+})
+
+describe('the lit surfaces are compounds of the one surface', () => {
+  const css = readFileSync('src/index.css', 'utf8')
+
+  test('glass-hi and glass-hivis outrank glass rather than following it', () => {
+    // They are written `.glass.glass-hi` so they win on specificity. As bare
+    // `@utility` definitions they lost: Tailwind sorts what it generates and
+    // emitted both variants *before* `glass`, which sets the same three
+    // properties — so a lit panel rendered as an ordinary one and the hi-vis
+    // tile looked like every other tile, silently, in both themes.
+    expect(css).toMatch(/\.glass\.glass-hi\s*\{/)
+    expect(css).toMatch(/\.glass\.glass-hivis\s*\{/)
+    expect(css, 'a bare @utility loses to glass whatever the source order')
+      .not.toMatch(/@utility glass-hi\b/)
+    expect(css).not.toMatch(/@utility glass-hivis\b/)
+  })
+
+  test('hi-vis lights exactly one surface variant', () => {
+    // The token means an unallocated matrix duty and nothing else, so there is
+    // one lit-in-hi-vis recipe and no second one to drift from it.
+    const lit = [...css.matchAll(/\.glass\.glass-hivis\s*\{/g)]
+    expect(lit).toHaveLength(1)
+  })
+})
+
+/**
+ * Nothing a migration prints may depend on the encoding surviving the trip.
+ *
+ * A migration is applied by pasting it into the SQL editor, and Windows
+ * PowerShell reads a file with no byte-order mark using the system ANSI code
+ * page — so a pound sign or an em dash written into SQL arrives in the
+ * database already mangled, and the dashboard then prints the mangling. That
+ * is not a formatting slip: it is a corrupted stored function, in production,
+ * that nothing in the build notices.
+ *
+ * `scripts/copy-sql.ps1` fixes the transport. This fixes the exposure: from
+ * the migration that removed them onwards, a migration says nothing a reader
+ * sees in a character outside plain ASCII. Currency and dashes are rendering
+ * decisions and belong in the client, where the file is read by a bundler that
+ * does not guess.
+ */
+describe('a migration cannot carry a character the transport corrupts', () => {
+  // Everything before this was written and applied with the mangling already
+  // in it; rewriting an applied migration repairs nothing. The line is drawn
+  // where the practice changed.
+  const FROM = '20260902340000'
+
+  test('no non-ASCII byte in any migration from the cutoff onwards', () => {
+    const dir = 'supabase/migrations'
+    const offenders: string[] = []
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+      if (f < FROM) continue
+      const src = readFileSync(`${dir}/${f}`, 'utf8')
+      const lines = src.split('\n')
+      lines.forEach((line, n) => {
+        // eslint-disable-next-line no-control-regex
+        if (/[^\x00-\x7F]/.test(line)) offenders.push(`${f}:${n + 1}: ${line.trim()}`)
+      })
+    }
+    expect(offenders, `non-ASCII in a migration:\n${offenders.join('\n')}`).toEqual([])
+  })
+
+  test('the copy script forces UTF-8 rather than trusting the code page', () => {
+    const ps = readFileSync('scripts/copy-sql.ps1', 'utf8')
+    expect(ps).toMatch(/System\.Text\.Encoding\]::UTF8/)
+    // Get-Content is the trap this script exists to avoid.
+    expect(ps).not.toMatch(/Get-Content/)
   })
 })

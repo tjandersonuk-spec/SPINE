@@ -24,6 +24,7 @@ import ChangeRequestsPage from '@/pages/project/ChangeRequestsPage'
 import BuildingSafetyPage from '@/pages/project/BuildingSafetyPage'
 import FeesPage from '@/pages/project/FeesPage'
 import MaterialsPage from '@/pages/project/MaterialsPage'
+import RoomsPage from '@/pages/project/RoomsPage'
 import PreconPage from '@/pages/project/PreconPage'
 import AuditPage from '@/pages/project/AuditPage'
 import GatewaysPage from '@/pages/project/GatewaysPage'
@@ -160,6 +161,7 @@ export default function App() {
           <Route path="changes-requests" element={<ChangeRequestsPage />} />
           <Route path="warranties" element={<WarrantiesPage />} />
           <Route path="materials" element={<MaterialsPage />} />
+          <Route path="rooms" element={<RoomsPage />} />
           <Route path="summary" element={<SummaryPage />} />
           <Route path="gateways" element={<GatewaysPage />} />
           <Route path="audit" element={<AuditPage />} />

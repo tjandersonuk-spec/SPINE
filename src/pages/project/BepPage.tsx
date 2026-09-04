@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { CommentThread } from '@/components/issues/CommentThread'
 import {
   addRevisionRule, fetchBepFields, fetchRevisionRules, fetchSuitabilityCodes,
   hasBep, removeRevisionRule, seedBep, setSuitabilityInUse, updateBepField,
@@ -287,6 +288,13 @@ export default function BepPage() {
                 </TBody>
               </Table>
             </TableScroll>
+          </Panel>
+
+          {/* The BEP is one record per project, so its discussion is one
+              thread: where the naming convention and the revision rules get
+              argued out, rather than in an email nobody kept. */}
+          <Panel title="BEP discussion">
+            <CommentThread projectId={id} entityType="bep" entityId={id} />
           </Panel>
         </>
       )}

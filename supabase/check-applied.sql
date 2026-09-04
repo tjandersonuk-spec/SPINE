@@ -95,7 +95,16 @@ with expected(ord, migration, kind, marker) as (values
   (77,'20260902290000_template_editing',            'function', 'fork_risk_templates'),
   (78,'20260902300000_sample_data_tops_up',         'source',   'seed_sample_project:left as it is'),
   (79,'20260902310000_phase16_notifications',       'table',    'notifications'),
-  (80,'20260902310100_phase16_digest',              'function', 'build_digest')
+  (80,'20260902310100_phase16_digest',              'function', 'build_digest'),
+  (81,'20260902320000_phase17_rooms',                'table',    'chat_rooms'),
+  (82,'20260902320100_phase17_room_actions',         'function', 'raise_from_room'),
+  (83,'20260902320200_phase17_mentions',             'function', 'queue_mentions'),
+  (84,'20260902320300_phase17_reports',              'source',   'report_activity:entity_type <> ''room'''),
+  (85,'20260902320400_sample_rooms',                 'function', 'seed_sample_rooms'),
+  (86,'20260902330000_dashboard_metrics',            'function', 'dashboard_metrics'),
+  (87,'20260902340000_dashboard_interaction',        'function', 'metric_items'),
+  (88,'20260902340100_metric_items_by_kind',         'source',   'metric_items:items:'),
+  (89,'20260902350000_discussion_raises_a_task',     'function', 'discuss_and_raise')
 )
 select
   e.ord::numeric as "#",

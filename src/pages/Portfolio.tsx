@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
-import { TrendChart } from '@/components/portfolio/TrendChart'
+import { TrendChart } from '@/components/charts/TrendChart'
 import { Button } from '@/components/ui/button'
 import { Stat } from '@/components/ui/stat'
 import { Panel, PageHead } from '@/components/ui/panel'
@@ -300,7 +300,7 @@ function Companies({ rows }: { rows: PortfolioHealthRow[] }) {
 function Trends({ points }: { points: PortfolioTrendPoint[] }) {
   return (
     <>
-      <Panel title="Register burn-up">
+      <Panel title="Drawing register burn-up">
         <TrendChart
           points={points as unknown as Record<string, number | string>[]}
           series={[

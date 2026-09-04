@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { DiscussButton, DiscussRow, useDiscussion } from '@/components/issues/DiscussRow'
 import {
   createPack, fetchPacks, fetchTransmittals, type Pack, type Transmittal,
 } from '@/lib/queries'
@@ -22,6 +23,7 @@ export default function TransmittalsPage() {
   const [txs, setTxs] = useState<Transmittal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const talk = useDiscussion()
   const [editing, setEditing] = useState<Pack | null>(null)
   const [naming, setNaming] = useState(false)
   const [issuing, setIssuing] = useState<Pack | null>(null)
@@ -111,8 +113,13 @@ export default function TransmittalsPage() {
                           </Button>
                         </div>
                       )}
+                      <DiscussButton open={talk.isOpen(p.id)} onToggle={() => talk.toggle(p.id)} />
                     </TD>
                   </TR>
+                ))}
+                {packs.map((p) => talk.isOpen(p.id) && (
+                  <DiscussRow key={`talk-${p.id}`} projectId={id}
+                    entityType="pack" entityId={p.id} colSpan={6} />
                 ))}
               </TBody>
             </Table>
@@ -146,8 +153,15 @@ export default function TransmittalsPage() {
                     <TD><Code className="text-graphite text-xs">{fmt(t.issue_date)}</Code></TD>
                     <TD className="text-graphite text-xs">{t.method}</TD>
                     <TD>{t.reason ?? <span className="text-graphite">—</span>}</TD>
-                    <TD><Code className="text-xs">{t.item_count}</Code></TD>
+                    <TD>
+                      <Code className="text-xs">{t.item_count}</Code>
+                      <DiscussButton open={talk.isOpen(t.id)} onToggle={() => talk.toggle(t.id)} />
+                    </TD>
                   </TR>
+                ))}
+                {txs.map((t) => talk.isOpen(t.id) && (
+                  <DiscussRow key={`talk-${t.id}`} projectId={id}
+                    entityType="transmittal" entityId={t.id} colSpan={5} />
                 ))}
               </TBody>
             </Table>

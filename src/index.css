@@ -282,10 +282,6 @@
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
 }
-@utility glass-hi {
-  border-color: var(--rule-highlight);
-  box-shadow: var(--shadow-specular), var(--brand-glow);
-}
 /* A menu or a dialog: same material, less see-through, so text behind it never
    reads through the text in front. */
 @utility glass-popover {
@@ -296,7 +292,43 @@
   -webkit-backdrop-filter: blur(28px);
 }
 
+/*
+ * The two lit variants of the one surface, written as compounds of it.
+ *
+ * `glass` sets background, border and box-shadow; a variant that overrides any
+ * of those has to win the cascade, and it cannot rely on being written later in
+ * this file -- Tailwind sorts the utilities it generates, and it happened to
+ * emit both of these *before* `glass`, so a lit panel rendered as an ordinary
+ * one and a hi-vis tile looked like every other tile. `.glass.glass-hi` is one
+ * specificity point higher than `.glass`, which settles it whatever the order.
+ * Both are therefore written as `glass glass-hi`, never `glass-hi` alone.
+ */
+@layer utilities {
+  /* The selected one, lit in the brand. */
+  .glass.glass-hi {
+    border-color: var(--rule-highlight);
+    box-shadow: var(--shadow-specular), var(--brand-glow);
+  }
+  /* The figure that counts unallocated duties, and nothing else in the product:
+     hi-vis means exactly one thing. */
+  .glass.glass-hivis {
+    background: color-mix(in oklab, var(--hivis) 12%, var(--surface-glass));
+    border-color: color-mix(in oklab, var(--hivis) 45%, transparent);
+    box-shadow: var(--shadow-specular), var(--hivis-glow);
+  }
+}
+
 @layer base {
+  /* A native select draws its popup from the element's own background, and
+     ours is a 3%-white glass well -- so the options rendered near-white on
+     near-white and were unreadable. The popup is the operating system's, not
+     ours, so it has to be told explicitly rather than inherited into. */
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--foreground);
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -402,6 +434,15 @@
   .report-sheet:last-child {
     page-break-after: auto;
     break-after: auto;
+  }
+
+  /* A bar IS its fill. Browsers strip background colours when printing, so
+     without this every chart prints as an empty outline — which reads as "the
+     figure is zero" rather than "the ink was dropped". Scoped to the marks
+     alone: the glass surfaces genuinely should not print. */
+  .chart-ink {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   /* A table split across a page break loses its head, and a row split in half

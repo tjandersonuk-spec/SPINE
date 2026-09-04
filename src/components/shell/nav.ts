@@ -84,6 +84,12 @@ export const PROJECT_NAV: NavGroup[] = [
     ],
   },
   {
+    title: 'Collaboration',
+    items: [
+      { key: 'rooms', label: 'Project rooms', to: 'rooms' },
+    ],
+  },
+  {
     title: 'Compliance',
     items: [
       { key: 'planning', label: 'Planning conditions', to: 'planning' },

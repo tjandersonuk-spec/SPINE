@@ -30,7 +30,6 @@ const one = async <T = Record<string, unknown>>(
 ) => (await rows<T>(who, sql, params))[0]
 const sup = <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
   asSuperuser((c) => c.query(sql, params)).then((r) => r.rows as T[])
-const num = (v: unknown) => Number(v)
 
 beforeAll(async () => {
   w = await asSuperuser(async (c: Client) => {
@@ -123,8 +122,16 @@ describe('a message is composed once, however often the job runs', () => {
     const total = Object.values(first[0].q).reduce((a, b) => a + Number(b), 0)
     expect(total).toBeGreaterThan(0)
 
-    const again = await sup<{ q: Record<string, number> }>('select queue_notifications() as q')
-    expect(Object.values(again[0].q).reduce((a, b) => a + Number(b), 0)).toBe(0)
+    // Scoped to this suite's own project rather than counting what the second
+    // call returns: the queue is global and the test files share one database,
+    // so a global count answers for whatever another suite wrote in between.
+    const mine = () => sup<{ dedupe_key: string }>(
+      'select dedupe_key from notifications where project_id = $1 order by dedupe_key',
+      [w.project])
+    const before = await mine()
+    expect(before.length).toBeGreaterThan(0)
+    await sup('select queue_notifications()')
+    expect(await mine()).toEqual(before)
   })
 
   test('an overdue message carries its due date, so a moved date is a new message', async () => {
@@ -139,15 +146,17 @@ describe('a message is composed once, however often the job runs', () => {
 describe('preferences are obeyed, and one of them does not exist', () => {
   test('switching a kind off stops it being queued', async () => {
     await asUser(w.cara, (c) => c.query(
-      'select set_notification_preferences($1,$2,$3,$4)', [false, false, false, false]))
+      'select set_notification_preferences($1,$2,$3,$4,$5)',
+      [false, false, false, false, false]))
     expect(await one<{ w: boolean }>(w.cara,
       `select wants_notification($1,'assignment') as w`, [w.cara])).toEqual({ w: false })
   })
 
-  test('pausing wins over the three switches', async () => {
+  test('pausing wins over the four switches', async () => {
     await asUser(w.cara, (c) => c.query(
-      'select set_notification_preferences($1,$2,$3,$4)', [true, true, true, true]))
-    for (const kind of ['assignment', 'overdue', 'digest']) {
+      'select set_notification_preferences($1,$2,$3,$4,$5)',
+      [true, true, true, true, true]))
+    for (const kind of ['assignment', 'overdue', 'digest', 'mention']) {
       const r = await one<{ w: boolean }>(w.cara,
         'select wants_notification($1,$2) as w', [w.cara, kind])
       expect(r.w, `${kind} should be paused`).toBe(false)
@@ -255,6 +264,20 @@ describe('the sender reads the keys the queue actually writes', () => {
       `insert into invitations (scope, organisation_id, email, role, token, invited_by)
        values ('organisation', $1, 'p16-nobody@bel.example', 'consultant',
                'p16-token-' || gen_random_uuid(), $2)`, [w.org, w.boss]))
+    // Phase 17 gave the seam a fifth kind. A mention is the only body carrying
+    // `room`, `author` and `said`, so without one here the check below would
+    // pass over three of the fields the layout reads.
+    await asSuperuser(async (c) => {
+      const room = (await c.query(
+        `insert into chat_rooms (project_id, name, created_by)
+         values ($1, 'p16-seam', $2) returning id`, [w.project, w.boss])).rows[0].id
+      await c.query(
+        `insert into comments (project_id, entity_type, entity_id, author_id, body, mentions)
+         values ($1, 'room', $2, $3, 'Have a look at this', array[$4::uuid])`,
+        // Rhys, not Cara: the preference tests above leave Cara paused, and a
+        // paused person is queued nothing.
+        [w.project, room, w.boss, w.rhys])
+    })
     await sup('select queue_notifications()')
 
     const bodies = await sup<{ body: string }>('select body from notifications')

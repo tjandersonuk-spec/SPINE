@@ -2,7 +2,7 @@
  * The brand colour reaches the stylesheet with readable text on it, and no
  * semantic colour is reachable from the theming layer at all.
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, test } from 'vitest'
 
 import { contrast, deriveBrand, inkFor, parseHex } from '@/lib/theme'
@@ -97,8 +97,16 @@ describe('no semantic colour is reachable from theming', () => {
 describe('every gated nav entry is a module the database knows', () => {
   const nav = readFileSync('src/components/shell/nav.ts', 'utf8')
   // module_catalogue() is the one registry; module_keys() derives from it.
-  const sql = readFileSync(
-    'supabase/migrations/20260902250000_entitlements_owner_only.sql', 'utf8')
+  // Read from whichever migration last redefines it rather than a pinned file:
+  // adding a bolt-on is one catalogue row, and a guard that keeps reading the
+  // file that row is no longer in stops guarding on the day it matters.
+  const sql = (() => {
+    const files = readdirSync('supabase/migrations').filter((f) => f.endsWith('.sql')).sort()
+    const last = files.filter((f) =>
+      readFileSync(`supabase/migrations/${f}`, 'utf8').includes('function module_catalogue')).pop()
+    if (!last) throw new Error('no migration defines module_catalogue()')
+    return readFileSync(`supabase/migrations/${last}`, 'utf8')
+  })()
 
   /** The keys the catalogue declares: the first quoted value of each row. */
   const moduleKeys = new Set(

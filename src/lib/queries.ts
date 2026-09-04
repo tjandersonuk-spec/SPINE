@@ -2114,7 +2114,8 @@ export async function deleteTemplateRow(kind: TemplateKind, id: string) {
 
 /* ------------------------------------------------------------ notifications */
 export type NotificationPrefs = {
-  assignments: boolean; overdue: boolean; digest: boolean; paused: boolean
+  assignments: boolean; overdue: boolean; digest: boolean
+  mentions: boolean; paused: boolean
 }
 
 /** The effective values, absent row included. The default lives in SQL so the
@@ -2123,13 +2124,14 @@ export async function fetchNotificationPreferences(): Promise<NotificationPrefs>
   const { data, error } = await supabase.rpc('my_notification_preferences')
   if (error) throw error
   const row = (data as NotificationPrefs[])[0]
-  return row ?? { assignments: true, overdue: true, digest: true, paused: false }
+  return row ?? { assignments: true, overdue: true, digest: true,
+                  mentions: true, paused: false }
 }
 
 export async function setNotificationPreferences(p: NotificationPrefs) {
   const { error } = await supabase.rpc('set_notification_preferences', {
     p_assignments: p.assignments, p_overdue: p.overdue,
-    p_digest: p.digest, p_paused: p.paused,
+    p_digest: p.digest, p_mentions: p.mentions, p_paused: p.paused,
   })
   if (error) throw error
 }
@@ -3600,4 +3602,143 @@ export async function fetchAccountBranding(orgId: string) {
   const { data, error } = await supabase.rpc('account_branding', { p_org: orgId })
   if (error) throw error
   return (data ?? null) as AccountBranding | null
+}
+
+/* ------------------------------------------------------------------- rooms */
+/**
+ * Project rooms.
+ *
+ * The correspondence that has not found its record yet. Everything here reads
+ * through the room's own audience: a message carries the default visibility of
+ * every comment, and it is the room that decides who may read it, so the client
+ * never filters — the select policy does.
+ */
+export type RoomRow = {
+  id: string
+  name: string
+  purpose: string | null
+  mode: 'project' | 'named' | 'parties' | 'internal'
+  archived: boolean
+  last_message_at: string | null
+  last_author: string | null
+  last_body: string | null
+  unread: number
+}
+
+export type RoomMessage = {
+  id: string
+  author_id: string
+  author: string
+  body: string
+  parent_id: string | null
+  created_at: string
+  edited_at: string | null
+  deleted_at: string | null
+  deleted_by: string | null
+  mentions: string[] | null
+}
+
+export type RoomAudience = {
+  mode: 'project' | 'named' | 'parties' | 'internal'
+  people: string[]
+  companies: string[]
+  opened_by: string | null
+}
+
+export async function fetchProjectRooms(projectId: string): Promise<RoomRow[]> {
+  const { data, error } = await supabase.rpc('project_rooms', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as RoomRow[]
+}
+
+/** Null when the caller cannot read the room, which is how the page tells the
+ *  difference between an empty room and one that is not theirs. */
+export async function fetchRoomAudience(roomId: string): Promise<RoomAudience | null> {
+  const { data, error } = await supabase.rpc('room_audience', { p_room: roomId })
+  if (error) throw error
+  return (data ?? null) as RoomAudience | null
+}
+
+export async function fetchRoomMessages(roomId: string): Promise<RoomMessage[]> {
+  const { data, error } = await supabase.rpc('room_messages', { p_room: roomId })
+  if (error) throw error
+  return (data ?? []) as RoomMessage[]
+}
+
+export async function postRoomMessage(
+  roomId: string, body: string, mentions: string[] = [], parentId: string | null = null,
+) {
+  const { data, error } = await supabase.rpc('post_message', {
+    p_room: roomId, p_body: body, p_parent: parentId, p_mentions: mentions,
+  })
+  if (error) throw error
+  return data as string
+}
+
+/** Not a delete. The row keeps its author, its time and its text and gains a
+ *  mark saying to disregard it — there is no delete policy for a room message
+ *  at all, so this is the only path. */
+export async function withdrawRoomMessage(id: string) {
+  const { error } = await supabase.rpc('withdraw_message', { p_id: id })
+  if (error) throw error
+}
+
+export async function markRoomRead(roomId: string) {
+  const { error } = await supabase.rpc('mark_room_read', { p_room: roomId })
+  if (error) throw error
+}
+
+export async function createRoom(input: {
+  projectId: string; name: string; purpose?: string | null
+  visibility?: { mode: string; people?: string[]; companies?: string[] }
+}) {
+  const { data: me } = await supabase.auth.getUser()
+  const { data, error } = await supabase.from('chat_rooms')
+    .insert({
+      project_id: input.projectId, name: input.name.trim(),
+      purpose: input.purpose?.trim() || null,
+      visibility: input.visibility ?? { mode: 'project' },
+      created_by: me.user?.id,
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id as string
+}
+
+/** Archiving is the only way a room ends. `project_id` and `created_by` are
+ *  outside the update grant, so a room cannot be moved. */
+export async function setRoomArchived(id: string, archived: boolean) {
+  const { error } = await supabase.from('chat_rooms')
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function raiseFromRoom(input: {
+  roomId: string; messageIds: string[]; title: string
+  kind?: 'chat' | 'rfi'; personId?: string | null; question?: string | null
+}) {
+  const { data, error } = await supabase.rpc('raise_from_room', {
+    p_room: input.roomId, p_messages: input.messageIds, p_title: input.title,
+    p_kind: input.kind ?? 'chat', p_person: input.personId ?? null,
+    p_rfi_question: input.question ?? null,
+  })
+  if (error) throw error
+  return data as { ok: boolean; id: string; reference: string }
+}
+
+/**
+ * Live delivery, through Realtime rather than a second piece of infrastructure.
+ * Row level security is applied to the replicated rows, so a subscriber hears
+ * about a message only if the room's audience already lets them read it.
+ */
+export function subscribeToRoom(roomId: string, onChange: () => void) {
+  const channel = supabase
+    .channel(`room:${roomId}`)
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: 'comments', filter: `entity_id=eq.${roomId}` },
+      () => onChange())
+    .subscribe()
+  return () => { void supabase.removeChannel(channel) }
 }

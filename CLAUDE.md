@@ -139,7 +139,8 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   so a moved programme and a missed new date is a fresh message rather than a silence.
   **There is no invitation preference**: an invitation is how somebody consents to join an
   account, one they could mute is a consent they have silently lost the ability to give, and it
-  often goes to a person with no login at all. The ledger is readable by its recipient and by
+  often goes to a person with no login at all. A **mention** is a preference, because being named
+  in a room is work correspondence rather than consent. The ledger is readable by its recipient and by
   nobody else, an account admin included — the body of a digest is that person's own view of their
   own projects.
 - **There is one shell.** `AppShell` wraps every signed-in screen; inside a project the sidebar
@@ -266,6 +267,38 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   is no update policy on `storage.objects` at all. The policies resolve the caller's own company
   through the definer `my_company_on_project()` — read inline they would always fail, because
   member visibility is admin-only and a consultant cannot see their own membership row.
+- **A room is a room, and a room message carries the room's audience.** Project rooms are the
+  correspondence that has not found a record yet, and the reason they are rooms rather than direct
+  messages is structural: `can_see()` grants an account admin and a project admin past every mode,
+  so a genuinely private two-person channel would need chat to have its own branch that the
+  override does not cross — and a channel in a Building Safety Act tool where two people can agree
+  something and leave no trace is the thing the module replaces. Chat gets no such branch, and
+  every room states its audience at the top, ending in "and administrators", because that is
+  always true. Messages reuse `comments` with `entity_type = 'room'`; a message carries the
+  default `{"mode":"project"}` of every comment, so **the select policy reads the room's
+  visibility and not the message's** — otherwise a `named` room means nothing. `can_see_room()` is
+  that one predicate, used by the room and by everything posted in it. `can_see_room_as()` answers
+  it for somebody else by setting the claim, the same mechanism `build_digest()` uses, and is
+  asked in exactly one place: whether naming a person is a mention or a notification about
+  something they could not then open.
+- **Nothing said in a room can be made to disappear.** There is no delete policy for a room
+  message at all — a delete straight through PostgREST removes nothing — and `withdraw_message()`
+  marks the row while leaving its author, its time and its text where they were. The people who
+  can still read it are exactly the people who had already read it; what changes is that the
+  conversation now records the retraction as well as the message. A withdrawn message can no
+  longer be edited. A room is archived, never deleted, and an archived room still reads.
+- **Chat must not change what anything else says.** `gone_quiet()` counts a comment on the record
+  and never a room message, or a room full of banter makes a stalled item look active and the
+  finding stops being found. `report_activity()`'s Discussion figure excludes `entity_type =
+  'room'` for the same reason — it claims to count correspondence logged against the project
+  record, and a busy week in one room would otherwise read as a productive month in a document
+  sent to a client. Rooms get a line of their own for the **internal** audience alone, and no
+  export offers one. There is no change-log trigger on rooms, following `comments`.
+- **The sample project opens its rooms and writes no conversation in them.** A message needs an
+  author and an author is a login; the sample directory has none, so the only available voice is
+  whoever ran the seed, and a coordination thread where one person says nine things to themselves
+  is a worse fiction than an empty room. The rooms and their audiences are seeded; the messages
+  are left to be real.
 - One `visibility` jsonb primitive on any record that has an audience, read by one `can_see()`
   function: `project` (everyone on the project — the default for tasks), `named` (raiser + owner +
   listed people only — the default for risks), `parties` (company trees + named people — change

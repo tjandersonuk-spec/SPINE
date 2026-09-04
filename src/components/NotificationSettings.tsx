@@ -12,7 +12,7 @@ import {
 /**
  * What you are sent, and what was sent.
  *
- * Three switches and a pause, which is the whole of it. The interesting part
+ * Four switches and a pause, which is the whole of it. The interesting part
  * is the preview: the week shown here is read from the same function that
  * builds the email, so it is not an approximation of what will arrive — it is
  * the message. Somebody who does not trust an automated email can look at
@@ -32,6 +32,9 @@ const SWITCHES: { key: keyof NotificationPrefs; label: string; note: string }[] 
   { key: 'digest', label: 'My week, on a Monday',
     note: 'One email with what is waiting and what is late. Not sent at all in a week '
         + 'with neither.' },
+  { key: 'mentions', label: 'Somebody names me in a room',
+    note: 'A room is a place people talk past each other; being named is the one thing '
+        + 'in it addressed to you.' },
 ]
 
 export function NotificationSettings() {
@@ -89,7 +92,7 @@ export function NotificationSettings() {
             <span>
               <span className="text-sm font-medium">Pause everything</span>
               <span className="text-graphite block text-xs">
-                For a holiday or a handover. Wins over the three above; nothing is lost,
+                For a holiday or a handover. Wins over the four above; nothing is lost,
                 and what was waiting is still waiting when you come back.
               </span>
             </span>

@@ -31,7 +31,7 @@ const APP_URL = Deno.env.get('APP_URL') ?? ''
 type Notification = {
   id: string
   email: string
-  kind: 'invitation' | 'assignment' | 'overdue' | 'digest'
+  kind: 'invitation' | 'assignment' | 'overdue' | 'digest' | 'mention'
   subject: string
   body: string
   project_id: string | null
@@ -156,6 +156,19 @@ function render(n: Notification): string {
       link('/'),
       '',
       'To change what you are sent, or to pause it, open your details in the app.',
+    ].join('\n')
+  }
+
+  if (n.kind === 'mention') {
+    return [
+      `${data.author} named you in ${data.room}.`,
+      '',
+      `${data.said ?? ''}`,
+      '',
+      `Project: ${data.project ?? ''}`,
+      link(n.project_id ? `/project/${n.project_id}/rooms` : '/'),
+      '',
+      'Rooms are never private — every one says at the top who can read it.',
     ].join('\n')
   }
 

@@ -217,6 +217,17 @@ rows are already written and the next run sends them; and a message is composed
 exactly once however often the job runs, because every row carries a unique
 `dedupe_key`.
 
+Five kinds: `invitation`, `assignment`, `overdue`, `digest` and `mention`. Four
+of them obey `notification_preferences`; an invitation does not, because it is
+how somebody consents to join an account and one they could mute is a consent
+they have silently lost the ability to give.
+
+The layout of each message lives in the Edge Function, but every field it reads
+comes from a body the database wrote — `supabase/tests/phase16.test.ts` reads
+the layout's own source and fails the build if it names a key no queued body
+carries. Nothing type checks across that seam otherwise: it is a `text` column
+on one side and `JSON.parse` on the other.
+
 ```
 supabase functions deploy send-notifications
 ```

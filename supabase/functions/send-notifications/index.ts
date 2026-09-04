@@ -54,9 +54,8 @@ Deno.serve(async (req: Request) => {
   }
   // Scheduled invocations carry the service-role key; a stray public request
   // must not be able to mail everybody.
-  if ((req.headers.get('Authorization') ?? '') !== `Bearer ${SERVICE_ROLE}`) {
-    return json({ ok: false, error: 'Unauthorized' }, 401)
-  }
+  const auth = authorise(req)
+  if (!auth.ok) return json({ ok: false, error: 'Unauthorized', reason: auth.reason }, 401)
 
   let forDate: string | null = null
   try {
@@ -171,6 +170,58 @@ function render(n: Notification): string {
     data.due ? `Due: ${String(data.due).slice(0, 10)}` : '',
     link(n.project_id ? `/project/${n.project_id}/issues` : '/'),
   ].join('\n')
+}
+
+/**
+ * Who may run this.
+ *
+ * It was a string comparison against SUPABASE_SERVICE_ROLE_KEY, which is
+ * brittle in two ways that cost an afternoon. A project that has moved to the
+ * newer `sb_secret_…` keys injects a different value from the one you copy out
+ * of the dashboard, and — far more commonly — somebody pastes the anon key,
+ * which is a perfectly valid JWT, sails through Supabase's gateway, and then
+ * fails here with the word "Unauthorized" and nothing else. There was no way
+ * to tell those apart from the outside.
+ *
+ * So: accept an exact match on the injected key, which covers the new key
+ * format; otherwise read the token's `role` claim. Reading it is safe because
+ * the gateway has already verified the signature before the request reaches
+ * this code — `verify_jwt` is on by default, and if somebody turns it off then
+ * every guarantee about who is calling goes with it, not just this one.
+ *
+ * And the refusal says which check failed. Nothing secret is in the reason;
+ * "you sent the anon key" is not a disclosure, it is the answer.
+ */
+function authorise(req: Request): { ok: boolean; reason?: string } {
+  const header = req.headers.get('Authorization') ?? ''
+  if (!header.startsWith('Bearer ')) {
+    return { ok: false, reason: 'No bearer token. Send Authorization: Bearer <service_role key>.' }
+  }
+  const token = header.slice('Bearer '.length).trim()
+  if (token === SERVICE_ROLE) return { ok: true }
+
+  const role = jwtRole(token)
+  if (role === 'service_role') return { ok: true }
+  if (role) {
+    return { ok: false,
+             reason: `That token's role is "${role}", not service_role. The anon key is not `
+                   + `enough: this job reads every project's queue.` }
+  }
+  return { ok: false,
+           reason: 'Token is neither the service-role key nor a readable JWT. Use the '
+                 + 'service_role key from Project Settings → API.' }
+}
+
+/** The `role` claim, or null. No signature check: the gateway did that. */
+function jwtRole(token: string): string | null {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return (JSON.parse(json) as { role?: string }).role ?? null
+  } catch {
+    return null
+  }
 }
 
 function json(body: unknown, status = 200): Response {

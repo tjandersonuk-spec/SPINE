@@ -246,6 +246,18 @@ select cron.schedule(
     )$$);
 ```
 
+### If it answers 401
+
+The refusal now says which check failed, and the commonest cause is the anon
+key: it is a valid JWT, so Supabase's own gateway lets it through, and only the
+function refuses it. A log line reading `booted` with no shutdown means the
+request reached the function — so a 401 after that is this check, not the
+gateway.
+
+Use the `service_role` key from **Project Settings → API**. On projects that
+still issue legacy keys it is the long `eyJ…` JWT; on newer ones it is the
+`sb_secret_…` value, and the function accepts either.
+
 ### Why the sender does not decide what an email says
 
 It cannot, and that is the point. `build_digest()` runs as the recipient — the

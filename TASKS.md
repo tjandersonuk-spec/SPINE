@@ -1086,6 +1086,14 @@ the same function that builds the message, and lists what has been sent to them.
 read that ledger — not an account admin: the body of a digest is that person's own view of their
 own projects, and a mailbox somebody else can open is not a mailbox.
 
+**The sender's own authorisation reads the token's role rather than matching a string.** It was
+an equality check against `SUPABASE_SERVICE_ROLE_KEY`, which is brittle twice over: a project on
+the newer `sb_secret_…` keys injects a different value from the one you copy out of the dashboard,
+and — far more commonly — somebody pastes the anon key, which is a valid JWT, passes Supabase's
+gateway, and then fails here with the bare word "Unauthorized". Reading the `role` claim is safe
+because the gateway verified the signature before the request arrived. The refusal now names the
+role it was given, because "you sent the anon key" is the answer rather than a disclosure.
+
 ### Remaining in this phase
 
 - **No provider is configured.** `RESEND_API_KEY` absent is a dry run: messages queue and are not

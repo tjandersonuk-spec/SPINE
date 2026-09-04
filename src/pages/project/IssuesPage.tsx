@@ -6,7 +6,9 @@ import { RaiseIssue } from '@/components/issues/RaiseIssue'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
-import { ISSUE_KIND_LABELS, fetchIssues, type Issue } from '@/lib/queries'
+import {
+  ISSUE_KIND_LABELS, fetchIssueCategories, fetchIssues, type Issue,
+} from '@/lib/queries'
 import { useDeepLink } from '@/lib/deep-link'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
 
@@ -23,14 +25,19 @@ export default function IssuesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('open')
+  /** Which register a task came out of. Read off the rows rather than a fixed
+   *  list, so it never offers a category with nothing behind it. */
+  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<
+    Awaited<ReturnType<typeof fetchIssueCategories>>>([])
   const [raising, setRaising] = useState<'irs' | 'rfi' | null>(null)
   const [detail, setDetail] = useState<Issue | null>(null)
   // A link from the dashboard names a reference; open it and light its row.
   const link = useDeepLink(rows, (r, ref) => r.reference === ref, setDetail)
 
   const load = useCallback(() => {
-    fetchIssues(id)
-      .then((r) => { setRows(r); setError(null) })
+    Promise.all([fetchIssues(id), fetchIssueCategories(id).catch(() => [])])
+      .then(([r, c]) => { setRows(r); setCategories(c); setError(null) })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [id])
@@ -43,12 +50,14 @@ export default function IssuesPage() {
   const visible = useMemo(() => rows.filter((r) =>
     // A reference arrived from elsewhere is always shown, whatever the
     // filter: a link that lands on an empty list reads as a broken link.
-    link.isTarget(r.reference) ? true :
+    link.isTarget(r.reference) ? true
+    : category && r.category !== category ? false
+    :
     filter === 'all' ? true
     : filter === 'open' ? r.status === 'Open'
     : filter === 'rfi' ? r.source_kind === 'rfi'
     : r.raised_by === ctx.me || mine.has(r.raised_by ?? '')),
-    [rows, filter, ctx.me, mine, link])
+    [rows, filter, category, ctx.me, mine, link])
 
   const counts = {
     open: rows.filter((r) => r.status === 'Open').length,
@@ -91,7 +100,25 @@ export default function IssuesPage() {
         <Panel
           title={`${visible.length} of ${rows.length}`}
           actions={
-            <div className="flex gap-1">
+            <div className="flex flex-wrap items-center gap-1">
+              {/* Where a task came from. A task raised on a planning condition
+                  and one typed in here are the same record, and this is how
+                  you ask for one register's worth of them. */}
+              {categories.length > 0 && (
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="border-rule bg-surface-2 mr-1 rounded border px-2 py-1 text-xs"
+                  aria-label="Filter by where it was raised"
+                >
+                  <option value="">Everywhere</option>
+                  {categories.map((c) => (
+                    <option key={c.category} value={c.category}>
+                      {c.category} ({c.open_items})
+                    </option>
+                  ))}
+                </select>
+              )}
               {([
                 ['open', `Open (${counts.open})`],
                 ['rfi', `RFIs awaiting an answer (${counts.rfi})`],
@@ -142,7 +169,12 @@ export default function IssuesPage() {
                         <Code>{r.reference}</Code>
                       </button>
                     </TD>
-                    <TD>{r.title}</TD>
+                    <TD>
+                      {r.title}
+                      {r.category && (
+                        <span className="text-graphite block text-xs">{r.category}</span>
+                      )}
+                    </TD>
                     <TD className="text-graphite text-xs">
                       {ISSUE_KIND_LABELS[r.source_kind]}
                     </TD>

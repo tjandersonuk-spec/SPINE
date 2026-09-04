@@ -1539,6 +1539,11 @@ export async function raiseIssue(projectId: string, opts: {
   originCommentId?: string | null
   meetingId?: string | null
   visibility?: Record<string, unknown> | null
+  /** The record the task was raised from, so the list can be filtered by the
+   *  register it came out of. The category is derived from the entity type in
+   *  SQL — stated once, or the filter and the raise disagree. */
+  originEntity?: string | null
+  originId?: string | null
 }) {
   const { data, error } = await supabase.rpc('raise_issue', {
     p_project: projectId,
@@ -1555,6 +1560,8 @@ export async function raiseIssue(projectId: string, opts: {
     p_meeting: opts.meetingId ?? null,
     p_agenda_item: null,
     p_visibility: opts.visibility ?? null,
+    p_origin_entity: opts.originEntity ?? null,
+    p_origin_id: opts.originId ?? null,
   })
   if (error) throw error
   return data as { ok: boolean; id: string; reference: string }
@@ -3822,4 +3829,51 @@ export async function fetchAppointmentCompanies(
   })
   if (error) throw error
   return (data ?? []) as MetricItem[]
+}
+
+/**
+ * Post a remark and raise the task it becomes, in one call.
+ *
+ * Not two calls: a comment that posted with a task that did not is the state
+ * nobody notices, because the remark is there and it looks handled.
+ */
+export async function discussAndRaise(projectId: string, opts: {
+  entityType: string
+  entityId: string
+  body: string
+  title: string
+  kind: Issue['source_kind']
+  personId?: string | null
+  taskUid?: string | null
+  offsetDays?: number
+  anchor?: 'start' | 'finish'
+  priority?: number
+  rfiQuestion?: string | null
+  visibility?: Record<string, unknown> | null
+}) {
+  const { data, error } = await supabase.rpc('discuss_and_raise', {
+    p_project: projectId,
+    p_entity_type: opts.entityType,
+    p_entity_id: opts.entityId,
+    p_body: opts.body,
+    p_title: opts.title,
+    p_kind: opts.kind,
+    p_person: opts.personId ?? null,
+    p_task_uid: opts.taskUid ?? null,
+    p_offset: opts.offsetDays ?? 0,
+    p_anchor: opts.anchor ?? 'finish',
+    p_priority: opts.priority ?? 50,
+    p_rfi_question: opts.rfiQuestion ?? null,
+    p_visibility: opts.visibility ?? null,
+  })
+  if (error) throw error
+  return data as { ok: boolean; id: string; reference: string; comment_id: string }
+}
+
+/** The categories present on this project, for the task list's filter. Read
+ *  off the rows, so it never offers one with nothing behind it. */
+export async function fetchIssueCategories(projectId: string) {
+  const { data, error } = await supabase.rpc('issue_categories', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as { category: string; open_items: number; total: number }[]
 }

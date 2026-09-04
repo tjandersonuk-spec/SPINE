@@ -6,6 +6,7 @@ import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { DiscussButton, DiscussRow, useDiscussion } from '@/components/issues/DiscussRow'
 import {
   WARRANTY_STATUSES, addWarranty, fetchDrmItems, fetchWarranties, fetchWarrantyTotals,
   loadWarrantyLibrary, updateWarranty,
@@ -38,6 +39,7 @@ export default function WarrantiesPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  const talk = useDiscussion()
 
   const load = useCallback(() => {
     Promise.all([fetchWarranties(id), fetchWarrantyTotals(id), fetchDrmItems(id)])
@@ -215,8 +217,13 @@ export default function WarrantiesPage() {
                           {r.required ? 'Strike out' : 'Restore'}
                         </button>
                       )}
+                      <DiscussButton open={talk.isOpen(r.id)} onToggle={() => talk.toggle(r.id)} />
                     </TD>
                   </TR>
+                ))}
+                {visible.map((r) => talk.isOpen(r.id) && (
+                  <DiscussRow key={`talk-${r.id}`} projectId={id}
+                    entityType="warranty" entityId={r.id} colSpan={7} />
                 ))}
               </TBody>
             </Table>

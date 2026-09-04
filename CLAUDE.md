@@ -329,6 +329,23 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   whoever ran the seed, and a coordination thread where one person says nine things to themselves
   is a worse fiction than an empty room. The rooms and their audiences are seeded; the messages
   are left to be real.
+- **Every record carries a discussion, and a remark in one becomes a task.** A discussion that
+  can only be read ends in somebody's inbox, which is the thing this product exists to replace —
+  so `CommentThread` hangs off every register, not four of them. **Raising is chosen before the
+  remark is posted**, and it opens `RaiseIssue`, the same form the issues tab uses: one form
+  wherever it is reached from, or a thinner "raise from a discussion" one drifts from it within a
+  phase. `discuss_and_raise()` writes the comment and the task **in one statement** — two calls
+  leave a comment with no task, which is the state nobody notices because the remark is there and
+  it looks handled. The task carries `origin_comment_id`, `origin_entity`, `origin_id` and a
+  `category` derived from the entity type by `discussion_category()` — stated once, because the
+  category is written by the raise and read by the task list's filter and two lists would
+  disagree the first time a checklist kind was added. A checklist's category names **which**
+  checklist: "Handover checklist" is a filter somebody would use where "checklist" returns four
+  registers at once. A task typed straight into the issues tab has no origin and no category, and
+  a test asserts it stays that way — pretending otherwise puts it in a filter it does not belong
+  to. Adding `raise_issue()` parameters means **dropping the old signature first**: `create or
+  replace` with a different argument list makes an overload, and a call matching both then fails
+  with "is not unique" at run time, from a page, on a database that migrated without complaint.
 - One `visibility` jsonb primitive on any record that has an audience, read by one `can_see()`
   function: `project` (everyone on the project — the default for tasks), `named` (raiser + owner +
   listed people only — the default for risks), `parties` (company trees + named people — change

@@ -273,3 +273,98 @@ describe('no figure carries a character the transport can corrupt', () => {
     for (const m of money) expect(Number.isFinite(Number(m.value))).toBe(true)
   })
 })
+
+/**
+ * A remark becomes a task that remembers where it was made.
+ *
+ * The point of putting a discussion on every record is that the thing said
+ * there becomes the thing done. Two properties make that worth having, and
+ * both are easy to lose: the task has to carry the remark and point back at
+ * the record, and it has to say which register it came out of — otherwise a
+ * task raised on a building control item and one typed into the issues tab are
+ * indistinguishable, and the list cannot be filtered by the thing that made
+ * raising it there worthwhile.
+ */
+describe('a discussion post becomes a task that knows where it came from', () => {
+  test('the remark and the task are one write', async () => {
+    const item = await rows<{ id: string }>(w.boss,
+      `select id from tracked_items where project_id = $1 and kind = 'bc' limit 1`,
+      [w.project])
+    expect(item.length).toBe(1)
+
+    const out = (await rows<{ discuss_and_raise: {
+      ok: boolean; id: string; reference: string; comment_id: string
+    } }>(w.boss,
+      `select discuss_and_raise($1,'bc',$2,$3,$4)`,
+      [w.project, item[0].id, 'The survey has not come back, so this is stuck',
+       'Chase the intrusive survey']))[0].discuss_and_raise
+
+    expect(out.ok).toBe(true)
+    expect(out.reference).toMatch(/^TSK-/)
+
+    const issue = await rows<{
+      category: string; origin_entity: string; origin_id: string
+      origin_comment_id: string; description: string
+    }>(w.boss,
+      `select category, origin_entity, origin_id, origin_comment_id, description
+       from issues where id = $1`, [out.id])
+
+    // Where it came from, as three separate facts: the register, the row, and
+    // the remark itself.
+    expect(issue[0].origin_entity).toBe('bc')
+    expect(issue[0].origin_id).toBe(item[0].id)
+    expect(issue[0].origin_comment_id).toBe(out.comment_id)
+    // The remark is the description rather than being retyped, or the two say
+    // different things about the same problem within a minute of each other.
+    expect(issue[0].description).toBe('The survey has not come back, so this is stuck')
+    expect(issue[0].category).toBe('Building control')
+
+    // And the comment is on the record, where somebody reading the item finds it.
+    const c = await rows<{ body: string; entity_type: string }>(w.boss,
+      'select body, entity_type from comments where id = $1', [out.comment_id])
+    expect(c[0].entity_type).toBe('bc')
+  })
+
+  test('an empty remark raises nothing, rather than a task with no context', async () => {
+    const item = await rows<{ id: string }>(w.boss,
+      `select id from tracked_items where project_id = $1 and kind = 'bc' limit 1`,
+      [w.project])
+    const msg = await refused(() => asUser(w.boss, (c) =>
+      c.query(`select discuss_and_raise($1,'bc',$2,'   ','A title')`,
+        [w.project, item[0].id])))
+    expect(msg).toMatch(/needs something in it/i)
+  })
+
+  test('the category names the checklist, not just "a checklist"', async () => {
+    // "Handover checklist" is a filter somebody would use; "checklist" is one
+    // that returns four registers at once.
+    const cat = await rows<{ discussion_category: string }>(w.boss,
+      `select discussion_category('checklist:handover')`)
+    expect(cat[0].discussion_category).toBe('Handover checklist')
+  })
+
+  test('the filter offers only categories that have something behind them', async () => {
+    const cats = await rows<{ category: string; open_items: number; total: number }>(
+      w.boss, 'select * from issue_categories($1)', [w.project])
+    expect(cats.length).toBeGreaterThan(0)
+    for (const c of cats) {
+      expect(Number(c.total)).toBeGreaterThan(0)
+      const n = await rows<{ n: string }>(w.boss,
+        'select count(*) as n from v_issues where project_id = $1 and category = $2',
+        [w.project, c.category])
+      expect(Number(n[0].n)).toBe(Number(c.total))
+    }
+  })
+
+  test('a task typed into the issues tab still has no origin', async () => {
+    // The three new parameters are defaulted, and a task raised here did not
+    // come out of a register — pretending otherwise would put it in a filter
+    // it does not belong to.
+    const out = (await rows<{ raise_issue: { id: string } }>(w.boss,
+      `select raise_issue($1,'Typed straight in')`, [w.project]))[0].raise_issue
+    const issue = await rows<{ category: string | null; origin_entity: string | null }>(
+      w.boss, 'select category, origin_entity from issues where id = $1', [out.id])
+    expect(issue[0].origin_entity).toBeNull()
+    expect(issue[0].category).toBeNull()
+  })
+})

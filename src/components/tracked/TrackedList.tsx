@@ -301,7 +301,12 @@ export function TrackedList({
                       <div className="px-1 py-2">
                         <CommentThread
                           projectId={projectId}
-                          entityType={kind.startsWith('checklist:') ? 'checklist' : kind}
+                          // The kind itself, not a generic "checklist": the
+                          // category a raised task carries is derived from
+                          // this, and "Handover checklist" is a filter
+                          // somebody would use where "checklist" returns four
+                          // registers at once.
+                          entityType={kind}
                           entityId={r.id}
                         />
                       </div>

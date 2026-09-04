@@ -3,23 +3,34 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Code } from '@/components/ui/table'
 import {
-  fetchDirectoryPeople, fetchProgramme, raiseIssue,
+  discussAndRaise, fetchDirectoryPeople, fetchProgramme, raiseIssue,
   type Issue, type ProgrammeTask,
 } from '@/lib/queries'
 
-/** Raise a task or an RFI. Same form, same table, one field different. */
+/**
+ * Raise a task or an RFI. Same form, same table, one field different.
+ *
+ * One form, wherever it is reached from. Given an `origin` it also posts the
+ * remark it was opened with, and the task records which register it came out
+ * of — so the same fields are asked for on a planning condition as in the
+ * issues tab, and a second, thinner form for "raise from a discussion" never
+ * exists to drift from this one.
+ */
 export function RaiseIssue({
-  projectId, kind, onClose, onRaised,
+  projectId, kind, origin, initialDescription, onClose, onRaised,
 }: {
   projectId: string
   kind: Issue['source_kind']
+  /** Raised from a discussion: post the remark and the task together. */
+  origin?: { entityType: string; entityId: string; body: string }
+  initialDescription?: string
   onClose: () => void
   onRaised: () => void
 }) {
   const [people, setPeople] = useState<Awaited<ReturnType<typeof fetchDirectoryPeople>>>([])
   const [lines, setLines] = useState<ProgrammeTask[]>([])
   const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const [description, setDescription] = useState(initialDescription ?? '')
   const [question, setQuestion] = useState('')
   const [person, setPerson] = useState('')
   const [uid, setUid] = useState('')
@@ -52,6 +63,28 @@ export function RaiseIssue({
   const submit = async () => {
     setBusy(true); setError(null)
     try {
+      // From a discussion, the remark and the task are one write: a comment
+      // that posted with a task that did not is the state nobody notices.
+      if (origin) {
+        await discussAndRaise(projectId, {
+          entityType: origin.entityType,
+          entityId: origin.entityId,
+          body: origin.body,
+          title: title.trim(),
+          kind,
+          personId: person || null,
+          taskUid: uid || null,
+          offsetDays: parseInt(offset, 10) || 0,
+          anchor,
+          priority: parseInt(priority, 10) || 50,
+          rfiQuestion: isRfi ? question.trim() : null,
+          visibility: restricted
+            ? { mode: 'named', people: [...named] }
+            : { mode: 'project' },
+        })
+        onRaised()
+        return
+      }
       await raiseIssue(projectId, {
         title: title.trim(),
         kind,

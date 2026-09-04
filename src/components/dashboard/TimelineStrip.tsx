@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { Code } from '@/components/ui/table'
 import type { Timeline } from '@/lib/queries'
 
@@ -10,8 +12,12 @@ import type { Timeline } from '@/lib/queries'
  */
 const fmt = (d: string | null) =>
   d ? new Date(d).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '—'
+const fmtDay = (d: string) =>
+  new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
 
 export function TimelineStrip({ t }: { t: Timeline }) {
+  const [over, setOver] = useState<string | null>(null)
+
   if (!t.start || !t.finish) {
     return (
       <p className="text-graphite text-sm">
@@ -53,26 +59,56 @@ export function TimelineStrip({ t }: { t: Timeline }) {
         {t.milestones.map((m) => (
           <div
             key={m.uid}
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-default p-1"
             style={{ left: `${at(m.date)}%` }}
-            title={`${m.uid} · ${m.description} · ${m.date}`}
+            onMouseEnter={() => setOver(m.uid)}
+            onMouseLeave={() => setOver((u) => (u === m.uid ? null : u))}
+            tabIndex={0}
+            onFocus={() => setOver(m.uid)}
+            onBlur={() => setOver((u) => (u === m.uid ? null : u))}
+            aria-label={`${m.description}, ${m.date}`}
           >
             <svg width="11" height="11" aria-hidden>
               <path
                 d="M 5.5 0 l 5 5.5 l -5 5.5 l -5 -5.5 z"
                 fill={m.complete ? 'var(--ok)' : 'var(--brand)'}
+                stroke={over === m.uid ? 'var(--foreground)' : 'none'}
+                strokeWidth="1"
               />
             </svg>
           </div>
         ))}
       </div>
 
-      {t.milestones.length > 0 && (
-        <p className="text-graphite mt-1.5 text-xs">
-          {t.milestones.length} milestone{t.milestones.length === 1 ? '' : 's'} · next{' '}
-          {t.milestones.find((m) => !m.complete)?.description ?? 'none outstanding'}
-        </p>
-      )}
+      {/* The name of the diamond under the cursor. A native `title` tooltip
+          takes a second to appear and lands under the pointer; on a strip of
+          twenty diamonds that is unusable, and the whole reason to draw them
+          is to be able to read them. */}
+      <div className="mt-1.5 min-h-5">
+        {(() => {
+          const m = t.milestones.find((x) => x.uid === over)
+          if (!m) {
+            return t.milestones.length > 0 && (
+              <p className="text-graphite text-xs">
+                {t.milestones.length} milestone{t.milestones.length === 1 ? '' : 's'}. Hover one
+                to read it. Next:{' '}
+                {t.milestones.find((x) => !x.complete)?.description ?? 'none outstanding'}
+              </p>
+            )
+          }
+          return (
+            <p className="text-xs">
+              <Code className="text-[10px]">{m.uid}</Code>{' '}
+              <span className="font-medium">{m.description}</span>{' '}
+              <Code className="text-graphite text-[10px]">{fmtDay(m.date)}</Code>{' '}
+              <span className={m.complete ? 'text-ok-ink' : 'text-graphite'}>
+                {m.complete ? 'complete' : 'outstanding'}
+              </span>
+            </p>
+          )
+        })()}
+      </div>
+
     </div>
   )
 }

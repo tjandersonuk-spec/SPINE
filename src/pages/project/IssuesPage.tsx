@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { ISSUE_KIND_LABELS, fetchIssues, type Issue } from '@/lib/queries'
+import { useDeepLink } from '@/lib/deep-link'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
 
 const fmt = (d: string | null) =>
@@ -24,6 +25,8 @@ export default function IssuesPage() {
   const [filter, setFilter] = useState<Filter>('open')
   const [raising, setRaising] = useState<'irs' | 'rfi' | null>(null)
   const [detail, setDetail] = useState<Issue | null>(null)
+  // A link from the dashboard names a reference; open it and light its row.
+  const link = useDeepLink(rows, (r, ref) => r.reference === ref, setDetail)
 
   const load = useCallback(() => {
     fetchIssues(id)
@@ -38,10 +41,14 @@ export default function IssuesPage() {
     ctx.members.filter((m) => m.profile_id === ctx.me).map((m) => m.profile_id)), [ctx])
 
   const visible = useMemo(() => rows.filter((r) =>
+    // A reference arrived from elsewhere is always shown, whatever the
+    // filter: a link that lands on an empty list reads as a broken link.
+    link.isTarget(r.reference) ? true :
     filter === 'all' ? true
     : filter === 'open' ? r.status === 'Open'
     : filter === 'rfi' ? r.source_kind === 'rfi'
-    : r.raised_by === ctx.me || mine.has(r.raised_by ?? '')), [rows, filter, ctx.me, mine])
+    : r.raised_by === ctx.me || mine.has(r.raised_by ?? '')),
+    [rows, filter, ctx.me, mine, link])
 
   const counts = {
     open: rows.filter((r) => r.status === 'Open').length,
@@ -123,7 +130,9 @@ export default function IssuesPage() {
               </THead>
               <TBody>
                 {visible.map((r) => (
-                  <TR key={r.id} muted={r.status === 'Closed'}>
+                  <TR key={r.id} data-ref={r.reference}
+                    gap={link.isTarget(r.reference)}
+                    muted={r.status === 'Closed'}>
                     <TD>
                       <button
                         type="button"

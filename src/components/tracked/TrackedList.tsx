@@ -130,7 +130,7 @@ export function TrackedList({
               </THead>
               <TBody>
                 {visible.map((r) => (
-                  <TR key={r.id} muted={!r.required}>
+                  <TR key={r.id} data-ref={r.reference} muted={!r.required}>
                     <TD>
                       <Code className={!r.required ? 'text-xs line-through' : 'text-xs'}>
                         {r.ext?.template_reference as string ?? r.reference}

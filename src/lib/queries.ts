@@ -3314,6 +3314,10 @@ export type ReportHeader = {
 
 export type ReportMetric = {
   sort_order: number; value: string; label: string; alert: boolean; tail: string | null
+  /** 'money' renders through the currency formatter. The query returns a
+   *  number; a currency symbol written into SQL arrives corrupted. */
+  unit: string | null
+  detail_key: string | null
 }
 
 export type ReportComplianceRow = {
@@ -3757,6 +3761,11 @@ export type Metric = {
   label: string
   alert: boolean
   tail: string | null
+  /** 'money' renders through the currency formatter. Currency is a rendering
+   *  decision, so the query returns a number and the client formats it. */
+  unit: string | null
+  /** What metric_items() will answer for. Null means nothing to open. */
+  detail_key: string | null
 }
 
 export async function fetchDashboardMetrics(projectId: string): Promise<Metric[]> {
@@ -3772,4 +3781,45 @@ export async function fetchAppointmentSummary(projectId: string): Promise<Appoin
   if (error) throw error
   return ((data ?? []) as AppointmentBucket[])
     .map((r) => ({ ...r, companies: Number(r.companies) }))
+}
+
+/** One row behind a figure, with the page it lives on. */
+export type MetricItem = {
+  reference: string
+  title: string
+  detail: string | null
+  due: string | null
+  overdue: boolean
+  link: string
+}
+
+export async function fetchMetricItems(projectId: string, key: string): Promise<MetricItem[]> {
+  const { data, error } = await supabase.rpc('metric_items', {
+    p_project: projectId, p_key: key,
+  })
+  if (error) throw error
+  return (data ?? []) as MetricItem[]
+}
+
+/** The names behind one cell of the consultant health table. Account staff
+ *  only — it is refused rather than returned empty, because empty would read
+ *  as "that firm has nothing outstanding". */
+export async function fetchCompanyItems(
+  projectId: string, companyId: string, kind: string,
+): Promise<MetricItem[]> {
+  const { data, error } = await supabase.rpc('company_items', {
+    p_project: projectId, p_company: companyId, p_kind: kind,
+  })
+  if (error) throw error
+  return (data ?? []) as MetricItem[]
+}
+
+export async function fetchAppointmentCompanies(
+  projectId: string, state: string,
+): Promise<MetricItem[]> {
+  const { data, error } = await supabase.rpc('appointment_companies', {
+    p_project: projectId, p_state: state,
+  })
+  if (error) throw error
+  return (data ?? []) as MetricItem[]
 }

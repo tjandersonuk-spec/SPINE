@@ -101,7 +101,8 @@ with expected(ord, migration, kind, marker) as (values
   (83,'20260902320200_phase17_mentions',             'function', 'queue_mentions'),
   (84,'20260902320300_phase17_reports',              'source',   'report_activity:entity_type <> ''room'''),
   (85,'20260902320400_sample_rooms',                 'function', 'seed_sample_rooms'),
-  (86,'20260902330000_dashboard_metrics',            'function', 'dashboard_metrics')
+  (86,'20260902330000_dashboard_metrics',            'function', 'dashboard_metrics'),
+  (87,'20260902340000_dashboard_interaction',        'function', 'metric_items')
 )
 select
   e.ord::numeric as "#",

@@ -174,7 +174,7 @@ export function Matrix({
                   const gap = gapById.get(i.id)
                   const who = holders.get(i.id) ?? []
                   return (
-                    <TR key={i.id} gap={Boolean(gap)} muted={!i.applicable}>
+                    <TR key={i.id} data-ref={i.ref} gap={Boolean(gap)} muted={!i.applicable}>
                       <TD>
                         <button
                           type="button"

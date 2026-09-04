@@ -18,7 +18,10 @@ type World = {
 }
 let w: World
 
-type Metric = { sort_order: number; value: string; label: string; alert: boolean; tail: string | null }
+type Metric = {
+  sort_order: number; value: string; label: string; alert: boolean
+  tail: string | null; unit: string | null; detail_key: string | null
+}
 
 const rows = <T = Record<string, unknown>>(who: string, sql: string, params: unknown[] = []) =>
   asUser(who, (c) => c.query(sql, params)).then((r) => r.rows as T[])
@@ -143,5 +146,130 @@ describe('the appointments bar reads the directory’s own answer', () => {
     const bar = await rows<{ state: string; companies: number }>(
       w.boss, 'select * from appointment_summary($1)', [w.project])
     expect(bar.find((b) => b.state === 'none')?.companies).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * A figure and the list behind it are the same claim.
+ *
+ * The whole risk of making a tile clickable is that the number and the rows it
+ * opens are computed twice and quietly stop agreeing — which is worse than not
+ * opening at all, because the reader now has two answers and no way to tell
+ * which is wrong. Both come out of the same file; this is what keeps them
+ * coming out the same.
+ */
+describe('opening a figure shows exactly what it counted', () => {
+  /** The number a tile is claiming, per key: some claim their value, some the
+   *  overdue count in their tail, and the risk tile claims a count inside its
+   *  own label. */
+  const claimed = (m: Metric): number => {
+    switch (m.detail_key) {
+      case 'documents':
+      case 'planning':
+      case 'bc':
+      case 'checklists':
+        return Number(/(\d+) overdue/.exec(m.tail ?? '')?.[1] ?? -1)
+      case 'risks':
+        return Number(/, (\d+) live/.exec(m.label)?.[1] ?? -1)
+      default:
+        return Number(m.value)
+    }
+  }
+
+  test('every key a tile offers returns that many rows', async () => {
+    const metrics = await rows<Metric>(w.boss, 'select * from dashboard_metrics($1)', [w.project])
+    const openable = metrics.filter((m) => m.detail_key)
+    // The sample project is deliberately wrong in several places, so several
+    // tiles must be openable or this test proves nothing.
+    expect(openable.length).toBeGreaterThan(3)
+
+    for (const m of openable) {
+      const items = await rows(w.boss, 'select * from metric_items($1,$2)',
+        [w.project, m.detail_key])
+      expect(items.length, `${m.detail_key} (${m.label}): ${m.value} / ${m.tail}`)
+        .toBe(claimed(m))
+    }
+  })
+
+  test('a key nothing offers returns nothing rather than everything', async () => {
+    // The union has no else branch; a typo must not fall through to a list.
+    const items = await rows(w.boss, 'select * from metric_items($1,$2)',
+      [w.project, 'nonsense'])
+    expect(items).toEqual([])
+  })
+
+  test('every row names the page it lives on', async () => {
+    const items = await rows<{ link: string }>(w.boss,
+      `select * from metric_items($1,'issues')`, [w.project])
+    expect(items.length).toBeGreaterThan(0)
+    expect(items.every((i) => i.link.length > 0)).toBe(true)
+  })
+})
+
+describe('a health cell opens the names behind it', () => {
+  test('the counts on the table are the lengths of the lists', async () => {
+    const health = await rows<{
+      company_id: string; company_name: string
+      appointment_gaps: number; overdue_drawings: number
+      open_issues: number; quiet_issues: number
+    }>(w.boss, 'select * from consultant_health($1)', [w.project])
+    expect(health.length).toBeGreaterThan(0)
+
+    for (const h of health.slice(0, 6)) {
+      for (const [kind, n] of [
+        ['appointment', h.appointment_gaps], ['overdue', h.overdue_drawings],
+        ['open', h.open_issues], ['quiet', h.quiet_issues],
+      ] as const) {
+        const items = await rows(w.boss, 'select * from company_items($1,$2,$3)',
+          [w.project, h.company_id, kind])
+        expect(items.length, `${h.company_name} / ${kind}`).toBe(Number(n))
+      }
+    }
+  })
+
+  test('a consultant cannot open a rival’s, or their own', async () => {
+    // Consultant health names firms and ranks them. It is refused rather than
+    // returned empty: empty would read as "that firm has nothing outstanding".
+    const msg = await refused(() => asUser(w.cara, (c) =>
+      c.query('select * from company_items($1,$2,$3)', [w.project, w.caraCo, 'open'])))
+    expect(msg).toMatch(/internal to the contractor/i)
+  })
+})
+
+describe('the appointments bar opens its bucket', () => {
+  test('each bucket lists exactly the companies it counted', async () => {
+    const bar = await rows<{ state: string; companies: number }>(
+      w.boss, 'select * from appointment_summary($1)', [w.project])
+    for (const b of bar) {
+      const items = await rows(w.boss, 'select * from appointment_companies($1,$2)',
+        [w.project, b.state])
+      expect(items.length, b.state).toBe(Number(b.companies))
+    }
+  })
+})
+
+describe('no figure carries a character the transport can corrupt', () => {
+  test('labels, values and tails are plain ASCII', async () => {
+    // A pound sign or an em dash written in SQL reaches the database already
+    // mangled when the migration is pasted through a client that guesses the
+    // encoding, and the dashboard then prints the mangling. Currency is a
+    // rendering decision: `unit` says money, and the client formats it.
+    for (const audience of ['internal', 'client']) {
+      const metrics = await rows<Metric & { unit: string | null }>(w.boss,
+        'select * from report_metrics($1,$2)', [w.project, audience])
+      for (const m of metrics) {
+        const text = [m.value, m.label, m.tail].filter(Boolean).join(' ')
+        // eslint-disable-next-line no-control-regex
+        expect(/^[\x20-\x7E]*$/.test(text), `${audience}: ${text}`).toBe(true)
+      }
+    }
+  })
+
+  test('a money figure is a number, not a formatted string', async () => {
+    const metrics = await rows<Metric & { unit: string | null }>(w.boss,
+      `select * from report_metrics($1,'internal')`, [w.project])
+    const money = metrics.filter((m) => m.unit === 'money')
+    expect(money.length).toBeGreaterThan(0)
+    for (const m of money) expect(Number.isFinite(Number(m.value))).toBe(true)
   })
 })

@@ -13,13 +13,15 @@ import { Code } from '@/components/ui/table'
  * disagree with the page it links to.
  */
 export function ProgressRow({
-  label, done, total, overdue = 0, href,
+  label, done, total, overdue = 0, href, onOpenOverdue,
 }: {
   label: React.ReactNode
   done: number
   total: number
   overdue?: number
   href?: React.ReactNode
+  /** Given, the late count opens the rows behind it. */
+  onOpenOverdue?: () => void
 }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const late = Math.min(overdue, Math.max(0, total - done))
@@ -41,7 +43,14 @@ export function ProgressRow({
         )}
       </div>
       {late > 0 && (
-        <p className="text-stop-ink mt-1 font-mono text-[10px]">{late} past its date</p>
+        onOpenOverdue ? (
+          <button type="button" onClick={onOpenOverdue}
+            className="text-stop-ink focus-visible:ring-primary/40 mt-1 rounded font-mono text-[10px] outline-none hover:underline focus-visible:ring-2">
+            {late} past its date
+          </button>
+        ) : (
+          <p className="text-stop-ink mt-1 font-mono text-[10px]">{late} past its date</p>
+        )
       )}
     </div>
   )

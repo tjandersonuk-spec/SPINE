@@ -319,6 +319,16 @@
 }
 
 @layer base {
+  /* A native select draws its popup from the element's own background, and
+     ours is a 3%-white glass well -- so the options rendered near-white on
+     near-white and were unreadable. The popup is the operating system's, not
+     ours, so it has to be told explicitly rather than inherited into. */
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--foreground);
+  }
+
   * {
     @apply border-border outline-ring/50;
   }

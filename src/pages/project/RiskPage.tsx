@@ -3,6 +3,7 @@ import { Link, useOutletContext, useParams } from 'react-router'
 
 import { Money } from '@/components/commercial/Money'
 import { fmtDate } from '@/lib/format'
+import { useDeepLink } from '@/lib/deep-link'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
@@ -34,6 +35,8 @@ export default function RiskPage() {
   const ctx = useOutletContext<ProjectContext>()
   const [kind, setKind] = useState<Kind>('risk')
   const [rows, setRows] = useState<Risk[]>([])
+  // A link from the dashboard names a reference; light its row.
+  const link = useDeepLink(rows, (r, ref) => r.reference === ref)
   const [totals, setTotals] = useState<RiskTotals | null>(null)
   const [matrix, setMatrix] = useState<RiskMatrixCell[]>([])
   const [showDone, setShowDone] = useState(false)
@@ -195,7 +198,9 @@ export default function RiskPage() {
               </THead>
               <TBody>
                 {visible.map((r) => (
-                  <TR key={r.id} gap={r.state_kind === 'gap'} muted={r.done}>
+                  <TR key={r.id} data-ref={r.reference}
+                    gap={r.state_kind === 'gap' || link.isTarget(r.reference)}
+                    muted={r.done}>
                     <TD><Code className="text-xs">{r.reference}</Code></TD>
                     <TD>
                       <div className={r.done ? 'line-through' : undefined}>{r.title}</div>

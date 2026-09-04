@@ -3,6 +3,7 @@ import { useOutletContext, useParams } from 'react-router'
 
 import { Money } from '@/components/commercial/Money'
 import { fmtDate } from '@/lib/format'
+import { useDeepLink } from '@/lib/deep-link'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
@@ -37,6 +38,10 @@ export default function ChangeRequestsPage() {
   const [companies, setCompanies] = useState<ProjectCompany[]>([])
   const [variations, setVariations] = useState<Fee[]>([])
   const [open, setOpen] = useState<string | null>(null)
+  // Declared after `setOpen` exists: a link from the dashboard names a
+  // reference, and landing on the list without opening it is a page change
+  // dressed up as navigation.
+  const link = useDeepLink(rows, (r, ref) => r.reference === ref, (r) => setOpen(r.id))
   const [adding, setAdding] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -94,7 +99,8 @@ export default function ChangeRequestsPage() {
               </THead>
               <TBody>
                 {gap.map((g) => (
-                  <TR key={g.change_id}>
+                  <TR key={g.change_id} data-ref={g.reference}
+                    gap={link.isTarget(g.reference)}>
                     <TD><Code className="text-xs">{g.reference}</Code></TD>
                     <TD>{g.title}</TD>
                     <TD>

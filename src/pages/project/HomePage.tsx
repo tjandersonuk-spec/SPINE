@@ -1,22 +1,41 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router'
+import { Link, useOutletContext, useParams } from 'react-router'
 
 import { ProgressRow } from '@/components/charts/ProgressRow'
 import { SegmentBar } from '@/components/charts/SegmentBar'
 import { TrendChart } from '@/components/charts/TrendChart'
+import { DetailDrawer } from '@/components/dashboard/DetailDrawer'
 import { TimelineStrip } from '@/components/dashboard/TimelineStrip'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Stat } from '@/components/ui/stat'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
 import { gbp } from '@/lib/format'
 import {
-  fetchAppointmentSummary, fetchConsultantHealth, fetchDashboardMetrics, fetchDecisionQueue,
-  fetchDrmGaps, fetchFeePosition, fetchGoneQuiet, fetchMyFront, fetchProjectTrend,
-  fetchTimeline, fetchTrackedProgress, TRACKED_LABELS,
+  fetchAppointmentCompanies, fetchAppointmentSummary, fetchCompanyItems, fetchConsultantHealth,
+  fetchDashboardMetrics, fetchDecisionQueue, fetchDrmGaps, fetchFeePosition, fetchGoneQuiet,
+  fetchMetricItems, fetchMyFront, fetchProjectTrend, fetchTimeline, fetchTrackedProgress,
+  TRACKED_LABELS,
   type AppointmentBucket, type DecisionRow, type DrmGap, type FeePosition, type HealthRow,
-  type Metric, type MyFront, type QuietRow, type Timeline, type TrackedProgress, type TrendPoint,
+  fetchRisks,
+  type Metric, type MetricItem, type MyFront, type QuietRow, type Risk, type Timeline,
+  type TrackedProgress, type TrendPoint,
 } from '@/lib/queries'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
+
+/** What the reader is looking at, per key. A drawer that opens with a list and
+ *  no statement of what was counted invites the question it was meant to
+ *  answer. */
+const DETAIL_NOTE: Record<string, string> = {
+  documents: 'Anticipated, past their date and not yet issued.',
+  issues: 'Everything still open. The late ones are marked and sorted first.',
+  changes: 'Raised and not yet closed, rejected, withdrawn or implemented.',
+  risks: 'Live risks, worst expected value first. Expected value is cost times '
+       + 'likelihood, never the gross.',
+  gaps: 'Applicable duties with no company holding the lead discipline.',
+  planning: 'Conditions past their date and not discharged.',
+  bc: 'Building control items past their date and not closed.',
+  checklists: 'Checklist items past their date. Struck-out rows are not counted.',
+}
 
 const fmt = (d: string | null) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
@@ -47,8 +66,23 @@ export default function HomePage() {
   const [fees, setFees] = useState<FeePosition[]>([])
   const [progress, setProgress] = useState<TrackedProgress[]>([])
   const [gaps, setGaps] = useState<DrmGap[]>([])
+  const [risks, setRisks] = useState<Risk[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [drawer, setDrawer] = useState<
+    { title: string; note?: string; items: MetricItem[]; loading: boolean } | null>(null)
+
+  /** Open the rows behind a figure. The fetch is whichever function counted
+   *  them; nothing is narrowed here, because a list trimmed in the browser is
+   *  how a total and its detail start disagreeing. */
+  const open = useCallback((
+    title: string, fetch: () => Promise<MetricItem[]>, note?: string,
+  ) => {
+    setDrawer({ title, note, items: [], loading: true })
+    fetch()
+      .then((items) => setDrawer({ title, note, items, loading: false }))
+      .catch((e: Error) => { setError(e.message); setDrawer(null) })
+  }, [])
 
   const load = useCallback(() => {
     // Everything a consultant may not read is asked for anyway and allowed to
@@ -60,11 +94,15 @@ export default function HomePage() {
       soft(fetchGoneQuiet(id), []), fetchMyFront(id), fetchDashboardMetrics(id),
       soft(fetchProjectTrend(id), []), soft(fetchAppointmentSummary(id), []),
       soft(fetchFeePosition(id), []), soft(fetchTrackedProgress(id), []),
-      soft(fetchDrmGaps(id), []),
+      soft(fetchDrmGaps(id), []), soft(fetchRisks(id, 'risk'), []),
     ])
-      .then(([t, q, h, gq, f, m, tr, ap, fe, pr, dg]) => {
+      .then(([t, q, h, gq, f, m, tr, ap, fe, pr, dg, rk]) => {
         setTimeline(t); setQueue(q); setHealth(h); setQuiet(gq); setFront(f)
         setMetrics(m); setTrend(tr); setAppts(ap); setFees(fe); setProgress(pr); setGaps(dg)
+        // Live only, worst expected value first. Closed and realised items are
+        // not exposure -- expected value is zero once an item is finished.
+        setRisks(rk.filter((r) => !r.done)
+          .sort((a, b) => Number(b.expected_value) - Number(a.expected_value)))
         setError(null)
       })
       .catch((e: Error) => setError(e.message))
@@ -100,9 +138,17 @@ export default function HomePage() {
             <Stat
               key={m.sort_order}
               label={m.label}
-              value={m.value}
-              tone={m.label.includes('matrix gaps') ? 'gap' : m.alert ? 'warn' : 'plain'}
-              hint={m.tail && <strong className="text-warn-ink">{m.tail}</strong>}
+              // Currency is formatted here, never in the query: the figure
+              // comes back as a number and `unit` says what it is.
+              value={m.unit === 'money' ? gbp(Number(m.value)) : m.value}
+              tone={m.detail_key === 'gaps' ? 'gap' : m.alert ? 'warn' : 'plain'}
+              hint={m.tail && (
+                <strong className={m.alert ? 'text-warn-ink' : 'text-graphite'}>{m.tail}</strong>
+              )}
+              onOpen={m.detail_key
+                ? () => open(m.label, () => fetchMetricItems(id, m.detail_key!),
+                    DETAIL_NOTE[m.detail_key ?? ''])
+                : undefined}
             />
           ))}
         </div>
@@ -119,8 +165,7 @@ export default function HomePage() {
         <Panel title={`Responsibility matrix gaps (${gaps.length})`}>
           <p className="text-graphite mb-3 max-w-prose text-sm">
             Applicable duties with no company holding the lead discipline. Until somebody
-            holds them they fall to the contractor, which is the point of showing them here
-            rather than on a page nobody opens.
+            holds them they fall to the contractor.
           </p>
           <TableScroll>
             <Table>
@@ -135,8 +180,14 @@ export default function HomePage() {
               <TBody>
                 {gaps.slice(0, 8).map((g) => (
                   <TR key={g.drm_item_id} gap>
-                    <TD><Code className="text-xs">{g.ref}</Code></TD>
-                    <TD>{g.item}</TD>
+                    <TD>
+                      <RecordLink projectId={id} page="matrix" reference={g.ref}>
+                        <Code className="text-xs">{g.ref}</Code>
+                      </RecordLink>
+                    </TD>
+                    <TD>
+                      <RecordLink projectId={id} page="matrix" reference={g.ref}>{g.item}</RecordLink>
+                    </TD>
                     <TD><Code className="text-xs">{g.lead_discipline ?? '—'}</Code></TD>
                     <TD className="text-graphite text-xs">{g.gap_reason}</TD>
                   </TR>
@@ -164,9 +215,12 @@ export default function HomePage() {
             ]}
           />
           <p className="text-graphite mt-2 max-w-prose text-xs">
-            Read from the nightly snapshot, the one place a derived value is stored — because
-            yesterday's overdue count cannot be recomputed once the register has moved.
-            Anticipated is the line the other two are read against, not a third series.
+            How the drawing register has filled up over the last ninety days.
+            <strong className="text-foreground"> Anticipated</strong> is every document the
+            project expects; <strong className="text-foreground"> issued</strong> is how many
+            have arrived; <strong className="text-foreground"> overdue</strong> is those past
+            their date and still awaited. Issued closing on anticipated is the project
+            finishing its information; overdue rising is it slipping.
           </p>
         </Panel>
       )}
@@ -176,6 +230,8 @@ export default function HomePage() {
           {appts.length > 0 && (
             <Panel title="Appointments">
               <SegmentBar
+                onOpen={(seg) => open(`Appointments: ${seg.label}`,
+                  () => fetchAppointmentCompanies(id, seg.key))}
                 segments={[
                   { key: 'complete', label: 'complete', className: 'bg-ok',
                     value: appts.find((a) => a.state === 'complete')?.companies ?? 0 },
@@ -194,6 +250,61 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Risk, which the strip only totalled. A total answers nothing somebody
+          can act on: the question is which ones, and who is holding them. */}
+      {isStaff && risks.length > 0 && (
+        <Panel
+          title={`Live risks (${risks.length})`}
+          actions={
+            <Link to={`/project/${id}/risk`} className="text-primary text-xs hover:underline">
+              Open the register
+            </Link>
+          }
+        >
+          <p className="text-graphite mb-2 max-w-prose text-sm">
+            Worst expected value first. Expected value is cost times likelihood, which is the
+            only figure the register calls exposure. A risk nobody owns is the finding, not
+            the amount.
+          </p>
+          <TableScroll>
+            <Table>
+              <THead>
+                <TR>
+                  <TH className="w-[86px]">Ref</TH>
+                  <TH>Risk</TH>
+                  <TH className="w-[150px]">Owner</TH>
+                  <TH className="w-[110px]">Expected</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {risks.slice(0, 6).map((r) => (
+                  <TR key={r.id} gap={!r.owner_name}>
+                    <TD>
+                      <RecordLink projectId={id} page="risk" reference={r.reference}>
+                        <Code className="text-xs">{r.reference}</Code>
+                      </RecordLink>
+                    </TD>
+                    <TD>
+                      <RecordLink projectId={id} page="risk" reference={r.reference}>
+                        {r.title}
+                      </RecordLink>
+                    </TD>
+                    <TD>
+                      {r.owner_name
+                        ? <span className="text-sm">{r.owner_name}</span>
+                        : <Pill tone="gap">Nobody</Pill>}
+                    </TD>
+                    <TD>
+                      <Code className="text-xs font-bold">{gbp(r.expected_value)}</Code>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </TableScroll>
+        </Panel>
+      )}
+
       {isStaff && progress.some((p) => p.total > 0) && (
         <Panel title="Where the checklists stand">
           {progress.filter((p) => p.total > 0).map((p) => (
@@ -203,12 +314,17 @@ export default function HomePage() {
               done={p.done}
               total={p.total}
               overdue={p.overdue}
+              onOpenOverdue={p.overdue > 0
+                ? () => open(`${TRACKED_LABELS[p.kind] ?? p.kind}: past their date`,
+                    () => fetchMetricItems(id,
+                      p.kind === 'planning' ? 'planning'
+                      : p.kind === 'bc' ? 'bc' : 'checklists'))
+                : undefined}
             />
           ))}
           <p className="text-graphite mt-2 max-w-prose text-xs">
             Struck-out rows are not counted. Marking something not required drops it from the
-            denominator and leaves the decision on the record, so these bars and the pages
-            behind them cannot disagree.
+            denominator and leaves the decision on the record.
           </p>
         </Panel>
       )}
@@ -235,8 +351,16 @@ export default function HomePage() {
                 {queue.map((q) => (
                   <TR key={`${q.kind}-${q.record_id}`}>
                     <TD className="text-graphite text-xs">{q.kind}</TD>
-                    <TD><Code className="text-xs">{q.reference}</Code></TD>
-                    <TD>{q.title}</TD>
+                    <TD>
+                      <RecordLink projectId={id} page={pageFor(q.kind)} reference={q.reference}>
+                        <Code className="text-xs">{q.reference}</Code>
+                      </RecordLink>
+                    </TD>
+                    <TD>
+                      <RecordLink projectId={id} page={pageFor(q.kind)} reference={q.reference}>
+                        {q.title}
+                      </RecordLink>
+                    </TD>
                     <TD><Code className="text-graphite text-xs">{fmt(q.due)}</Code></TD>
                     <TD><Code className="text-xs">{q.urgency}</Code></TD>
                   </TR>
@@ -250,12 +374,6 @@ export default function HomePage() {
       {isStaff ? (
         <>
           <Panel title={`Consultant health (${health.length})`}>
-            <p className="text-graphite mb-2 max-w-prose text-sm">
-              Worst first. The order is the judgement — there is no grade, because a letter
-              invites an argument about the mark rather than about the four facts under it.
-              Open work is not counted: a busy consultant is not a worrying one, a late or a
-              silent one is.
-            </p>
             <TableScroll>
               <Table>
                 <THead>
@@ -268,27 +386,51 @@ export default function HomePage() {
                   </TR>
                 </THead>
                 <TBody>
-                  {health.map((h) => (
-                    <TR key={h.company_id} muted={h.concern_score === 0}>
-                      <TD>{h.company_name}</TD>
-                      <TD>
-                        {h.appointment_gaps > 0
-                          ? <Pill tone="warn">{h.appointment_gaps} missing</Pill>
-                          : <Pill tone="ok">complete</Pill>}
-                      </TD>
-                      <TD>
-                        {h.overdue_drawings > 0
-                          ? <Pill tone="stop">{h.overdue_drawings}</Pill>
-                          : <span className="text-graphite text-xs">—</span>}
-                      </TD>
-                      <TD>
-                        {h.quiet_issues > 0
-                          ? <Pill tone="warn">{h.quiet_issues}</Pill>
-                          : <span className="text-graphite text-xs">—</span>}
-                      </TD>
-                      <TD><Code className="text-graphite text-xs">{h.open_issues}</Code></TD>
-                    </TR>
-                  ))}
+                  {health.map((h) => {
+                    const cell = (kind: string, what: string) => () =>
+                      open(`${h.company_name}: ${what}`,
+                        () => fetchCompanyItems(id, h.company_id, kind))
+                    return (
+                      <TR key={h.company_id} muted={h.concern_score === 0}>
+                        <TD>
+                          <Link
+                            to={`/project/${id}/directory?ref=${encodeURIComponent(h.company_name)}`}
+                            className="hover:underline"
+                          >
+                            {h.company_name}
+                          </Link>
+                        </TD>
+                        <TD>
+                          {h.appointment_gaps > 0
+                            ? <CellButton onClick={cell('appointment', 'appointment documents')}>
+                                <Pill tone="warn">{h.appointment_gaps} missing</Pill>
+                              </CellButton>
+                            : <Link to={`/project/${id}/directory`}><Pill tone="ok">complete</Pill></Link>}
+                        </TD>
+                        <TD>
+                          {h.overdue_drawings > 0
+                            ? <CellButton onClick={cell('overdue', 'overdue drawings')}>
+                                <Pill tone="stop">{h.overdue_drawings}</Pill>
+                              </CellButton>
+                            : <span className="text-graphite text-xs">—</span>}
+                        </TD>
+                        <TD>
+                          {h.quiet_issues > 0
+                            ? <CellButton onClick={cell('quiet', 'items gone quiet')}>
+                                <Pill tone="warn">{h.quiet_issues}</Pill>
+                              </CellButton>
+                            : <span className="text-graphite text-xs">—</span>}
+                        </TD>
+                        <TD>
+                          {h.open_issues > 0
+                            ? <CellButton onClick={cell('open', 'open items')}>
+                                <Code className="text-xs">{h.open_issues}</Code>
+                              </CellButton>
+                            : <span className="text-graphite text-xs">—</span>}
+                        </TD>
+                      </TR>
+                    )
+                  })}
                 </TBody>
               </Table>
             </TableScroll>
@@ -315,8 +457,16 @@ export default function HomePage() {
                   <TBody>
                     {quiet.map((q) => (
                       <TR key={q.reference}>
-                        <TD><Code className="text-xs">{q.reference}</Code></TD>
-                        <TD>{q.title}</TD>
+                        <TD>
+                          <RecordLink projectId={id} page="issues" reference={q.reference}>
+                            <Code className="text-xs">{q.reference}</Code>
+                          </RecordLink>
+                        </TD>
+                        <TD>
+                          <RecordLink projectId={id} page="issues" reference={q.reference}>
+                            {q.title}
+                          </RecordLink>
+                        </TD>
                         <TD>
                           <Code className="text-graphite text-xs">{fmt(q.last_touched)}</Code>
                         </TD>
@@ -332,8 +482,58 @@ export default function HomePage() {
       ) : (
         front && <ConsultantFront front={front} />
       )}
+
+      {drawer && (
+        <DetailDrawer
+          projectId={id}
+          title={drawer.title}
+          note={drawer.note}
+          items={drawer.items}
+          loading={drawer.loading}
+          onClose={() => setDrawer(null)}
+        />
+      )}
     </>
   )
+}
+
+/** A reference on the dashboard is a link to its record, which is the rule
+ *  everywhere else in the product and was never applied here. */
+function RecordLink({
+  projectId, page, reference, children,
+}: { projectId: string; page: string; reference: string; children: React.ReactNode }) {
+  return (
+    <Link
+      to={`/project/${projectId}/${page}?ref=${encodeURIComponent(reference)}`}
+      className="hover:underline"
+    >
+      {children}
+    </Link>
+  )
+}
+
+/** A tallied number in a table cell, made openable without turning the cell
+ *  into something that looks like a button. */
+function CellButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="focus-visible:ring-primary/40 rounded outline-none hover:brightness-125 focus-visible:ring-2">
+      {children}
+    </button>
+  )
+}
+
+/** Which page a decision-queue row lives on. The queue mixes kinds, and each
+ *  kind has its own register. */
+function pageFor(kind: string): string {
+  const k = kind.toLowerCase()
+  if (k.includes('drawing') || k.includes('document')) return 'register'
+  if (k.includes('change')) return 'changes-requests'
+  if (k.includes('risk')) return 'risk'
+  if (k.includes('material') || k.includes('sample')) return 'materials'
+  if (k.includes('planning')) return 'planning'
+  if (k.includes('building control')) return 'bc'
+  return 'issues'
 }
 
 /**

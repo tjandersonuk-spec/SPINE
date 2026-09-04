@@ -232,3 +232,48 @@ describe('the lit surfaces are compounds of the one surface', () => {
     expect(lit).toHaveLength(1)
   })
 })
+
+/**
+ * Nothing a migration prints may depend on the encoding surviving the trip.
+ *
+ * A migration is applied by pasting it into the SQL editor, and Windows
+ * PowerShell reads a file with no byte-order mark using the system ANSI code
+ * page — so a pound sign or an em dash written into SQL arrives in the
+ * database already mangled, and the dashboard then prints the mangling. That
+ * is not a formatting slip: it is a corrupted stored function, in production,
+ * that nothing in the build notices.
+ *
+ * `scripts/copy-sql.ps1` fixes the transport. This fixes the exposure: from
+ * the migration that removed them onwards, a migration says nothing a reader
+ * sees in a character outside plain ASCII. Currency and dashes are rendering
+ * decisions and belong in the client, where the file is read by a bundler that
+ * does not guess.
+ */
+describe('a migration cannot carry a character the transport corrupts', () => {
+  // Everything before this was written and applied with the mangling already
+  // in it; rewriting an applied migration repairs nothing. The line is drawn
+  // where the practice changed.
+  const FROM = '20260902340000'
+
+  test('no non-ASCII byte in any migration from the cutoff onwards', () => {
+    const dir = 'supabase/migrations'
+    const offenders: string[] = []
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.sql')).sort()) {
+      if (f < FROM) continue
+      const src = readFileSync(`${dir}/${f}`, 'utf8')
+      const lines = src.split('\n')
+      lines.forEach((line, n) => {
+        // eslint-disable-next-line no-control-regex
+        if (/[^\x00-\x7F]/.test(line)) offenders.push(`${f}:${n + 1}: ${line.trim()}`)
+      })
+    }
+    expect(offenders, `non-ASCII in a migration:\n${offenders.join('\n')}`).toEqual([])
+  })
+
+  test('the copy script forces UTF-8 rather than trusting the code page', () => {
+    const ps = readFileSync('scripts/copy-sql.ps1', 'utf8')
+    expect(ps).toMatch(/System\.Text\.Encoding\]::UTF8/)
+    // Get-Content is the trap this script exists to avoid.
+    expect(ps).not.toMatch(/Get-Content/)
+  })
+})

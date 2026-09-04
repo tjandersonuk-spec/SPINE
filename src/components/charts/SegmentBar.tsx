@@ -29,7 +29,7 @@ export type Segment = {
 }
 
 export function SegmentBar({
-  segments, total, remainder, empty, caption,
+  segments, total, remainder, empty, caption, onOpen,
 }: {
   segments: Segment[]
   /** The denominator, where the segments do not add up to it (a fee not yet invoiced). */
@@ -40,6 +40,9 @@ export function SegmentBar({
   remainder?: { label: string; display: string }
   empty?: string
   caption?: React.ReactNode
+  /** Given, a segment and its legend entry open the rows behind it. A count on
+   *  a bar is a question about which ones. */
+  onOpen?: (segment: Segment) => void
 }) {
   const shown = segments.filter((s) => s.value > 0)
   const sum = segments.reduce((a, s) => a + s.value, 0)
@@ -59,9 +62,12 @@ export function SegmentBar({
         {shown.map((s) => (
           <div
             key={s.key}
-            className={`chart-ink ${s.className}`}
+            className={`chart-ink ${s.className}${onOpen ? ' cursor-pointer hover:brightness-125' : ''}`}
             style={{ width: `${(s.value / whole) * 100}%` }}
             title={`${s.label}: ${s.display ?? s.value}`}
+            onClick={onOpen ? () => onOpen(s) : undefined}
+            role={onOpen ? 'button' : undefined}
+            aria-label={onOpen ? `Open ${s.label}` : undefined}
           />
         ))}
       </div>
@@ -74,14 +80,24 @@ export function SegmentBar({
             <span className="text-graphite">{remainder.label}</span>
           </span>
         )}
-        {shown.map((s) => (
-          <span key={s.key} className="flex items-center gap-1.5 text-xs">
-            <span className={`chart-ink ${s.className} size-2.5 shrink-0 rounded-[2px]`}
-              aria-hidden />
-            <span className="font-mono font-bold">{s.display ?? s.value}</span>
-            <span className="text-graphite">{s.label}</span>
-          </span>
-        ))}
+        {shown.map((s) => {
+          const inner = (
+            <>
+              <span className={`chart-ink ${s.className} size-2.5 shrink-0 rounded-[2px]`}
+                aria-hidden />
+              <span className="font-mono font-bold">{s.display ?? s.value}</span>
+              <span className="text-graphite">{s.label}</span>
+            </>
+          )
+          return onOpen ? (
+            <button key={s.key} type="button" onClick={() => onOpen(s)}
+              className="focus-visible:ring-primary/40 flex items-center gap-1.5 rounded text-xs outline-none hover:underline focus-visible:ring-2">
+              {inner}
+            </button>
+          ) : (
+            <span key={s.key} className="flex items-center gap-1.5 text-xs">{inner}</span>
+          )
+        })}
       </div>
       {caption && <p className="text-graphite mt-2 max-w-prose text-xs">{caption}</p>}
     </div>

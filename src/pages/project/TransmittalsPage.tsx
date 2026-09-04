@@ -113,8 +113,13 @@ export default function TransmittalsPage() {
                           </Button>
                         </div>
                       )}
+                      <DiscussButton open={talk.isOpen(p.id)} onToggle={() => talk.toggle(p.id)} />
                     </TD>
                   </TR>
+                ))}
+                {packs.map((p) => talk.isOpen(p.id) && (
+                  <DiscussRow key={`talk-${p.id}`} projectId={id}
+                    entityType="pack" entityId={p.id} colSpan={6} />
                 ))}
               </TBody>
             </Table>

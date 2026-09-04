@@ -8,6 +8,7 @@ import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { DiscussButton, DiscussRow, useDiscussion } from '@/components/issues/DiscussRow'
 import {
   addFee, addInstalment, addInvoice, agreePaymentSchedule, approveFee, certifyInvoice,
   fetchCashflow, fetchFeePosition, fetchFees, fetchInstalments, fetchInvoices,
@@ -40,6 +41,7 @@ export default function FeesPage() {
   const [programme, setProgramme] = useState<ProgrammeTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const talk = useDiscussion()
   const [note, setNote] = useState<string | null>(null)
 
   const load = useCallback(() => {
@@ -236,8 +238,13 @@ export default function FeesPage() {
                           ) : (
                             <Pill tone="neutral">Proposed</Pill>
                           )}
+                          <DiscussButton open={talk.isOpen(f.id)} onToggle={() => talk.toggle(f.id)} />
                         </TD>
                       </TR>
+                    ))}
+                    {fees.map((f) => talk.isOpen(f.id) && (
+                      <DiscussRow key={`talk-${f.id}`} projectId={id}
+                        entityType="fee" entityId={f.id} colSpan={8} />
                     ))}
                   </TBody>
                 </Table>
@@ -315,8 +322,13 @@ export default function FeesPage() {
                           ) : (
                             <Pill tone="neutral">Proposed</Pill>
                           )}
+                          <DiscussButton open={talk.isOpen(s.id)} onToggle={() => talk.toggle(s.id)} />
                         </TD>
                       </TR>
+                    ))}
+                    {schedule.map((s) => talk.isOpen(s.id) && (
+                      <DiscussRow key={`talk-${s.id}`} projectId={id}
+                        entityType="instalment" entityId={s.id} colSpan={8} />
                     ))}
                   </TBody>
                 </Table>
@@ -418,8 +430,13 @@ export default function FeesPage() {
                           {v.has_document
                             ? <Pill tone="ok">Held</Pill>
                             : <Pill tone="warn">None held</Pill>}
+                          <DiscussButton open={talk.isOpen(v.id)} onToggle={() => talk.toggle(v.id)} />
                         </TD>
                       </TR>
+                    ))}
+                    {invoices.map((v) => talk.isOpen(v.id) && (
+                      <DiscussRow key={`talk-${v.id}`} projectId={id}
+                        entityType="invoice" entityId={v.id} colSpan={8} />
                     ))}
                   </TBody>
                 </Table>

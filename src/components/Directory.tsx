@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select-native'
 import { Code, Pill } from '@/components/ui/table'
+import { CommentThread } from '@/components/issues/CommentThread'
+import { useDiscussion } from '@/components/issues/DiscussRow'
 import {
   addCompanyToProject, addPersonToProject, fetchAppointmentStatus, fetchCatalogue,
   fetchCompanyDisciplines, fetchContacts, fetchDisciplineGaps, fetchProjectCompanies,
@@ -128,6 +130,7 @@ export function Directory({
   canEdit: boolean
 }) {
   const [companies, setCompanies] = useState<ProjectCompany[]>([])
+  const talk = useDiscussion()
   const [held, setHeld] = useState<{ company_id: string; discipline_code: string }[]>([])
   const [people, setPeople] = useState<ProjectPerson[]>([])
   const [disciplines, setDisciplines] = useState<Disc[]>([])
@@ -341,6 +344,22 @@ export function Directory({
                     onError={setError}
                     already={people.filter((p) => p.company_id === c.id).map((p) => p.name)}
                   />
+                )}
+              </div>
+              {/* Appointment discussion. Everything about who was appointed to
+                  what is argued here rather than in an email nobody kept. */}
+              <div className="border-rule border-t pt-3">
+                <button
+                  type="button"
+                  onClick={() => talk.toggle(c.id)}
+                  className="text-graphite text-xs underline"
+                >
+                  {talk.isOpen(c.id) ? 'Hide the discussion' : 'Appointment discussion'}
+                </button>
+                {talk.isOpen(c.id) && (
+                  <div className="mt-3">
+                    <CommentThread projectId={projectId} entityType="company" entityId={c.id} />
+                  </div>
                 )}
               </div>
             </li>

@@ -331,7 +331,15 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   are left to be real.
 - **Every record carries a discussion, and a remark in one becomes a task.** A discussion that
   can only be read ends in somebody's inbox, which is the thing this product exists to replace —
-  so `CommentThread` hangs off every register, not four of them. **Raising is chosen before the
+  so `CommentThread` hangs off every register: issues, meetings, drawings, matrix duties, tracked
+  items (which is planning, building control, scope, BREEAM and every checklist at once), risks,
+  change requests, material samples, warranties, fees, invoices, payment instalments, drawing
+  packs, transmittals, companies, the BEP and occurrence reports. `src/discussion.test.ts` names
+  that list and fails the build when a register is missing from it: a register added without a
+  thread looks finished, works, and quietly sends the conversation back to email, which is
+  exactly the failure nobody reports. The entity type is the register's **own** name, because the
+  task's category is derived from it — `DiscussRow` and `useDiscussion` are the row-level recipe
+  for a register with no detail page, one thread open at a time. **Raising is chosen before the
   remark is posted**, and it opens `RaiseIssue`, the same form the issues tab uses: one form
   wherever it is reached from, or a thinner "raise from a discussion" one drifts from it within a
   phase. `discuss_and_raise()` writes the comment and the task **in one statement** — two calls

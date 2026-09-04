@@ -6,6 +6,7 @@ import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { DiscussButton, DiscussRow, useDiscussion } from '@/components/issues/DiscussRow'
 import {
   canClassify, fetchChangeRequests, fetchGoldenThreadMoved, fetchGoldenThreadNeverIssued,
   fetchHrbSettings, fetchOccurrences, stampG2Baseline, updateHrbSettings,
@@ -36,6 +37,7 @@ export default function BuildingSafetyPage() {
   const [classifying, setClassifying] = useState<ChangeRequest | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const talk = useDiscussion()
   const [note, setNote] = useState<string | null>(null)
 
   const load = useCallback(() => {
@@ -274,8 +276,13 @@ export default function BuildingSafetyPage() {
                           {o.status === 'Reportable' || o.status === 'Reported'
                             ? <Pill tone="stop">{o.status}</Pill>
                             : <Pill tone="neutral">{o.status}</Pill>}
+                          <DiscussButton open={talk.isOpen(o.id)} onToggle={() => talk.toggle(o.id)} />
                         </TD>
                       </TR>
+                    ))}
+                    {occurrences.map((o) => talk.isOpen(o.id) && (
+                      <DiscussRow key={`talk-${o.id}`} projectId={id}
+                        entityType="occurrence" entityId={o.id} colSpan={5} />
                     ))}
                   </TBody>
                 </Table>

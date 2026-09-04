@@ -16,7 +16,7 @@ const TONES = {
   plain: { tile: '', value: 'text-foreground' },
   warn: { tile: 'border-warn/40 shadow-warn-halo', value: 'text-warn-ink' },
   stop: { tile: 'border-stop/40 shadow-stop-halo', value: 'text-stop-ink' },
-  gap: { tile: 'border-hivis/40 shadow-hivis bg-hivis-bg', value: 'text-hivis-ink' },
+  gap: { tile: 'glass-hivis', value: 'text-hivis-ink' },
 } as const
 
 export function Stat({

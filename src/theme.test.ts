@@ -169,3 +169,66 @@ describe('every gated nav entry is a module the database knows', () => {
     }
   })
 })
+
+/**
+ * The chart rules, which are the ones a later chart will quietly break.
+ *
+ * The design system gives charts a status palette and a tenant-settable brand
+ * and nothing else — there is deliberately no categorical ramp, because a
+ * second accent beside a tenant's brand is a second brand. That makes two
+ * things structural rather than stylistic, and both are cheap to lose.
+ */
+describe('a chart obeys the rules the palette leaves it', () => {
+  const charts = readdirSync('src/components/charts')
+    .filter((f) => f.endsWith('.tsx'))
+    .map((f) => [f, readFileSync(`src/components/charts/${f}`, 'utf8')] as const)
+
+  test('there are charts to check', () => {
+    expect(charts.length).toBeGreaterThan(0)
+  })
+
+  test('every filled mark asks to be printed', () => {
+    // Browsers strip background colours when printing. A bar without
+    // `chart-ink` prints as an empty outline, which reads as "the figure is
+    // zero" rather than "the ink was dropped" — the worst way for a chart to
+    // fail, because it is silent and it is wrong.
+    const bad: string[] = []
+    for (const [name, src] of charts) {
+      for (const m of src.matchAll(/className=\{?[`'"][^`'"]*\bbg-(ok|warn|stop|primary|hivis)\b[^`'"]*[`'"]/g)) {
+        if (!m[0].includes('chart-ink')) bad.push(`${name}: ${m[0]}`)
+      }
+    }
+    expect(bad, `filled marks that will print blank:\n${bad.join('\n')}`).toEqual([])
+  })
+
+  test('hi-vis never appears in a chart', () => {
+    // It means exactly one thing in this product — an unallocated matrix duty
+    // — and a chart segment lit in it would be the second meaning.
+    const bad = charts.filter(([, src]) => /\b(bg|fill|stroke|text)-hivis\b/.test(src))
+    expect(bad.map(([n]) => n), 'hi-vis is the matrix gap and nothing else').toEqual([])
+  })
+})
+
+describe('the lit surfaces are compounds of the one surface', () => {
+  const css = readFileSync('src/index.css', 'utf8')
+
+  test('glass-hi and glass-hivis outrank glass rather than following it', () => {
+    // They are written `.glass.glass-hi` so they win on specificity. As bare
+    // `@utility` definitions they lost: Tailwind sorts what it generates and
+    // emitted both variants *before* `glass`, which sets the same three
+    // properties — so a lit panel rendered as an ordinary one and the hi-vis
+    // tile looked like every other tile, silently, in both themes.
+    expect(css).toMatch(/\.glass\.glass-hi\s*\{/)
+    expect(css).toMatch(/\.glass\.glass-hivis\s*\{/)
+    expect(css, 'a bare @utility loses to glass whatever the source order')
+      .not.toMatch(/@utility glass-hi\b/)
+    expect(css).not.toMatch(/@utility glass-hivis\b/)
+  })
+
+  test('hi-vis lights exactly one surface variant', () => {
+    // The token means an unallocated matrix duty and nothing else, so there is
+    // one lit-in-hi-vis recipe and no second one to drift from it.
+    const lit = [...css.matchAll(/\.glass\.glass-hivis\s*\{/g)]
+    expect(lit).toHaveLength(1)
+  })
+})

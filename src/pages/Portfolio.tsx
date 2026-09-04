@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 
-import { TrendChart } from '@/components/portfolio/TrendChart'
+import { TrendChart } from '@/components/charts/TrendChart'
 import { Button } from '@/components/ui/button'
 import { Stat } from '@/components/ui/stat'
 import { Panel, PageHead } from '@/components/ui/panel'

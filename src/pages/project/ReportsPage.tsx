@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
+import { ProgressRow } from '@/components/charts/ProgressRow'
 import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Eyebrow, Panel, PageHead } from '@/components/ui/panel'
@@ -254,6 +255,15 @@ function SheetOne({ report }: { report: Report }) {
       {compliance.length > 0 && (
         <div className="report-block mb-4">
           <h3 className="mb-2 text-sm font-semibold">Compliance and checklists, by type</h3>
+          {/* Bars first, the table under them. The bar answers "are we close",
+              which is what the page is scanned for; the table answers "by how
+              much", which is what it is read for. Both are the same rows. */}
+          <div className="mb-3">
+            {compliance.map((r) => (
+              <ProgressRow key={r.kind} label={r.label} done={r.done} total={r.total}
+                overdue={r.overdue} />
+            ))}
+          </div>
           <TableScroll>
             <Table>
               <THead>

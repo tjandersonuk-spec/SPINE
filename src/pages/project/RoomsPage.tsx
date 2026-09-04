@@ -176,7 +176,7 @@ function RoomList({
             type="button"
             onClick={() => onPick(r.id)}
             className={`rounded-md px-3 py-2 text-left transition-colors ${
-              r.id === current ? 'glass-hi' : 'hover:bg-white/[0.05]'
+              r.id === current ? 'glass glass-hi' : 'hover:bg-white/[0.05]'
             }`}
           >
             <span className="flex items-center justify-between gap-2">
@@ -337,7 +337,7 @@ function Message({
   onPick: () => void; onWithdraw: () => void
 }) {
   return (
-    <div className={`rounded-md px-3 py-2 ${picked ? 'glass-hi' : 'bg-white/[0.03]'}`}>
+    <div className={`rounded-md px-3 py-2 ${picked ? 'glass glass-hi' : 'bg-white/[0.03]'}`}>
       <div className="flex items-baseline gap-2">
         <input
           type="checkbox"

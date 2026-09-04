@@ -3742,3 +3742,34 @@ export function subscribeToRoom(roomId: string, onChange: () => void) {
     .subscribe()
   return () => { void supabase.removeChannel(channel) }
 }
+
+/* ------------------------------------------------------- dashboard figures */
+/**
+ * The headline figures, which are the report's own.
+ *
+ * `dashboard_metrics()` resolves the caller's audience and delegates to
+ * `report_metrics()`, so the number on the dashboard and the number in the
+ * report are the same query rather than two that agree today.
+ */
+export type Metric = {
+  sort_order: number
+  value: string
+  label: string
+  alert: boolean
+  tail: string | null
+}
+
+export async function fetchDashboardMetrics(projectId: string): Promise<Metric[]> {
+  const { data, error } = await supabase.rpc('dashboard_metrics', { p_project: projectId })
+  if (error) throw error
+  return (data ?? []) as Metric[]
+}
+
+export type AppointmentBucket = { state: 'complete' | 'partial' | 'none'; companies: number }
+
+export async function fetchAppointmentSummary(projectId: string): Promise<AppointmentBucket[]> {
+  const { data, error } = await supabase.rpc('appointment_summary', { p_project: projectId })
+  if (error) throw error
+  return ((data ?? []) as AppointmentBucket[])
+    .map((r) => ({ ...r, companies: Number(r.companies) }))
+}

@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
+import { ProgressRow } from '@/components/charts/ProgressRow'
+import { SegmentBar } from '@/components/charts/SegmentBar'
+import { TrendChart } from '@/components/charts/TrendChart'
 import { TimelineStrip } from '@/components/dashboard/TimelineStrip'
 import { Panel, PageHead } from '@/components/ui/panel'
+import { Stat } from '@/components/ui/stat'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { gbp } from '@/lib/format'
 import {
-  fetchConsultantHealth, fetchDecisionQueue, fetchGoneQuiet, fetchMyFront, fetchTimeline,
-  type DecisionRow, type HealthRow, type MyFront, type QuietRow, type Timeline,
+  fetchAppointmentSummary, fetchConsultantHealth, fetchDashboardMetrics, fetchDecisionQueue,
+  fetchDrmGaps, fetchFeePosition, fetchGoneQuiet, fetchMyFront, fetchProjectTrend,
+  fetchTimeline, fetchTrackedProgress, TRACKED_LABELS,
+  type AppointmentBucket, type DecisionRow, type DrmGap, type FeePosition, type HealthRow,
+  type Metric, type MyFront, type QuietRow, type Timeline, type TrackedProgress, type TrendPoint,
 } from '@/lib/queries'
 import type { ProjectContext } from '@/pages/project/ProjectLayout'
 
@@ -33,16 +41,31 @@ export default function HomePage() {
   const [health, setHealth] = useState<HealthRow[]>([])
   const [quiet, setQuiet] = useState<QuietRow[]>([])
   const [front, setFront] = useState<MyFront | null>(null)
+  const [metrics, setMetrics] = useState<Metric[]>([])
+  const [trend, setTrend] = useState<TrendPoint[]>([])
+  const [appts, setAppts] = useState<AppointmentBucket[]>([])
+  const [fees, setFees] = useState<FeePosition[]>([])
+  const [progress, setProgress] = useState<TrackedProgress[]>([])
+  const [gaps, setGaps] = useState<DrmGap[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
+    // Everything a consultant may not read is asked for anyway and allowed to
+    // come back empty: the database is what refuses, and a page that decided
+    // for itself which queries to send would be a second permissions model.
+    const soft = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback)
     Promise.all([
-      fetchTimeline(id), fetchDecisionQueue(id), fetchConsultantHealth(id),
-      fetchGoneQuiet(id), fetchMyFront(id),
+      fetchTimeline(id), fetchDecisionQueue(id), soft(fetchConsultantHealth(id), []),
+      soft(fetchGoneQuiet(id), []), fetchMyFront(id), fetchDashboardMetrics(id),
+      soft(fetchProjectTrend(id), []), soft(fetchAppointmentSummary(id), []),
+      soft(fetchFeePosition(id), []), soft(fetchTrackedProgress(id), []),
+      soft(fetchDrmGaps(id), []),
     ])
-      .then(([t, q, h, gq, f]) => {
-        setTimeline(t); setQueue(q); setHealth(h); setQuiet(gq); setFront(f); setError(null)
+      .then(([t, q, h, gq, f, m, tr, ap, fe, pr, dg]) => {
+        setTimeline(t); setQueue(q); setHealth(h); setQuiet(gq); setFront(f)
+        setMetrics(m); setTrend(tr); setAppts(ap); setFees(fe); setProgress(pr); setGaps(dg)
+        setError(null)
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -68,9 +91,125 @@ export default function HomePage() {
         </Panel>
       )}
 
+      {/* The strip first, because it is what somebody opening the page came to
+          read. Every tile is the report's own figure — dashboard_metrics()
+          delegates to report_metrics() rather than counting anything itself. */}
+      {metrics.length > 0 && (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {metrics.map((m) => (
+            <Stat
+              key={m.sort_order}
+              label={m.label}
+              value={m.value}
+              tone={m.label.includes('matrix gaps') ? 'gap' : m.alert ? 'warn' : 'plain'}
+              hint={m.tail && <strong className="text-warn-ink">{m.tail}</strong>}
+            />
+          ))}
+        </div>
+      )}
+
       {timeline && (
         <Panel title="Programme">
           <TimelineStrip t={timeline} />
+        </Panel>
+      )}
+
+      {/* Hi-vis, and the only place on this page that may be. */}
+      {isStaff && gaps.length > 0 && (
+        <Panel title={`Responsibility matrix gaps (${gaps.length})`}>
+          <p className="text-graphite mb-3 max-w-prose text-sm">
+            Applicable duties with no company holding the lead discipline. Until somebody
+            holds them they fall to the contractor, which is the point of showing them here
+            rather than on a page nobody opens.
+          </p>
+          <TableScroll>
+            <Table>
+              <THead>
+                <TR>
+                  <TH className="w-[80px]">Ref</TH>
+                  <TH>Item</TH>
+                  <TH className="w-[90px]">Lead</TH>
+                  <TH className="w-[220px]">Why</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {gaps.slice(0, 8).map((g) => (
+                  <TR key={g.drm_item_id} gap>
+                    <TD><Code className="text-xs">{g.ref}</Code></TD>
+                    <TD>{g.item}</TD>
+                    <TD><Code className="text-xs">{g.lead_discipline ?? '—'}</Code></TD>
+                    <TD className="text-graphite text-xs">{g.gap_reason}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </TableScroll>
+          {gaps.length > 8 && (
+            <p className="text-graphite mt-2 text-xs">
+              The eight worst. The matrix has all {gaps.length}.
+            </p>
+          )}
+        </Panel>
+      )}
+
+      {isStaff && trend.length > 0 && (
+        <Panel title="Register burn-up">
+          <TrendChart
+            points={trend as unknown as Record<string, number | string>[]}
+            series={[
+              { key: 'anticipated', label: 'Anticipated', className: 'stroke-graphite',
+                reference: true },
+              { key: 'issued', label: 'Issued', className: 'stroke-brand' },
+              { key: 'overdue', label: 'Overdue', className: 'stroke-stop' },
+            ]}
+          />
+          <p className="text-graphite mt-2 max-w-prose text-xs">
+            Read from the nightly snapshot, the one place a derived value is stored — because
+            yesterday's overdue count cannot be recomputed once the register has moved.
+            Anticipated is the line the other two are read against, not a third series.
+          </p>
+        </Panel>
+      )}
+
+      {isStaff && (appts.length > 0 || fees.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {appts.length > 0 && (
+            <Panel title="Appointments">
+              <SegmentBar
+                segments={[
+                  { key: 'complete', label: 'complete', className: 'bg-ok',
+                    value: appts.find((a) => a.state === 'complete')?.companies ?? 0 },
+                  { key: 'partial', label: 'partly documented', className: 'bg-warn',
+                    value: appts.find((a) => a.state === 'partial')?.companies ?? 0 },
+                  { key: 'none', label: 'nothing uploaded', className: 'bg-stop',
+                    value: appts.find((a) => a.state === 'none')?.companies ?? 0 },
+                ]}
+                caption="Every company on the project that needs an appointment. The detail
+                         is in the directory — a consultant uploads their own, and nobody
+                         else can read it."
+              />
+            </Panel>
+          )}
+          {fees.length > 0 && <FeeBar fees={fees} />}
+        </div>
+      )}
+
+      {isStaff && progress.some((p) => p.total > 0) && (
+        <Panel title="Where the checklists stand">
+          {progress.filter((p) => p.total > 0).map((p) => (
+            <ProgressRow
+              key={p.kind}
+              label={TRACKED_LABELS[p.kind] ?? p.kind}
+              done={p.done}
+              total={p.total}
+              overdue={p.overdue}
+            />
+          ))}
+          <p className="text-graphite mt-2 max-w-prose text-xs">
+            Struck-out rows are not counted. Marking something not required drops it from the
+            denominator and leaves the decision on the record, so these bars and the pages
+            behind them cannot disagree.
+          </p>
         </Panel>
       )}
 
@@ -194,6 +333,52 @@ export default function HomePage() {
         front && <ConsultantFront front={front} />
       )}
     </>
+  )
+}
+
+/**
+ * The fee position as one bar.
+ *
+ * Proposed is a separate segment and is never folded into the total. A fee
+ * report that mixes proposed with approved looks overspent and stops being
+ * believed, so the only figure here that calls itself a total is the approved
+ * one, and what has merely been asked for sits beside it in warn.
+ */
+function FeeBar({ fees }: { fees: FeePosition[] }) {
+  const sum = (k: keyof FeePosition) =>
+    fees.reduce((a, f) => a + Number(f[k] ?? 0), 0)
+  const approved = sum('approved_total')
+  const paid = sum('paid')
+  const invoiced = sum('invoiced')
+  const proposed = sum('fee_proposed') + sum('variations_proposed')
+  if (approved === 0 && proposed === 0) return null
+
+  return (
+    <Panel kind="money" title="Fee position">
+      <SegmentBar
+        total={approved}
+        segments={[
+          { key: 'paid', label: 'paid', className: 'bg-ok',
+            value: paid, display: gbp(paid) },
+          { key: 'outstanding', label: 'invoiced, not paid', className: 'bg-primary',
+            value: Math.max(0, invoiced - paid), display: gbp(Math.max(0, invoiced - paid)) },
+        ]}
+        remainder={{
+          label: 'left to invoice',
+          display: gbp(Math.max(0, approved - invoiced)),
+        }}
+        caption={
+          <>
+            {gbp(approved)} approved across {fees.length} appointment
+            {fees.length === 1 ? '' : 's'}.
+            {proposed > 0 && (
+              <> <strong className="text-warn-ink">{gbp(proposed)} proposed and not
+                agreed</strong> — outside the total above, because a proposal is not a fee.</>
+            )}
+          </>
+        }
+      />
+    </Panel>
   )
 }
 

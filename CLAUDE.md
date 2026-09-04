@@ -160,6 +160,29 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   under it. Open items are not in the score: a busy consultant is not a worrying one, a late or a
   silent one is. **"Gone quiet" is silence, not age** — touched means a comment or a change-log
   entry, so an item being old is not the finding.
+- **A figure on the dashboard is the report's figure.** `dashboard_metrics()` resolves which
+  audience the caller is — account staff get `internal`, the `client` role gets `client`,
+  everybody else their own company — and then **delegates to `report_metrics()`**. It counts
+  nothing itself. The prototype computes its dashboard numbers separately from its report
+  numbers, and two functions counting overdue drawings is how the two disagree in front of
+  somebody who has both open. The audience is resolved in the function, never asked for by the
+  page, so `report_scope()` can never be reached with a company somebody guessed.
+- **A chart has a status palette, a brand and nothing else.** There is deliberately no
+  categorical ramp — a second accent beside a tenant's brand is a second brand — so any chart
+  wanting many series is the wrong chart. Two consequences are structural and `src/theme.test.ts`
+  enforces them. **A filled mark carries `chart-ink`**, because browsers strip background colours
+  when printing and a bar without it prints as an empty outline, which reads as "the figure is
+  zero" rather than "the ink was dropped". **Hi-vis never appears in a chart.** And because the
+  semantic hues are fixed in both themes and measure closer to each other than two peer series
+  should — warn against stop is ΔE 11.2 to normal vision on the light paper, ok against stop is
+  5.0 under deuteranopia on the dark — **colour carries the tone and never the identity**: every
+  segment states its own number and word, every trend line is labelled at its end. A *reference*
+  series (anticipated, against issued) is drawn thin and dashed in graphite so it never reads as
+  a peer, which is also what keeps it apart from the brand at ΔE 11.6. Charts live in
+  `src/components/charts` with one recipe per mark: `SegmentBar` for a whole divided into states,
+  `ProgressRow` for done-of-total with overdue called out separately, `TrendChart` for the
+  snapshot series. Never a pie: the question is always "how much of the whole", which a length
+  answers and an angle does not.
 - **There is exactly one `programme_timeline()`**, called by the dashboard and by Phase 13's
   period report. Two functions drawing the same bar would eventually draw different pictures.
   The dashboard's `decision_queue()` is keyed on `auth.uid()` and answers "what is waiting on
@@ -208,8 +231,15 @@ two would usually agree: "usually" is how a dashboard starts being a day behind 
   header and sidebar — is obsidian in both themes: it frames the page rather than being part of it.
 - **One surface: `glass`.** Every container — `Panel`, `TableScroll`, `Card`, `Stat`, the report
   sheets — is the `glass` utility (frosted backing, hairline, ambient depth, specular top rim);
-  `glass-hi` is the same surface lit in the brand for the selected one, and `glass-popover` is the
-  less see-through version for menus, dialogs and drawers. Do not compose a container from
+  `glass-hi` is the same surface lit in the brand for the selected one, `glass-hivis` is it lit
+  hi-vis for the one figure that counts unallocated duties, and `glass-popover` is the less
+  see-through version for menus, dialogs and drawers. **The two lit variants are written
+  `.glass.glass-hi` and `.glass.glass-hivis`, in a `@layer utilities` block, and are always used
+  as `glass glass-hi`.** As bare `@utility` definitions they silently did nothing: they override
+  the same three properties `glass` sets, Tailwind sorts what it generates, and it emitted both
+  of them *before* `glass` — so a selected panel rendered as an ordinary one and the hi-vis tile
+  looked like every other tile, in both themes. A compound selector outranks `.glass` whatever
+  the order, and `src/theme.test.ts` fails the build if either goes back to being a bare utility. Do not compose a container from
   `bg-card border shadow` by hand; a second recipe is a second material. The print stylesheet
   replaces the glass tokens with opaque white and switches every `backdrop-filter` off.
 - **Hi-vis in the chrome is the matrix gap count and nothing else.** The active nav item is lit in

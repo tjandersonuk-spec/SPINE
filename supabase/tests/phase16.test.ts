@@ -235,3 +235,41 @@ describe('the ledger is a record, not a draft', () => {
     }
   })
 })
+
+/**
+ * The seam between the two halves of the phase.
+ *
+ * The database decides what a message contains and writes it as JSON; the Edge
+ * Function only lays that out as text. Nothing type checks across that line —
+ * the body is a `text` column on one side and `JSON.parse` on the other — so a
+ * key renamed in SQL, or read under a name it never had, produces an email
+ * saying "has invited you to undefined" and no error anywhere. That is exactly
+ * what `data.account` did against a body whose key is `organisation`.
+ */
+describe('the sender reads the keys the queue actually writes', () => {
+  test('every field the layout reads exists in a queued body', async () => {
+    // An invitation to somebody with no login at all, which is the normal case
+    // for the first person at a consultant and the one body the other tests
+    // never queue.
+    await asSuperuser((c) => c.query(
+      `insert into invitations (scope, organisation_id, email, role, token, invited_by)
+       values ('organisation', $1, 'p16-nobody@bel.example', 'consultant',
+               'p16-token-' || gen_random_uuid(), $2)`, [w.org, w.boss]))
+    await sup('select queue_notifications()')
+
+    const bodies = await sup<{ body: string }>('select body from notifications')
+    const known = new Set<string>()
+    for (const b of bodies) {
+      try { Object.keys(JSON.parse(b.body)).forEach((k) => known.add(k)) } catch { /* text */ }
+    }
+    // If this is empty the assertion below would pass by vacuum.
+    expect(known.size).toBeGreaterThan(4)
+
+    const src = await import('node:fs/promises')
+      .then((fs) => fs.readFile('supabase/functions/send-notifications/index.ts', 'utf8'))
+    const render = src.slice(src.indexOf('function render('))
+    const read = [...render.matchAll(/\bdata\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1])
+    expect(read.length).toBeGreaterThan(6)
+    for (const key of new Set(read)) expect(known, `data.${key}`).toContain(key)
+  })
+})

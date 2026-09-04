@@ -128,7 +128,7 @@ function render(n: Notification): string {
 
   if (n.kind === 'invitation') {
     return [
-      `${data.invited_by ?? 'Somebody'} has invited you to ${data.account} on Spine.`,
+      `${data.invited_by ?? 'Somebody'} has invited you to ${data.organisation} on Spine.`,
       '',
       'Accept it here:',
       link(`/accept/${data.token}`).trim(),

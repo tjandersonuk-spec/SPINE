@@ -192,10 +192,14 @@ describe('a chart obeys the rules the palette leaves it', () => {
     // `chart-ink` prints as an empty outline, which reads as "the figure is
     // zero" rather than "the ink was dropped" — the worst way for a chart to
     // fail, because it is silent and it is wrong.
+    // A data mark is an opaque fill in a resting state. A hover tint
+    // (`hover:bg-primary/[0.04]`) is neither, and forcing it to print would be
+    // the opposite mistake — screen affordances are not meant to reach paper.
+    const MARK = /(?<![\w:-])bg-(ok|warn|stop|primary|hivis)(?![\w/-])/
     const bad: string[] = []
     for (const [name, src] of charts) {
-      for (const m of src.matchAll(/className=\{?[`'"][^`'"]*\bbg-(ok|warn|stop|primary|hivis)\b[^`'"]*[`'"]/g)) {
-        if (!m[0].includes('chart-ink')) bad.push(`${name}: ${m[0]}`)
+      for (const m of src.matchAll(/className=\{?[`'"][^`'"]*[`'"]/g)) {
+        if (MARK.test(m[0]) && !m[0].includes('chart-ink')) bad.push(`${name}: ${m[0]}`)
       }
     }
     expect(bad, `filled marks that will print blank:\n${bad.join('\n')}`).toEqual([])

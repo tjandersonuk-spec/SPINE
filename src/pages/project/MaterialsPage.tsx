@@ -6,6 +6,7 @@ import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { CommentThread } from '@/components/issues/CommentThread'
 import {
   MATERIAL_DECISIONS, addMaterial, canDecideMaterial, decideMaterialRound,
   fetchMaterialSubmissions, fetchMaterialTotals, fetchMaterials, fetchProjectCompanies,
@@ -128,6 +129,7 @@ export default function MaterialsPage() {
                 {visible.map((m) => (
                   <SampleRow
                     key={m.id}
+                    projectId={id}
                     material={m}
                     submissions={subs.filter((s) => s.material_id === m.id)}
                     companies={companies}
@@ -161,8 +163,9 @@ export default function MaterialsPage() {
 }
 
 function SampleRow({
-  material, submissions, companies, canEdit, mayDecide, open, onToggle, guard,
+  projectId, material, submissions, companies, canEdit, mayDecide, open, onToggle, guard,
 }: {
+  projectId: string
   material: Material
   submissions: MaterialSubmission[]
   companies: ProjectCompany[]
@@ -327,6 +330,13 @@ function SampleRow({
                 question somebody asks at handover, and it is answerable here because the
                 record was never tidied.
               </p>
+
+              {/* Every record somebody can be asked about carries a discussion,
+                  and a remark in one becomes a task. */}
+              <div className="mt-4">
+                <CommentThread projectId={projectId} entityType="material"
+                  entityId={material.id} />
+              </div>
             </div>
           </TD>
         </TR>

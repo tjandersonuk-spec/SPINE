@@ -13,21 +13,25 @@ import { Code } from '@/components/ui/table'
  * disagree with the page it links to.
  */
 export function ProgressRow({
-  label, done, total, overdue = 0, href, onOpenOverdue,
+  label, done, total, overdue = 0, href, onOpen, onOpenOverdue,
 }: {
   label: React.ReactNode
   done: number
   total: number
   overdue?: number
   href?: React.ReactNode
-  /** Given, the late count opens the rows behind it. */
+  /** Given, the whole row opens every item it counted. A kind with nothing
+   *  late still has items somebody wants to read, so this is not conditional
+   *  on there being a problem. */
+  onOpen?: () => void
+  /** Given, the late count opens just those. */
   onOpenOverdue?: () => void
 }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const late = Math.min(overdue, Math.max(0, total - done))
 
-  return (
-    <div className="py-2">
+  const body = (
+    <>
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
         <span className="text-sm">{label}{href}</span>
         <span className="flex items-baseline gap-2">
@@ -44,14 +48,35 @@ export function ProgressRow({
       </div>
       {late > 0 && (
         onOpenOverdue ? (
-          <button type="button" onClick={onOpenOverdue}
-            className="text-stop-ink focus-visible:ring-primary/40 mt-1 rounded font-mono text-[10px] outline-none hover:underline focus-visible:ring-2">
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onOpenOverdue() }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onOpenOverdue() }
+            }}
+            className="text-stop-ink mt-1 inline-block cursor-pointer font-mono text-[10px] hover:underline"
+          >
             {late} past its date
-          </button>
+          </span>
         ) : (
           <p className="text-stop-ink mt-1 font-mono text-[10px]">{late} past its date</p>
         )
       )}
-    </div>
+    </>
   )
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="hover:bg-primary/[0.04] focus-visible:ring-primary/40 -mx-2 block w-[calc(100%+1rem)] rounded px-2 py-2 text-left outline-none focus-visible:ring-2"
+      >
+        {body}
+      </button>
+    )
+  }
+
+  return <div className="py-2">{body}</div>
 }

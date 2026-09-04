@@ -41,6 +41,10 @@ export function TrendChart({
   format?: (v: number) => string
 }) {
   const [hover, setHover] = useState<number | null>(null)
+  /** Which line the cursor is over, so a point says what it is. The end
+   *  labels name the series at one instant; on a point in the middle of the
+   *  chart the reader has no way of telling the three apart otherwise. */
+  const [onSeries, setOnSeries] = useState<string | null>(null)
 
   const g = useMemo(() => {
     if (points.length === 0) return null
@@ -77,7 +81,7 @@ export function TrendChart({
         className="w-full min-w-[520px]"
         role="img"
         aria-label={series.map((s) => s.label).join(', ') + ' over time'}
-        onMouseLeave={() => setHover(null)}
+        onMouseLeave={() => { setHover(null); setOnSeries(null) }}
       >
         {ticks.map((v) => (
           <g key={v}>
@@ -118,21 +122,37 @@ export function TrendChart({
         {/* Direct labels at the right-hand end. Identity is never colour
             alone, and the reading is on the chart rather than in a tooltip
             somebody has to go looking for. */}
+        {/* A marker on every point of every line. Hovering one says which line
+            it is and what it read that day — the end labels only name the
+            series at the right-hand edge. */}
+        {series.map((s) => points.map((p, i) => {
+          const v = Number(p[s.key] ?? 0)
+          const isOn = hover === i && onSeries === s.key
+          return (
+            <circle
+              key={`${s.key}-${i}`}
+              cx={g.x(i)} cy={g.y(v)} r={isOn ? 5 : 3}
+              className={`${s.className} fill-background cursor-default`}
+              strokeWidth="2"
+              onMouseEnter={() => { setHover(i); setOnSeries(s.key) }}
+            >
+              <title>{`${s.label}: ${fmt(v)} on ${label(String(p.date))}`}</title>
+            </circle>
+          )
+        }))}
+
         {series.map((s, n) => {
           const v = Number(points[at][s.key] ?? 0)
           return (
-            <g key={s.key}>
-              <circle cx={g.x(at)} cy={g.y(v)} r={s.reference ? 2.5 : 4}
-                className={`${s.className} fill-background`} strokeWidth="2" />
-              <text
-                x={g.W - g.R + 8}
-                y={g.T + 12 + n * 15}
-                className={s.reference ? 'fill-graphite' : 'fill-foreground'}
-                style={{ fontSize: 10, fontWeight: s.reference ? 400 : 700 }}
-              >
-                {fmt(v)} {s.label.toLowerCase()}
-              </text>
-            </g>
+            <text
+              key={s.key}
+              x={g.W - g.R + 8}
+              y={g.T + 12 + n * 15}
+              className={s.reference ? 'fill-graphite' : 'fill-foreground'}
+              style={{ fontSize: 10, fontWeight: s.reference ? 400 : 700 }}
+            >
+              {fmt(v)} {s.label.toLowerCase()}
+            </text>
           )
         })}
 
@@ -145,14 +165,25 @@ export function TrendChart({
             width={(g.W - g.L - g.R) / Math.max(1, points.length)}
             height={g.H - g.T - g.B}
             fill="transparent"
-            onMouseEnter={() => setHover(i)}
+            onMouseEnter={() => { setHover(i); setOnSeries(null) }}
           />
         ))}
       </svg>
       <p className="text-graphite mt-1 text-xs">
         {hover === null
-          ? `Latest: ${label(String(points[last].date))}. Hover to read a day.`
-          : label(String(points[hover].date))}
+          ? `Latest: ${label(String(points[last].date))}. Hover a point to read it.`
+          : onSeries
+            ? (() => {
+                const s = series.find((x) => x.key === onSeries)!
+                return (
+                  <span>
+                    <strong className="text-foreground">{s.label}</strong>
+                    {': '}{fmt(Number(points[hover][s.key] ?? 0))}
+                    {' on '}{label(String(points[hover].date))}
+                  </span>
+                )
+              })()
+            : label(String(points[hover].date))}
       </p>
     </div>
   )

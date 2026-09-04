@@ -204,7 +204,7 @@ export default function HomePage() {
       )}
 
       {isStaff && trend.length > 0 && (
-        <Panel title="Register burn-up">
+        <Panel title="Drawing register burn-up">
           <TrendChart
             points={trend as unknown as Record<string, number | string>[]}
             series={[
@@ -314,6 +314,10 @@ export default function HomePage() {
               done={p.done}
               total={p.total}
               overdue={p.overdue}
+              onOpen={() => open(TRACKED_LABELS[p.kind] ?? p.kind,
+                () => fetchMetricItems(id, `items:${p.kind}`),
+                'Every item counted in this bar, the late ones first. Struck-out '
+                + 'rows are not in it.')}
               onOpenOverdue={p.overdue > 0
                 ? () => open(`${TRACKED_LABELS[p.kind] ?? p.kind}: past their date`,
                     () => fetchMetricItems(id,

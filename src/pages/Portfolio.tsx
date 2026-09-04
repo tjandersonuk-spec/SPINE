@@ -300,7 +300,7 @@ function Companies({ rows }: { rows: PortfolioHealthRow[] }) {
 function Trends({ points }: { points: PortfolioTrendPoint[] }) {
   return (
     <>
-      <Panel title="Register burn-up">
+      <Panel title="Drawing register burn-up">
         <TrendChart
           points={points as unknown as Record<string, number | string>[]}
           series={[

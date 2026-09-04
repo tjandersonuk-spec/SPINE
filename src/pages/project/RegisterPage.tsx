@@ -1,3 +1,4 @@
+import { useDeepLink } from '@/lib/deep-link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router'
 
@@ -27,6 +28,9 @@ export default function RegisterPage() {
   const [importing, setImporting] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [editing, setEditing] = useState<Drawing | null>(null)
+  // A link from the dashboard names a document number; open it rather than
+  // landing on the index, which is a page change dressed up as navigation.
+  const link = useDeepLink(rows, (r, ref) => r.document_number === ref, setEditing)
   const [adding, setAdding] = useState(false)
 
   const load = useCallback(() => {
@@ -167,7 +171,8 @@ export default function RegisterPage() {
                       </TD>
                     </TR>
                     {list.map((r) => (
-                      <TR key={r.id}>
+                      <TR key={r.id} data-ref={r.document_number}
+                        gap={link.isTarget(r.document_number)}>
                         <TD>
                           {r.cde_url ? (
                             <a

@@ -8,6 +8,7 @@ import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { CommentThread } from '@/components/issues/CommentThread'
 import {
   LIKELIHOODS, RISK_CATEGORIES, RISK_STATUSES, addRisk, fetchRiskMatrix, fetchRiskTotals,
   fetchRisks, loadRiskLibrary, realiseRisk, updateRisk,
@@ -36,7 +37,9 @@ export default function RiskPage() {
   const [kind, setKind] = useState<Kind>('risk')
   const [rows, setRows] = useState<Risk[]>([])
   // A link from the dashboard names a reference; light its row.
-  const link = useDeepLink(rows, (r, ref) => r.reference === ref)
+  const [talking, setTalking] = useState<string | null>(null)
+  const link = useDeepLink(rows, (r, ref) => r.reference === ref,
+    (r) => setTalking(r.id))
   const [totals, setTotals] = useState<RiskTotals | null>(null)
   const [matrix, setMatrix] = useState<RiskMatrixCell[]>([])
   const [showDone, setShowDone] = useState(false)
@@ -317,6 +320,25 @@ export default function RiskPage() {
                       ) : (
                         <Pill tone={r.done ? 'ok' : 'neutral'}>{r.status}</Pill>
                       )}
+                      {/* A live risk is somebody personally chasing something
+                          down, and the chasing is a conversation. A remark here
+                          becomes a task without leaving the register. */}
+                      <button
+                        type="button"
+                        onClick={() => setTalking((t) => (t === r.id ? null : r.id))}
+                        className="text-graphite mt-1 block text-xs underline"
+                      >
+                        {talking === r.id ? 'Hide' : 'Discuss'}
+                      </button>
+                    </TD>
+                  </TR>
+                ))}
+                {visible.map((r) => talking === r.id && (
+                  <TR key={`talk-${r.id}`}>
+                    <TD colSpan={8} className="bg-surface-2/40">
+                      <div className="px-1 py-2">
+                        <CommentThread projectId={id} entityType="risk" entityId={r.id} />
+                      </div>
                     </TD>
                   </TR>
                 ))}

@@ -8,6 +8,7 @@ import { RequireModule } from '@/components/shell/RequireModule'
 import { Button } from '@/components/ui/button'
 import { Panel, PageHead } from '@/components/ui/panel'
 import { Code, Pill, Table, TableScroll, TBody, TD, TH, THead, TR } from '@/components/ui/table'
+import { CommentThread } from '@/components/issues/CommentThread'
 import {
   CHANGE_IMPACT_COSTS, CHANGE_ITEM_ENTITIES, CHANGE_STATUSES,
   addChangeRequest, addChangeRequestItem, fetchChangeImplementationGap,
@@ -155,6 +156,7 @@ export default function ChangeRequestsPage() {
                     companies={companies}
                     variations={variations}
                     canEdit={ctx.canEdit}
+                    projectId={id}
                     open={open === r.id}
                     onToggle={() => setOpen(open === r.id ? null : r.id)}
                     guard={guard}
@@ -178,8 +180,9 @@ export default function ChangeRequestsPage() {
 }
 
 function ChangeRow({
-  row, items, companies, variations, canEdit, open, onToggle, guard,
+  projectId, row, items, companies, variations, canEdit, open, onToggle, guard,
 }: {
+  projectId: string
   row: ChangeRequest
   items: ChangeRequestItem[]
   companies: ProjectCompany[]
@@ -381,6 +384,13 @@ function ChangeRow({
                   </span>
                 </label>
               )}
+
+              {/* A change request is the record people argue about most, and
+                  the argument was happening somewhere this product could not
+                  see. A remark here becomes a task. */}
+              <div className="mt-4">
+                <CommentThread projectId={projectId} entityType="changereq" entityId={row.id} />
+              </div>
             </div>
           </TD>
         </TR>

@@ -199,6 +199,31 @@ describe('the ledger is a record, not a draft', () => {
     }
   })
 
+  test('the sender can call what it needs, and only what it needs', async () => {
+    // Revoking the default PUBLIC execute takes it from every role, service_role
+    // included. Without granting it back the scheduled job is refused by its own
+    // database -- and nothing says so until it runs against a real project,
+    // which is exactly how this was found.
+    await asSuperuser(async (c) => {
+      // `set role`, not `set local role`: outside a transaction the local form
+      // silently does nothing, and the whole test then runs as the superuser
+      // and proves nothing at all.
+      await c.query('set role service_role')
+      try {
+        const r = await c.query('select queue_notifications() as q')
+        expect(r.rows[0].q).toBeTruthy()
+        await c.query('select pending_notifications(10)')
+        // The four queue_* underneath are reached only through the definer
+        // above, which runs as its owner, so they stay closed even to the
+        // sender.
+        await expect(c.query('select queue_digests(null)'))
+          .rejects.toThrow(/permission denied/i)
+      } finally {
+        await c.query('reset role')
+      }
+    })
+  })
+
   test('the sender’s own functions are closed to everybody else', async () => {
     for (const call of [
       'select queue_notifications()',

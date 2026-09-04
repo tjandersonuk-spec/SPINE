@@ -37,9 +37,16 @@ do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
     create role authenticated nologin noinherit;
   end if;
+  -- The role PostgREST switches to for a service-role key: RLS off, and no
+  -- privilege it has not been granted. Without it here a migration can revoke
+  -- the default PUBLIC execute and forget to grant it back, and nothing fails
+  -- until the scheduled job runs against the real project.
+  if not exists (select 1 from pg_roles where rolname = 'service_role') then
+    create role service_role nologin noinherit bypassrls;
+  end if;
 end $$;
 
-grant usage on schema public, auth, extensions to anon, authenticated;
+grant usage on schema public, auth, extensions to anon, authenticated, service_role;
 
 -- Supabase Storage, reduced to what the policies actually touch. Same shape and
 -- the same defaults as the real thing: RLS on, and `authenticated` holding no

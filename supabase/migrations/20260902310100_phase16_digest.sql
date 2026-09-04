@@ -256,3 +256,14 @@ revoke execute on function queue_digests(date), queue_invitations(), queue_assig
   queue_overdue(), queue_notifications(date), pending_notifications(int),
   resolve_notification(uuid, text)
   from public, anon, authenticated;
+
+-- And granted back to the one caller that needs them. Revoking from `public`
+-- removes the default execute every role had, `service_role` included -- so
+-- without this the scheduled sender is refused by its own database, and
+-- nothing says so until the job runs against a real project.
+--
+-- Only the three the Edge Function calls directly. The four queue_* functions
+-- underneath are reached through queue_notifications(), which is a definer and
+-- runs as its owner, so they stay closed to everybody.
+grant execute on function queue_notifications(date), pending_notifications(int),
+  resolve_notification(uuid, text) to service_role;

@@ -73,6 +73,14 @@ begin
     create role notifier nologin inherit;
   end if;
   grant authenticated to notifier;
+  -- Handing a function to another role requires being able to `set role` to
+  -- it: PostgreSQL 16 refuses the `alter ... owner to` below with "must be
+  -- able to SET ROLE" otherwise. A local database runs migrations as a
+  -- superuser, for which this is redundant; the hosted SQL editor runs as
+  -- `postgres`, which is not one, and the migration fails at that line
+  -- without this. `current_user` rather than a named role so it holds
+  -- wherever the migration is applied from.
+  execute format('grant notifier to %I', current_user);
 end $$;
 
 create or replace function build_digest(p_profile uuid)
@@ -91,7 +99,17 @@ $$;
 -- The whole guarantee rests on this line. Owned by the superuser, this
 -- function bypasses RLS and the digest becomes a promise rather than a
 -- mechanism.
+--
+-- Handing an object over also requires the incoming owner to hold `create` on
+-- the schema it sits in, which `notifier` has no other reason to hold: it owns
+-- nothing and creates nothing. So it is granted for the one statement and
+-- taken straight back. Ownership, once set, does not depend on it -- including
+-- for the `create or replace` above when this migration is re-run, which
+-- succeeds because the runner is a member of the owning role rather than
+-- because the role can still create.
+grant create on schema public to notifier;
 alter function build_digest(uuid) owner to notifier;
+revoke create on schema public from notifier;
 
 revoke execute on function build_digest(uuid) from public, anon, authenticated;
 
